@@ -1,8 +1,13 @@
-import { PrismaLibSql } from "@prisma/adapter-libsql"
+import { Pool } from "pg"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "../src/generated/prisma/client"
 import bcrypt from "bcryptjs"
 
-const adapter = new PrismaLibSql({ url: process.env.DATABASE_URL || "file:./dev.db" })
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+})
+const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
