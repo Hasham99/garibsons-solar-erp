@@ -1,0 +1,538 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserRole {
+  ADMIN
+  PROCUREMENT
+  WAREHOUSE
+  SALES
+  ACCOUNTS
+  VIEWER
+}
+
+enum LCType {
+  SIGHT
+  USANCE
+  TT
+  LOCAL
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAYMENT_CONFIRMED
+  DO_ISSUED
+  DELIVERED
+  INVOICED
+  CANCELLED
+}
+
+enum StockMovementType {
+  STOCK_IN
+  STOCK_OUT
+  TRANSFER
+  ADJUSTMENT
+  RESERVATION
+  RELEASE
+}
+
+enum PaymentTerms {
+  FULL_PAYMENT
+  DEPOSIT_BALANCE
+  CREDIT
+}
+
+enum CustomerType {
+  DISTRIBUTOR
+  INSTALLER
+  DIRECT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(VIEWER)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  salesOrders      SalesOrder[]
+  auditLogs        AuditLog[]
+  stockAdjustments StockMovement[]
+  deliveryOrders   DeliveryOrder[]
+}
+
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  date      DateTime
+  source    String
+  rate      Float
+  notes     String?
+  createdAt DateTime @default(now())
+
+  costings       CostingCalculation[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model TaxConfig {
+  id              String   @id @default(cuid())
+  name            String
+  customsDuty     Float    @default(3)
+  additionalCD    Float    @default(0)
+  excise          Float    @default(0)
+  salesTax        Float    @default(18)
+  additionalST    Float    @default(0)
+  incomeTax       Float    @default(1.5)
+  handlingPerWatt Float    @default(2.0)
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  costings CostingCalculation[]
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  name              String
+  category          String   @default("Solar Panel")
+  wattage           Int
+  brand             String
+  skuName           String?
+  panelsPerContainer Int?
+  palletsPerContainer Int?
+  lowStockThreshold Int      @default(100)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  defaultSupplierId String?
+  defaultSupplier   Supplier? @relation("ProductDefaultSupplier", fields: [defaultSupplierId], references: [id])
+
+  purchaseOrders  PurchaseOrder[]
+  stockEntries    StockEntry[]
+  salesOrderLines SalesOrderLine[]
+  quotationLines  QuotationLine[]
+}
+
+model Supplier {
+  id              String   @id @default(cuid())
+  name            String
+  address         String?
+  country         String?
+  contactPerson   String?
+  contactEmail    String?
+  contactPhone    String?
+  bankDetails     String?
+  defaultLeadTime Int?
+  paymentTerms    String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  purchaseOrders   PurchaseOrder[]
+  defaultForProducts Product[] @relation("ProductDefaultSupplier")
+}
+
+model Customer {
+  id            String       @id @default(cuid())
+  name          String
+  type          CustomerType @default(DIRECT)
+  ntn           String?
+  strn          String?
+  address       String?
+  contactPerson String?
+  contactPhone  String?
+  contactEmail  String?
+  creditLimit   Float?
+  paymentTerms  PaymentTerms @default(FULL_PAYMENT)
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  salesOrders   SalesOrder[]
+  ledgerEntries PartyLedger[]
+  quotations    Quotation[]
+  contacts      CustomerContact[]
+}
+
+model CustomerContact {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  name       String
+  whatsapp   String
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  location  String
+  godown    String?
+  manager   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockEntries   StockEntry[]
+  purchaseOrders PurchaseOrder[]
+  deliveryOrders DeliveryOrder[]
+  contacts       WarehouseContact[]
+}
+
+model WarehouseContact {
+  id          String    @id @default(cuid())
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  name        String
+  whatsapp    String
+  isPrimary   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+model Bank {
+  id        String   @id @default(cuid())
+  name      String
+  branch    String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  purchaseOrders PurchaseOrder[]
+}
+
+model CostingCalculation {
+  id        String @id @default(cuid())
+  reference String @unique
+  status    String @default("DRAFT")
+
+  fobPerWatt         Float
+  freightPerWatt     Float
+  exchangeRateId     String?
+  exchangeRate       ExchangeRate? @relation(fields: [exchangeRateId], references: [id])
+  customExchangeRate Float?
+  taxConfigId        String?
+  taxConfig          TaxConfig?    @relation(fields: [taxConfigId], references: [id])
+  customTaxRate      Float?
+  panelWattage       Int
+  totalPanels        Int
+  notes              String?
+
+  cifPerWattUsd      Float
+  effectiveExRate    Float
+  cifPerWattPkr      Float
+  taxRate            Float
+  taxPerWatt         Float
+  handlingPerWatt    Float
+  landedCostPerWatt  Float
+  landedCostPerPanel Float
+  totalShipmentValue Float
+
+  // Import cost breakdown (Step 02)
+  impLcValuePkr       Float?
+  impFreightFob       Float?
+  impBankCharges      Float?
+  impMarineInsurance  Float?
+  impSalesTax         Float?
+  impExcise           Float?
+  impShippingDO       Float?
+  impTerminalHandling Float?
+  impMiscClearing     Float?
+  impTransportation   Float?
+  impMiscAdminGs      Float?
+  impTotalCost        Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id         String   @id @default(cuid())
+  poNumber   String   @unique
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  lcType     LCType
+  lcNumber   String?
+  usanceDays Int?
+  bankId     String?
+  bank       Bank?    @relation(fields: [bankId], references: [id])
+
+  leadTimeDays   Int?
+  warehouseId    String?
+  warehouse      Warehouse? @relation(fields: [warehouseId], references: [id])
+  noOfContainers Int?
+  noOfPallets    Int?
+  noOfPanels     Int
+  panelWattage   Int
+  totalWatts     Int
+  usdPerWatt     Float
+  totalValueUsd  Float
+  exchangeRateId String?
+  exchangeRate   ExchangeRate? @relation(fields: [exchangeRateId], references: [id])
+  poAmountPkr    Float
+
+  costingId String?
+  costing   CostingCalculation? @relation(fields: [costingId], references: [id])
+
+  status String  @default("DRAFT")
+  notes  String?
+
+  lcValuePkr         Float?
+  bankCharges        Float?
+  marineInsurance    Float?
+  exciseCharges      Float?
+  shippingDO         Float?
+  terminalHandling   Float?
+  clearingCharges    Float?
+  miscClearing       Float?
+  containerTransport Float?
+  totalLandedCost    Float?
+  landedCostPerPanel Float?
+  landedCostPerWatt  Float?
+  gstInputAmount     Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents      PODocument[]
+  stockMovements StockMovement[]
+  stockEntries   StockEntry[]
+}
+
+model PODocument {
+  id          String        @id @default(cuid())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id])
+  docType     String
+  fileName    String
+  fileUrl     String
+  uploadedAt  DateTime      @default(now())
+  uploadedBy  String
+}
+
+model StockEntry {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  poId        String?
+  po          PurchaseOrder? @relation(fields: [poId], references: [id])
+  lcReference String?
+
+  panelQuantity Int
+  wattQuantity  Int
+  costPerPanel  Float
+  costPerWatt   Float
+  totalValue    Float
+
+  receivedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  movements StockMovement[]
+}
+
+model StockMovement {
+  id           String            @id @default(cuid())
+  stockEntryId String?
+  stockEntry   StockEntry?       @relation(fields: [stockEntryId], references: [id])
+  type         StockMovementType
+  quantity     Int
+  watts        Int
+  poId         String?
+  po           PurchaseOrder?    @relation(fields: [poId], references: [id])
+  soId         String?
+  salesOrder   SalesOrder?       @relation(fields: [soId], references: [id])
+  doId         String?
+  deliveryOrder DeliveryOrder?   @relation(fields: [doId], references: [id])
+  reason       String?
+  approvedBy   String?
+  userId       String?
+  user         User?             @relation(fields: [userId], references: [id])
+  createdAt    DateTime          @default(now())
+}
+
+model Quotation {
+  id         String    @id @default(cuid())
+  qNumber    String    @unique
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  validUntil DateTime?
+  notes      String?
+  status     String    @default("DRAFT")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  lines       QuotationLine[]
+  salesOrders SalesOrder[]
+}
+
+model QuotationLine {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id])
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Int
+  watts       Int
+  ratePerWatt Float
+  ratePerPanel Float
+  totalAmount Float
+}
+
+model SalesOrder {
+  id           String           @id @default(cuid())
+  soNumber     String           @unique
+  quotationId  String?
+  quotation    Quotation?       @relation(fields: [quotationId], references: [id])
+  customerId   String
+  customer     Customer         @relation(fields: [customerId], references: [id])
+  customerType CustomerType     @default(DIRECT)
+  paymentTerms PaymentTerms     @default(FULL_PAYMENT)
+  status       SalesOrderStatus @default(DRAFT)
+
+  gstRate   Float @default(0)
+  subTotal  Float
+  gstAmount Float
+  grandTotal Float
+
+  paymentProofUrl   String?
+  paymentVerifiedAt DateTime?
+  paymentVerifiedBy String?
+
+  notes       String?
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lines          SalesOrderLine[]
+  deliveryOrders DeliveryOrder[]
+  stockMovements StockMovement[]
+  invoices       Invoice[]
+  ledgerEntries  PartyLedger[]
+}
+
+model SalesOrderLine {
+  id           String     @id @default(cuid())
+  soId         String
+  salesOrder   SalesOrder @relation(fields: [soId], references: [id])
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  quantity     Int
+  watts        Int
+  ratePerWatt  Float
+  ratePerPanel Float
+  totalAmount  Float
+  stockEntryId String?
+}
+
+model DeliveryOrder {
+  id          String     @id @default(cuid())
+  doNumber    String     @unique
+  soId        String
+  salesOrder  SalesOrder @relation(fields: [soId], references: [id])
+  warehouseId String
+  warehouse   Warehouse  @relation(fields: [warehouseId], references: [id])
+
+  quantity Int
+  watts    Int
+
+  status       String    @default("PENDING")
+  authorizedBy String?
+  authorizedAt DateTime?
+  dispatchedAt DateTime?
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stockMovements StockMovement[]
+  invoices       Invoice[]
+}
+
+model Invoice {
+  id            String  @id @default(cuid())
+  invoiceNumber String  @unique
+  soId          String
+  salesOrder    SalesOrder @relation(fields: [soId], references: [id])
+  doId          String?
+  deliveryOrder DeliveryOrder? @relation(fields: [doId], references: [id])
+
+  customerId  String
+  invoiceDate DateTime @default(now())
+
+  subTotal   Float
+  gstRate    Float
+  gstAmount  Float
+  grandTotal Float
+
+  status    String   @default("UNPAID")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments      Payment[]
+  ledgerEntries PartyLedger[]
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  amount      Float
+  paymentDate DateTime
+  method      String?
+  reference   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model PartyLedger {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  date        DateTime
+  description String
+  debit       Float    @default(0)
+  credit      Float    @default(0)
+  balance     Float
+  invoiceId   String?
+  invoice     Invoice?    @relation(fields: [invoiceId], references: [id])
+  soId        String?
+  salesOrder  SalesOrder? @relation(fields: [soId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  changes   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model Counter {
+  id    String @id
+  value Int    @default(0)
+}
