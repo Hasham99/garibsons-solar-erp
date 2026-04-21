@@ -7,10 +7,21 @@ export async function GET() {
       include: {
         movements: { select: { type: true, quantity: true } },
         warehouse: true,
+        po: { select: { gstInputAmount: true, noOfPanels: true } },
       },
     })
 
     const stockTotals = summarizeStockEntries(stockEntries)
+
+    // Total import GST locked in current stock
+    const totalGstInStock = stockEntries.reduce((sum, entry) => {
+      const summary = summarizeStockEntry(entry)
+      const gstPerPanel =
+        entry.po?.gstInputAmount && entry.po.noOfPanels > 0
+          ? entry.po.gstInputAmount / entry.po.noOfPanels
+          : 0
+      return sum + gstPerPanel * summary.currentQuantity
+    }, 0)
 
     // Today's sales
     const todayStart = new Date()
@@ -73,6 +84,7 @@ export async function GET() {
         todaySales: todayOrders._sum.grandTotal || 0,
         todaySalesCount: todayOrders._count,
         totalReceivables,
+        totalGstInStock,
         activePOs,
         openDeliveryOrders: openDeliveryOrders.length,
         agingDeliveryOrders: openDeliveryOrders.filter((order) => {

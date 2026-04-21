@@ -7,7 +7,7 @@ export async function GET() {
       include: {
         product: true,
         warehouse: true,
-        po: { select: { poNumber: true } },
+        po: { select: { poNumber: true, gstInputAmount: true, noOfPanels: true } },
         movements: {
           select: { type: true, quantity: true, watts: true },
         },
@@ -19,10 +19,16 @@ export async function GET() {
 
     const stockWithRemaining = stock.map((entry) => {
       const summary = summarizeStockEntry(entry, now)
+      const gstPerPanel =
+        entry.po?.gstInputAmount && entry.po.noOfPanels > 0
+          ? entry.po.gstInputAmount / entry.po.noOfPanels
+          : 0
 
       return {
         ...entry,
         ...summary,
+        gstPerPanel,
+        gstCurrentValue: gstPerPanel * summary.currentQuantity,
       }
     })
 

@@ -5,7 +5,7 @@ import { StatCard } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { LoadingPage } from "@/components/ui/Spinner"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Package, AlertCircle, ShoppingCart } from "lucide-react"
+import { Package, AlertCircle, ShoppingCart, Receipt } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -27,6 +27,7 @@ interface DashboardData {
     todaySales: number
     todaySalesCount: number
     totalReceivables: number
+    totalGstInStock: number
     activePOs: number
     openDeliveryOrders: number
     agingDeliveryOrders: number
@@ -57,6 +58,7 @@ export default function DashboardPage() {
     todaySales: 0,
     todaySalesCount: 0,
     totalReceivables: 0,
+    totalGstInStock: 0,
     activePOs: 0,
     openDeliveryOrders: 0,
     agingDeliveryOrders: 0,
@@ -90,6 +92,13 @@ export default function DashboardPage() {
           value={`${summary.reservedPanels.toLocaleString()} panels`}
           subtitle={formatCurrency(summary.reservedStockValue)}
           icon={<AlertCircle size={20} />}
+          color="yellow"
+        />
+        <StatCard
+          title="Import GST in Stock"
+          value={formatCurrency(summary.totalGstInStock)}
+          subtitle="GST paid at import, locked in inventory"
+          icon={<Receipt size={20} />}
           color="yellow"
         />
         <StatCard

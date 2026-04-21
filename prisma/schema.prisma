@@ -54,6 +54,17 @@ enum CustomerType {
   DIRECT
 }
 
+enum ExpenseCategory {
+  SALARY
+  COMMISSION
+  WAREHOUSE_RENT
+  UTILITIES
+  TRANSPORT
+  MARKETING
+  OFFICE
+  OTHER
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -68,6 +79,7 @@ model User {
   auditLogs        AuditLog[]
   stockAdjustments StockMovement[]
   deliveryOrders   DeliveryOrder[]
+  expenses         Expense[]
 }
 
 model ExchangeRate {
@@ -537,4 +549,19 @@ model AuditLog {
 model Counter {
   id    String @id
   value Int    @default(0)
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  date        DateTime
+  category    ExpenseCategory
+  description String
+  amount      Float
+  paidTo      String?
+  reference   String?
+  notes       String?
+  createdById String?
+  createdBy   User?           @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }

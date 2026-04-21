@@ -37,6 +37,8 @@ interface StockEntry {
   panelsSold: number
   agingDays: number
   receivedAt: string
+  gstPerPanel: number
+  gstCurrentValue: number
 }
 
 interface DashboardData {
@@ -205,6 +207,12 @@ export default function StockPage() {
       }
     },
     { key: "costPerPanel", header: "Cost/Panel", render: (row: StockEntry) => formatCurrency(row.costPerPanel) },
+    {
+      key: "gstPerPanel", header: "GST/Panel",
+      render: (row: StockEntry) => row.gstPerPanel > 0
+        ? <span className="text-orange-700">{formatCurrency(row.gstPerPanel)}</span>
+        : <span className="text-gray-400">-</span>
+    },
     {
       key: "availableValue", header: "Available Value",
       render: (row: StockEntry) => formatCurrency(row.availableValue)

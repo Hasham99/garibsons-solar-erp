@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   Zap,
+  Wallet,
   CreditCard,
   Globe,
 } from "lucide-react"
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
   { label: "Delivery Orders", href: "/delivery", icon: <Truck size={18} />, roles: ["ADMIN", "WAREHOUSE", "SALES"] },
   { label: "Invoices", href: "/invoices", icon: <Receipt size={18} />, roles: ["ADMIN", "ACCOUNTS"] },
   { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, roles: ["ADMIN", "ACCOUNTS"] },
+  { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, roles: ["ADMIN", "ACCOUNTS"] },
   { label: "Reports", href: "/reports", icon: <BarChart3 size={18} /> },
   {
     label: "Master Data",
