@@ -66,6 +66,7 @@ const emptyOrderForm = {
   customerId: "",
   customerType: "DIRECT",
   paymentTerms: "FULL_PAYMENT",
+  gstInvoice: false,
   gstRate: "18",
   notes: "",
 }
@@ -200,7 +201,7 @@ export default function SalesPage() {
   const subTotal = computedLines.reduce((total, line) => total + line.totalAmount, 0)
   const totalPanels = computedLines.reduce((total, line) => total + line.quantity, 0)
   const totalWatts = computedLines.reduce((total, line) => total + line.watts, 0)
-  const gstRate = parseFloat(form.gstRate) || 0
+  const gstRate = form.gstInvoice ? (parseFloat(form.gstRate) || 0) : 0
   const gstAmount = subTotal * (gstRate / 100)
   const grandTotal = subTotal + gstAmount
 
@@ -393,7 +394,7 @@ export default function SalesPage() {
     { key: "soNumber", header: "SO Number", sortable: true },
     { key: "customer", header: "Customer", render: (row: SalesOrder) => row.customer?.name },
     { key: "subTotal", header: "Sub Total", render: (row: SalesOrder) => formatCurrency(row.subTotal) },
-    { key: "gstAmount", header: "GST", render: (row: SalesOrder) => `${row.gstRate}% = ${formatCurrency(row.gstAmount)}` },
+    { key: "gstAmount", header: "GST", render: (row: SalesOrder) => row.gstRate > 0 ? `${row.gstRate}% = ${formatCurrency(row.gstAmount)}` : <span className="text-gray-400">-</span> },
     { key: "grandTotal", header: "Grand Total", render: (row: SalesOrder) => <span className="font-bold">{formatCurrency(row.grandTotal)}</span> },
     { key: "paymentTerms", header: "Terms", render: (row: SalesOrder) => row.paymentTerms.replace(/_/g, " ") },
     { key: "status", header: "Status", render: (row: SalesOrder) => <Badge status={row.status} /> },
@@ -666,13 +667,30 @@ export default function SalesPage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
-            <Input
-              label="GST Rate (%)"
-              type="number"
-              step="0.1"
-              value={form.gstRate}
-              onChange={(event) => setForm((current) => ({ ...current, gstRate: event.target.value }))}
-            />
+            <div className="space-y-3">
+              {/* GST Invoice toggle */}
+              <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded accent-blue-600"
+                  checked={form.gstInvoice}
+                  onChange={(e) => setForm((current) => ({ ...current, gstInvoice: e.target.checked }))}
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">GST Invoice Required</p>
+                  <p className="text-xs text-gray-500">Customer requests FBR GST invoice (exclusive GST)</p>
+                </div>
+              </label>
+              {form.gstInvoice && (
+                <Input
+                  label="GST Rate (%) — exclusive, added on top"
+                  type="number"
+                  step="0.1"
+                  value={form.gstRate}
+                  onChange={(event) => setForm((current) => ({ ...current, gstRate: event.target.value }))}
+                />
+              )}
+            </div>
             <Input label="Notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
 
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
@@ -685,13 +703,15 @@ export default function SalesPage() {
                 <span className="font-semibold">{totalWatts.toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Sub Total</span>
+                <span>{form.gstInvoice ? "Sub Total (excl. GST)" : "Total"}</span>
                 <span className="font-semibold">{formatCurrency(subTotal)}</span>
               </div>
-              <div className="mt-1 flex items-center justify-between">
-                <span>GST ({gstRate}%)</span>
-                <span className="font-semibold">{formatCurrency(gstAmount)}</span>
-              </div>
+              {form.gstInvoice && (
+                <div className="mt-1 flex items-center justify-between text-orange-700">
+                  <span>GST ({gstRate}%)</span>
+                  <span className="font-semibold">+ {formatCurrency(gstAmount)}</span>
+                </div>
+              )}
               <div className="mt-2 flex items-center justify-between border-t border-blue-200 pt-2 text-base font-bold text-blue-900">
                 <span>Grand Total</span>
                 <span>{formatCurrency(grandTotal)}</span>

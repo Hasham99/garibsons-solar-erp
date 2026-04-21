@@ -8,8 +8,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const data = await request.json()
     const session = await getSession()
 
+    // GST paid at import is part of landed cost (not tracked separately as input tax)
     const totalLandedCost =
       (parseFloat(data.lcValuePkr) || 0) +
+      (parseFloat(data.importFreightCost) || 0) +
+      (parseFloat(data.importShippingFreight) || 0) +
       (parseFloat(data.bankCharges) || 0) +
       (parseFloat(data.marineInsurance) || 0) +
       (parseFloat(data.exciseCharges) || 0) +
@@ -17,7 +20,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       (parseFloat(data.terminalHandling) || 0) +
       (parseFloat(data.clearingCharges) || 0) +
       (parseFloat(data.miscClearing) || 0) +
-      (parseFloat(data.containerTransport) || 0)
+      (parseFloat(data.containerTransport) || 0) +
+      (parseFloat(data.gstInputAmount) || 0)
 
     const po = await prisma.purchaseOrder.findUnique({ where: { id } })
     if (!po) return Response.json({ error: "Not found" }, { status: 404 })
@@ -28,27 +32,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const updated = await prisma.purchaseOrder.update({
       where: { id },
       data: {
-        lcValuePkr: parseFloat(data.lcValuePkr) || null,
-        bankCharges: parseFloat(data.bankCharges) || null,
-        marineInsurance: parseFloat(data.marineInsurance) || null,
-        exciseCharges: parseFloat(data.exciseCharges) || null,
-        shippingDO: parseFloat(data.shippingDO) || null,
-        terminalHandling: parseFloat(data.terminalHandling) || null,
-        clearingCharges: parseFloat(data.clearingCharges) || null,
-        miscClearing: parseFloat(data.miscClearing) || null,
-        containerTransport: parseFloat(data.containerTransport) || null,
+        lcValuePkr:            parseFloat(data.lcValuePkr) || null,
+        importFreightCost:     parseFloat(data.importFreightCost) || null,
+        importShippingFreight: parseFloat(data.importShippingFreight) || null,
+        bankCharges:           parseFloat(data.bankCharges) || null,
+        marineInsurance:       parseFloat(data.marineInsurance) || null,
+        exciseCharges:         parseFloat(data.exciseCharges) || null,
+        shippingDO:            parseFloat(data.shippingDO) || null,
+        terminalHandling:      parseFloat(data.terminalHandling) || null,
+        clearingCharges:       parseFloat(data.clearingCharges) || null,
+        miscClearing:          parseFloat(data.miscClearing) || null,
+        containerTransport:    parseFloat(data.containerTransport) || null,
+        gstInputAmount:        parseFloat(data.gstInputAmount) || null,
         totalLandedCost,
         landedCostPerPanel,
         landedCostPerWatt,
         status: "CLEARED",
       },
     })
+
     await writeAuditLog({
       userId: session.userId,
       action: "CLEAR",
       entity: "PurchaseOrder",
       entityId: id,
-      changes: { totalLandedCost, landedCostPerPanel, gstInputAmount: data.gstInputAmount },
+      changes: { totalLandedCost, landedCostPerPanel },
     })
 
     return Response.json(updated)

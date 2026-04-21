@@ -290,19 +290,21 @@ model PurchaseOrder {
   status String  @default("DRAFT")
   notes  String?
 
-  lcValuePkr         Float?
-  bankCharges        Float?
-  marineInsurance    Float?
-  exciseCharges      Float?
-  shippingDO         Float?
-  terminalHandling   Float?
-  clearingCharges    Float?
-  miscClearing       Float?
-  containerTransport Float?
-  totalLandedCost    Float?
-  landedCostPerPanel Float?
-  landedCostPerWatt  Float?
-  gstInputAmount     Float?
+  lcValuePkr            Float?
+  importFreightCost     Float?
+  importShippingFreight Float?
+  bankCharges           Float?
+  marineInsurance       Float?
+  exciseCharges         Float?
+  shippingDO            Float?
+  terminalHandling      Float?
+  clearingCharges       Float?
+  miscClearing          Float?
+  containerTransport    Float?
+  gstInputAmount        Float?
+  totalLandedCost       Float?
+  landedCostPerPanel    Float?
+  landedCostPerWatt     Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

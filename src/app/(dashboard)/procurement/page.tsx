@@ -87,7 +87,8 @@ export default function ProcurementPage() {
   })
 
   const [clearForm, setClearForm] = useState({
-    lcValuePkr: "", bankCharges: "", marineInsurance: "", exciseCharges: "",
+    lcValuePkr: "", importFreightCost: "", importShippingFreight: "",
+    bankCharges: "", marineInsurance: "", exciseCharges: "",
     shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "",
     containerTransport: "", gstInputAmount: "",
   })
@@ -115,9 +116,8 @@ export default function ProcurementPage() {
 
   const effectiveRate = parseFloat(form.customRate) || rates?.find((r) => r.id === form.exchangeRateId)?.rate || 0
 
-  const clearTotal = Object.entries(clearForm)
-    .filter(([k]) => k !== "gstInputAmount")
-    .reduce((s, [, v]) => s + (parseFloat(v) || 0), 0)
+  // GST paid at import is part of cost — include everything in the total
+  const clearTotal = Object.values(clearForm).reduce((s, v) => s + (parseFloat(v) || 0), 0)
 
   const handleCreate = async () => {
     if (!form.productId || !form.supplierId || !form.noOfPanels || !form.usdPerWatt) {
@@ -169,7 +169,7 @@ export default function ProcurementPage() {
         toast.success("Clearing charges saved")
         setShowClear(false)
         setSelectedPO(null)
-        setClearForm({ lcValuePkr: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+        setClearForm({ lcValuePkr: "", importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
         refetch()
       } else {
         toast.error("Failed to save clearing charges")
@@ -258,7 +258,7 @@ export default function ProcurementPage() {
           {row.status === "SHIPPED" && (
             <Button size="sm" variant="ghost" onClick={() => {
               setSelectedPO(row)
-              setClearForm({ lcValuePkr: String(row.poAmountPkr || ""), bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+              setClearForm({ lcValuePkr: String(row.poAmountPkr || ""), importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
               setShowClear(true)
             }}>
               <FileCheck size={14} className="mr-1" />Enter Clearing
@@ -396,15 +396,18 @@ export default function ProcurementPage() {
           <p className="text-sm text-gray-500">Enter all charges as per vendor bills. All amounts in PKR.</p>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { key: "lcValuePkr", label: "Document LC Value PKR *" },
-              { key: "bankCharges", label: "Bank Charges" },
-              { key: "marineInsurance", label: "Insurance Marine/Transit 0.15%" },
-              { key: "exciseCharges", label: "Excise 0.80%" },
-              { key: "shippingDO", label: "Shipping DO" },
-              { key: "terminalHandling", label: "Terminal (THC)" },
-              { key: "clearingCharges", label: "Misc Customs & Clearing" },
-              { key: "miscClearing", label: "Miscellaneous Clearing" },
-              { key: "containerTransport", label: "Transportation" },
+              { key: "lcValuePkr",            label: "Document LC Value PKR *" },
+              { key: "importFreightCost",     label: "Import Freight Cost" },
+              { key: "importShippingFreight", label: "Import Shipping Freight" },
+              { key: "bankCharges",           label: "Bank Charges" },
+              { key: "marineInsurance",       label: "Insurance Marine/Transit 0.15%" },
+              { key: "exciseCharges",         label: "Excise 0.80%" },
+              { key: "shippingDO",            label: "Shipping DO" },
+              { key: "terminalHandling",      label: "Terminal (THC)" },
+              { key: "clearingCharges",       label: "Misc Customs & Clearing" },
+              { key: "miscClearing",          label: "Miscellaneous Clearing" },
+              { key: "containerTransport",    label: "Transportation" },
+              { key: "gstInputAmount",        label: "GST Paid at Import (part of cost)" },
             ].map(({ key, label }) => (
               <Input
                 key={key}
@@ -415,17 +418,6 @@ export default function ProcurementPage() {
                 onChange={(e) => setClearForm({ ...clearForm, [key]: e.target.value })}
               />
             ))}
-          </div>
-
-          <div className="border-t pt-3">
-            <Input
-              label="Input GST Paid on Imports (for GST return)"
-              type="number"
-              step="0.01"
-              value={clearForm.gstInputAmount}
-              onChange={(e) => setClearForm({ ...clearForm, gstInputAmount: e.target.value })}
-              placeholder="GST paid to customs on this shipment"
-            />
           </div>
 
           <div className="bg-blue-50 rounded-lg p-4 space-y-1 text-sm">
