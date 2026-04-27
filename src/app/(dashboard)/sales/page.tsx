@@ -4,7 +4,7 @@ import { type ChangeEvent, useDeferredValue, useEffect, useRef, useState } from 
 import Image from "next/image"
 import { useSearchParams } from "next/navigation"
 import toast, { Toaster } from "react-hot-toast"
-import { CheckCircle, Eye, Plus, Truck, Upload, UserPlus } from "lucide-react"
+import { CheckCircle, Eye, Pencil, Plus, Trash2, Truck, Upload } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -29,6 +29,20 @@ interface SalesOrder {
   subTotal: number
   gstAmount: number
   paymentProofUrl: string | null
+  lines?: Array<{
+    productId: string
+    quantity: number
+    watts: number
+    ratePerWatt: number
+    ratePerPanel: number
+    totalAmount: number
+    product: { brand: string; wattage: number; panelsPerContainer: number | null; palletsPerContainer: number | null }
+  }>
+  customerId?: string
+  customerType?: string
+  paymentTerms2?: string
+  gstInvoice?: boolean
+  notes?: string
 }
 
 interface CustomerOption {
@@ -38,7 +52,6 @@ interface CustomerOption {
   creditLimit: number | null
   paymentTerms: string
   contactPhone: string | null
-  address?: string | null
 }
 
 interface ProductOption {
@@ -53,7 +66,6 @@ interface ProductOption {
 }
 
 interface DraftLine {
-  brand: string
   productId: string
   quantityMode: "PANELS" | "PALLETS"
   quantity: string
@@ -71,15 +83,6 @@ const emptyOrderForm = {
   notes: "",
 }
 
-const emptyCustomerForm = {
-  name: "",
-  type: "DIRECT",
-  contactPhone: "",
-  address: "",
-  creditLimit: "",
-  paymentTerms: "FULL_PAYMENT",
-}
-
 function getPanelsPerPallet(product?: ProductOption) {
   if (!product?.panelsPerContainer || !product?.palletsPerContainer) return 0
   if (product.palletsPerContainer <= 0) return 0
@@ -92,10 +95,7 @@ export default function SalesPage() {
   const quotationId = searchParams.get("quotationId")
 
   const { data: orders, loading, refetch } = useFetch<SalesOrder[]>("/api/sales-orders")
-  const {
-    data: customers,
-    refetch: refetchCustomers,
-  } = useFetch<CustomerOption[]>("/api/customers")
+  const { data: customers } = useFetch<CustomerOption[]>("/api/customers")
   const { data: products } = useFetch<ProductOption[]>("/api/products")
   const { data: quotation } = useFetch<{
     id: string
@@ -104,30 +104,25 @@ export default function SalesPage() {
   }>(quotationId ? `/api/quotations/${quotationId}` : "")
 
   const [showCreate, setShowCreate] = useState(Boolean(quotationId))
-  const [showCustomerCreate, setShowCustomerCreate] = useState(false)
+  const [editOrderId, setEditOrderId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [savingCustomer, setSavingCustomer] = useState(false)
   const [uploadingProof, setUploadingProof] = useState<string | null>(null)
   const [viewProof, setViewProof] = useState<{ url: string; soNumber: string } | null>(null)
   const [customerQuery, setCustomerQuery] = useState("")
   const [form, setForm] = useState(emptyOrderForm)
-  const [customerForm, setCustomerForm] = useState(emptyCustomerForm)
   const [lines, setLines] = useState<DraftLine[]>([
-    { brand: "", productId: "", quantityMode: "PANELS", quantity: "", ratePerWatt: "" },
+    { productId: "", quantityMode: "PANELS", quantity: "", ratePerWatt: "" },
   ])
   const [pendingUploadId, setPendingUploadId] = useState<string | null>(null)
   const [lastUsedProductId, setLastUsedProductId] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const deferredCustomerQuery = useDeferredValue(customerQuery)
-  const selectedCustomer = customers?.find((customer) => customer.id === form.customerId) || null
-  const uniqueBrands = Array.from(new Set((products || []).map((product) => product.brand))).sort()
+  const selectedCustomer = customers?.find((c) => c.id === form.customerId) || null
 
   useEffect(() => {
     const savedProductId = window.localStorage.getItem(LAST_PRODUCT_KEY)
-    if (savedProductId) {
-      setLastUsedProductId(savedProductId)
-    }
+    if (savedProductId) setLastUsedProductId(savedProductId)
   }, [])
 
   useEffect(() => {
@@ -139,26 +134,21 @@ export default function SalesPage() {
 
   useEffect(() => {
     if (!quotation || !customers || !products) return
-
-    const quotationCustomer = customers.find((customer) => customer.id === quotation.customerId)
-    setForm((current) => ({
-      ...current,
+    const quotationCustomer = customers.find((c) => c.id === quotation.customerId)
+    setForm((cur) => ({
+      ...cur,
       customerId: quotation.customerId,
-      customerType: quotationCustomer?.type || current.customerType,
-      paymentTerms: quotationCustomer?.paymentTerms || current.paymentTerms,
+      customerType: quotationCustomer?.type || cur.customerType,
+      paymentTerms: quotationCustomer?.paymentTerms || cur.paymentTerms,
     }))
     setCustomerQuery(quotationCustomer?.name || "")
     setLines(
-      quotation.lines.map((line) => {
-        const product = products.find((item) => item.id === line.productId)
-        return {
-          brand: product?.brand || "",
-          productId: line.productId,
-          quantityMode: "PANELS",
-          quantity: String(line.quantity),
-          ratePerWatt: String(line.ratePerWatt),
-        }
-      })
+      quotation.lines.map((line) => ({
+        productId: line.productId,
+        quantityMode: "PANELS" as const,
+        quantity: String(line.quantity),
+        ratePerWatt: String(line.ratePerWatt),
+      }))
     )
     setShowCreate(true)
   }, [customers, products, quotation])
@@ -166,14 +156,12 @@ export default function SalesPage() {
   const customerResults =
     deferredCustomerQuery.trim().length === 0
       ? []
-      : (customers || []).filter((customer) =>
-          `${customer.name} ${customer.contactPhone || ""}`
-            .toLowerCase()
-            .includes(deferredCustomerQuery.toLowerCase())
+      : (customers || []).filter((c) =>
+          `${c.name} ${c.contactPhone || ""}`.toLowerCase().includes(deferredCustomerQuery.toLowerCase())
         )
 
   const computedLines = lines.map((line) => {
-    const product = products?.find((item) => item.id === line.productId)
+    const product = products?.find((p) => p.id === line.productId)
     const panelsPerPallet = getPanelsPerPallet(product)
     const quantityValue = parseFloat(line.quantity) || 0
     const quantity =
@@ -183,7 +171,6 @@ export default function SalesPage() {
     const ratePerWatt = parseFloat(line.ratePerWatt) || 0
     const ratePerPanel = ratePerWatt * (product?.wattage || 0)
     const totalAmount = ratePerPanel * quantity
-
     return {
       ...line,
       product,
@@ -198,57 +185,70 @@ export default function SalesPage() {
     }
   })
 
-  const subTotal = computedLines.reduce((total, line) => total + line.totalAmount, 0)
-  const totalPanels = computedLines.reduce((total, line) => total + line.quantity, 0)
-  const totalWatts = computedLines.reduce((total, line) => total + line.watts, 0)
+  const subTotal = computedLines.reduce((t, l) => t + l.totalAmount, 0)
+  const totalPanels = computedLines.reduce((t, l) => t + l.quantity, 0)
+  const totalWatts = computedLines.reduce((t, l) => t + l.watts, 0)
   const gstRate = form.gstInvoice ? (parseFloat(form.gstRate) || 0) : 0
   const gstAmount = subTotal * (gstRate / 100)
   const grandTotal = subTotal + gstAmount
 
   const creditWarning =
     selectedCustomer?.creditLimit && grandTotal > selectedCustomer.creditLimit
-      ? `Order value ${formatCurrency(grandTotal)} exceeds the customer credit limit of ${formatCurrency(selectedCustomer.creditLimit)}`
+      ? `Order value ${formatCurrency(grandTotal)} exceeds credit limit of ${formatCurrency(selectedCustomer.creditLimit)}`
       : null
 
-  const buildBlankLine = (productId = ""): DraftLine => {
-    const product = products?.find((item) => item.id === productId)
-    return {
-      brand: product?.brand || "",
-      productId,
-      quantityMode: "PANELS",
-      quantity: "",
-      ratePerWatt: "",
-    }
-  }
+  const buildBlankLine = (productId = ""): DraftLine => ({
+    productId,
+    quantityMode: "PANELS",
+    quantity: "",
+    ratePerWatt: "",
+  })
 
   const resetOrderForm = () => {
     setForm(emptyOrderForm)
     setCustomerQuery("")
     setLines([buildBlankLine(lastUsedProductId)])
+    setEditOrderId(null)
   }
 
   const openCreateModal = () => {
-    if (!quotationId) {
-      resetOrderForm()
-    }
+    if (!quotationId) resetOrderForm()
     setShowCreate(true)
   }
 
-  const addLine = () => setLines((current) => [...current, buildBlankLine(lastUsedProductId)])
-  const removeLine = (index: number) => setLines((current) => current.filter((_, currentIndex) => currentIndex !== index))
-
-  const updateLine = (index: number, next: Partial<DraftLine>) => {
-    setLines((current) =>
-      current.map((line, currentIndex) => {
-        if (currentIndex !== index) return line
-        return { ...line, ...next }
-      })
+  const openEditModal = (order: SalesOrder) => {
+    setEditOrderId(order.id)
+    const customer = customers?.find((c) => c.id === order.customerId)
+    setForm({
+      customerId: order.customerId || "",
+      customerType: order.customerType || "DIRECT",
+      paymentTerms: order.paymentTerms || "FULL_PAYMENT",
+      gstInvoice: (order.gstRate || 0) > 0,
+      gstRate: order.gstRate > 0 ? String(order.gstRate) : "18",
+      notes: order.notes || "",
+    })
+    setCustomerQuery(customer?.name || order.customer?.name || "")
+    setLines(
+      (order.lines || []).map((l) => ({
+        productId: l.productId,
+        quantityMode: "PANELS" as const,
+        quantity: String(l.quantity),
+        ratePerWatt: String(l.ratePerWatt),
+      }))
     )
+    setShowCreate(true)
+  }
+
+  const addLine = () => setLines((cur) => [...cur, buildBlankLine(lastUsedProductId)])
+  const removeLine = (i: number) => setLines((cur) => cur.filter((_, idx) => idx !== i))
+
+  const updateLine = (i: number, next: Partial<DraftLine>) => {
+    setLines((cur) => cur.map((line, idx) => (idx !== i ? line : { ...line, ...next })))
   }
 
   const selectCustomer = (customer: CustomerOption) => {
-    setForm((current) => ({
-      ...current,
+    setForm((cur) => ({
+      ...cur,
       customerId: customer.id,
       customerType: customer.type,
       paymentTerms: customer.paymentTerms,
@@ -256,45 +256,50 @@ export default function SalesPage() {
     setCustomerQuery(customer.name)
   }
 
-  const handleCreate = async () => {
-    if (!form.customerId) {
-      return toast.error("Select a customer first")
-    }
-
-    if (computedLines.some((line) => !line.productId || line.quantity <= 0 || line.ratePerWatt <= 0)) {
+  const handleSave = async () => {
+    if (!form.customerId) return toast.error("Select a customer first")
+    if (computedLines.some((l) => !l.productId || l.quantity <= 0 || l.ratePerWatt <= 0))
       return toast.error("Complete each line with product, quantity, and rate")
-    }
-
-    if (computedLines.some((line) => line.invalidPallets)) {
+    if (computedLines.some((l) => l.invalidPallets))
       return toast.error("One or more SKUs do not have pallet configuration in product master")
-    }
 
     setSaving(true)
     try {
-      const response = await fetch("/api/sales-orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          quotationId: quotationId || null,
-          lines: computedLines.map((line) => ({
-            productId: line.productId,
-            quantity: line.quantity,
-            watts: line.watts,
-            ratePerWatt: line.ratePerWatt,
-            ratePerPanel: line.ratePerPanel,
-            totalAmount: line.totalAmount,
-          })),
-        }),
-      })
+      const payload = {
+        ...form,
+        quotationId: quotationId || null,
+        lines: computedLines.map((l) => ({
+          productId: l.productId,
+          quantity: l.quantity,
+          watts: l.watts,
+          ratePerWatt: l.ratePerWatt,
+          ratePerPanel: l.ratePerPanel,
+          totalAmount: l.totalAmount,
+        })),
+      }
+
+      let response: Response
+      if (editOrderId) {
+        response = await fetch(`/api/sales-orders/${editOrderId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, editLines: true }),
+        })
+      } else {
+        response = await fetch("/api/sales-orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      }
 
       if (!response.ok) {
         const data = await response.json()
-        toast.error(data.error || "Failed to create sales order")
+        toast.error(data.error || "Failed to save sales order")
         return
       }
 
-      toast.success("Sales order created")
+      toast.success(editOrderId ? "Sales order updated" : "Sales order created")
       setShowCreate(false)
       resetOrderForm()
       refetch()
@@ -303,49 +308,31 @@ export default function SalesPage() {
     }
   }
 
-  const handleCreateCustomer = async () => {
-    if (!customerForm.name.trim()) {
-      return toast.error("Customer name is required")
-    }
+  const handleConfirm = async (id: string) => {
+    const response = await fetch(`/api/sales-orders/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "PAYMENT_CONFIRMED" }),
+    })
+    if (response.ok) { toast.success("Order confirmed"); refetch() }
+    else toast.error("Failed to confirm order")
+  }
 
-    setSavingCustomer(true)
-    try {
-      const response = await fetch("/api/customers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(customerForm),
-      })
-
-      if (!response.ok) {
-        toast.error("Failed to create customer")
-        return
-      }
-
-      const customer = await response.json()
-      toast.success("Customer added")
-      setShowCustomerCreate(false)
-      setCustomerForm(emptyCustomerForm)
-      setCustomerQuery(customer.name)
-      setForm((current) => ({
-        ...current,
-        customerId: customer.id,
-        customerType: customer.type,
-        paymentTerms: customer.paymentTerms,
-      }))
-      refetchCustomers()
-    } finally {
-      setSavingCustomer(false)
-    }
+  const handleCancel = async (id: string) => {
+    if (!confirm("Cancel this sales order?")) return
+    const response = await fetch(`/api/sales-orders/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "CANCELLED" }),
+    })
+    if (response.ok) { toast.success("Order cancelled"); refetch() }
+    else toast.error("Failed to cancel order")
   }
 
   const handleVerifyPayment = async (id: string) => {
     const response = await fetch(`/api/sales-orders/${id}/verify-payment`, { method: "POST" })
-    if (response.ok) {
-      toast.success("Payment verified")
-      refetch()
-      return
-    }
-    toast.error("Failed to verify payment")
+    if (response.ok) { toast.success("Payment verified"); refetch() }
+    else toast.error("Failed to verify payment")
   }
 
   const triggerProofUpload = (id: string) => {
@@ -377,7 +364,7 @@ export default function SalesPage() {
       })
 
       if (!linkResponse.ok) {
-        toast.error("Failed to link payment proof to sales order")
+        toast.error("Failed to link payment proof")
         return
       }
 
@@ -391,10 +378,19 @@ export default function SalesPage() {
   }
 
   const columns = [
-    { key: "soNumber", header: "SO Number", sortable: true },
+    { key: "soNumber", header: "SO #", sortable: true },
     { key: "customer", header: "Customer", render: (row: SalesOrder) => row.customer?.name },
     { key: "subTotal", header: "Sub Total", render: (row: SalesOrder) => formatCurrency(row.subTotal) },
-    { key: "gstAmount", header: "GST", render: (row: SalesOrder) => row.gstRate > 0 ? `${row.gstRate}% = ${formatCurrency(row.gstAmount)}` : <span className="text-gray-400">-</span> },
+    {
+      key: "gstAmount",
+      header: "GST",
+      render: (row: SalesOrder) =>
+        row.gstRate > 0 ? (
+          <span className="text-orange-700">{row.gstRate}% = {formatCurrency(row.gstAmount)}</span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
     { key: "grandTotal", header: "Grand Total", render: (row: SalesOrder) => <span className="font-bold">{formatCurrency(row.grandTotal)}</span> },
     { key: "paymentTerms", header: "Terms", render: (row: SalesOrder) => row.paymentTerms.replace(/_/g, " ") },
     { key: "status", header: "Status", render: (row: SalesOrder) => <Badge status={row.status} /> },
@@ -405,27 +401,43 @@ export default function SalesPage() {
       render: (row: SalesOrder) => (
         <div className="flex flex-wrap items-center gap-1">
           {row.status === "DRAFT" && (
-            <Button size="sm" variant="ghost" onClick={() => triggerProofUpload(row.id)} loading={uploadingProof === row.id}>
-              <Upload size={14} className="mr-1" />
-              Upload Proof
-            </Button>
+            <>
+              <Button size="sm" variant="success" onClick={() => handleConfirm(row.id)}>
+                <CheckCircle size={14} className="mr-1" />Confirm
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => openEditModal(row)}>
+                <Pencil size={14} className="mr-1" />Edit
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => triggerProofUpload(row.id)} loading={uploadingProof === row.id}>
+                <Upload size={14} className="mr-1" />Proof
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => handleCancel(row.id)}>
+                <Trash2 size={14} />
+              </Button>
+            </>
           )}
-          {row.paymentProofUrl && (
+          {row.status === "PENDING_PAYMENT" && (
+            <>
+              {row.paymentProofUrl && (
+                <Button size="sm" variant="ghost" onClick={() => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber })}>
+                  <Eye size={14} className="mr-1" />Proof
+                </Button>
+              )}
+              {["ADMIN", "ACCOUNTS"].includes(user?.role || "") && (
+                <Button size="sm" variant="success" onClick={() => handleVerifyPayment(row.id)}>
+                  <CheckCircle size={14} className="mr-1" />Verify
+                </Button>
+              )}
+            </>
+          )}
+          {row.paymentProofUrl && row.status !== "PENDING_PAYMENT" && (
             <Button size="sm" variant="ghost" onClick={() => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber })}>
-              <Eye size={14} className="mr-1" />
-              View Proof
-            </Button>
-          )}
-          {row.status === "PENDING_PAYMENT" && ["ADMIN", "ACCOUNTS"].includes(user?.role || "") && (
-            <Button size="sm" variant="success" onClick={() => handleVerifyPayment(row.id)}>
-              <CheckCircle size={14} className="mr-1" />
-              Verify
+              <Eye size={14} className="mr-1" />Proof
             </Button>
           )}
           {row.status === "PAYMENT_CONFIRMED" && (
             <Button size="sm" variant="secondary" onClick={() => (window.location.href = `/delivery?soId=${row.id}`)}>
-              <Truck size={14} className="mr-1" />
-              Create DO
+              <Truck size={14} className="mr-1" />Create DO
             </Button>
           )}
         </div>
@@ -439,7 +451,7 @@ export default function SalesPage() {
     <div className="space-y-6">
       <Toaster position="top-right" />
 
-      <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFileChange} />
+      <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" title="Upload payment proof" onChange={handleFileChange} />
 
       <Header
         title="Sales Orders"
@@ -455,17 +467,12 @@ export default function SalesPage() {
         <Table columns={columns} data={orders || []} emptyMessage="No sales orders yet" />
       </div>
 
+      {/* Proof viewer */}
       <Modal isOpen={Boolean(viewProof)} onClose={() => setViewProof(null)} title={`Payment Proof — ${viewProof?.soNumber}`} size="lg">
         {viewProof && (
           <div className="flex flex-col items-center gap-4">
             {viewProof.url.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-              <Image
-                src={viewProof.url}
-                alt="Payment proof"
-                width={1200}
-                height={900}
-                className="max-w-full rounded-lg border"
-              />
+              <Image src={viewProof.url} alt="Payment proof" width={1200} height={900} className="max-w-full rounded-lg border" />
             ) : (
               <iframe src={viewProof.url} className="h-96 w-full rounded-lg border" title="Payment proof" />
             )}
@@ -476,20 +483,16 @@ export default function SalesPage() {
         )}
       </Modal>
 
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Quick Entry Sales Order" size="xl">
+      {/* Create / Edit Modal */}
+      <Modal
+        isOpen={showCreate}
+        onClose={() => { setShowCreate(false); resetOrderForm() }}
+        title={editOrderId ? "Edit Sales Order" : "Quick Entry Sales Order"}
+        size="xl"
+      >
         <div className="space-y-5">
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-blue-900">WhatsApp-to-ERP fast path</p>
-                <p className="text-xs text-blue-700">Pick the customer, SKU, quantity, and rate. Panels, watts, and totals update live.</p>
-              </div>
-              <Button size="sm" variant="secondary" onClick={() => setShowCustomerCreate(true)}>
-                <UserPlus size={14} className="mr-1" />
-                Add Customer
-              </Button>
-            </div>
-
+            <p className="text-sm font-semibold text-blue-900 mb-3">Customer</p>
             <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr]">
               <div className="relative">
                 <Input
@@ -497,28 +500,25 @@ export default function SalesPage() {
                   required
                   placeholder="Search by name or phone"
                   value={customerQuery}
-                  onChange={(event) => {
-                    setCustomerQuery(event.target.value)
-                    setForm((current) => ({ ...current, customerId: "" }))
+                  onChange={(e) => {
+                    setCustomerQuery(e.target.value)
+                    setForm((cur) => ({ ...cur, customerId: "" }))
                   }}
                 />
                 {customerResults.length > 0 && form.customerId === "" && (
                   <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                    {customerResults.slice(0, 8).map((customer) => (
+                    {customerResults.slice(0, 8).map((c) => (
                       <button
-                        key={customer.id}
+                        key={c.id}
                         type="button"
                         className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50"
-                        onMouseDown={(event) => {
-                          event.preventDefault()
-                          selectCustomer(customer)
-                        }}
+                        onMouseDown={(e) => { e.preventDefault(); selectCustomer(c) }}
                       >
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{customer.name}</p>
-                          <p className="text-xs text-gray-500">{customer.contactPhone || customer.type.replace(/_/g, " ")}</p>
+                          <p className="text-sm font-medium text-gray-900">{c.name}</p>
+                          <p className="text-xs text-gray-500">{c.contactPhone || c.type.replace(/_/g, " ")}</p>
                         </div>
-                        <span className="text-xs text-gray-400">{customer.paymentTerms.replace(/_/g, " ")}</span>
+                        <span className="text-xs text-gray-400">{c.paymentTerms.replace(/_/g, " ")}</span>
                       </button>
                     ))}
                   </div>
@@ -528,7 +528,7 @@ export default function SalesPage() {
               <Select
                 label="Customer Type"
                 value={form.customerType}
-                onChange={(event) => setForm((current) => ({ ...current, customerType: event.target.value }))}
+                onChange={(e) => setForm((cur) => ({ ...cur, customerType: e.target.value }))}
               >
                 <option value="DIRECT">Direct</option>
                 <option value="DISTRIBUTOR">Distributor</option>
@@ -538,7 +538,7 @@ export default function SalesPage() {
               <Select
                 label="Payment Terms"
                 value={form.paymentTerms}
-                onChange={(event) => setForm((current) => ({ ...current, paymentTerms: event.target.value }))}
+                onChange={(e) => setForm((cur) => ({ ...cur, paymentTerms: e.target.value }))}
               >
                 <option value="FULL_PAYMENT">Full Payment</option>
                 <option value="DEPOSIT_BALANCE">Deposit + Balance</option>
@@ -555,48 +555,30 @@ export default function SalesPage() {
             )}
           </div>
 
+          {/* Order Lines */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-gray-900">Order Lines</p>
-                <p className="text-xs text-gray-500">Use pallets when the SKU has container packing configured in master data.</p>
+                <p className="text-xs text-gray-500">Select SKU — wattage and panels auto-fill from master data.</p>
               </div>
-              <Button size="sm" variant="ghost" onClick={addLine}>
-                + Add Line
-              </Button>
+              <Button size="sm" variant="ghost" onClick={addLine}>+ Add Line</Button>
             </div>
 
             {lines.map((line, index) => {
-              const filteredProducts = (products || []).filter((product) => !line.brand || product.brand === line.brand)
               const computedLine = computedLines[index]
               return (
                 <div key={`${index}-${line.productId}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  <div className="grid gap-3 lg:grid-cols-[1fr_1.4fr_0.8fr_0.8fr_0.9fr_auto]">
+                  <div className="grid gap-3 lg:grid-cols-[2fr_0.8fr_0.8fr_0.9fr_auto]">
                     <Select
-                      label="Brand"
-                      value={line.brand}
-                      onChange={(event) => updateLine(index, { brand: event.target.value, productId: "" })}
-                    >
-                      <option value="">Select brand...</option>
-                      {uniqueBrands.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </Select>
-
-                    <Select
-                      label="SKU"
+                      label="SKU / Product"
                       value={line.productId}
-                      onChange={(event) => {
-                        const product = products?.find((item) => item.id === event.target.value)
-                        updateLine(index, { productId: event.target.value, brand: product?.brand || line.brand })
-                      }}
+                      onChange={(e) => updateLine(index, { productId: e.target.value })}
                     >
                       <option value="">Select SKU...</option>
-                      {filteredProducts.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} ({product.wattage}W)
+                      {(products || []).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.brand} — {p.name} ({p.wattage}W)
                         </option>
                       ))}
                     </Select>
@@ -604,7 +586,7 @@ export default function SalesPage() {
                     <Select
                       label="Qty In"
                       value={line.quantityMode}
-                      onChange={(event) => updateLine(index, { quantityMode: event.target.value as DraftLine["quantityMode"] })}
+                      onChange={(e) => updateLine(index, { quantityMode: e.target.value as DraftLine["quantityMode"] })}
                     >
                       <option value="PANELS">Panels</option>
                       <option value="PALLETS">Pallets</option>
@@ -614,7 +596,7 @@ export default function SalesPage() {
                       label={line.quantityMode === "PALLETS" ? "Pallets" : "Panels"}
                       type="number"
                       value={line.quantity}
-                      onChange={(event) => updateLine(index, { quantity: event.target.value })}
+                      onChange={(e) => updateLine(index, { quantity: e.target.value })}
                     />
 
                     <Input
@@ -622,14 +604,12 @@ export default function SalesPage() {
                       type="number"
                       step="0.01"
                       value={line.ratePerWatt}
-                      onChange={(event) => updateLine(index, { ratePerWatt: event.target.value })}
+                      onChange={(e) => updateLine(index, { ratePerWatt: e.target.value })}
                     />
 
                     <div className="flex items-end">
                       {lines.length > 1 && (
-                        <Button size="sm" variant="danger" onClick={() => removeLine(index)}>
-                          Remove
-                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => removeLine(index)}>Remove</Button>
                       )}
                     </div>
                   </div>
@@ -655,11 +635,11 @@ export default function SalesPage() {
 
                   {computedLine.product && computedLine.panelsPerPallet > 0 && (
                     <p className="mt-2 text-xs text-gray-500">
-                      Packing: {formatNumber(computedLine.panelsPerPallet, 0)} panels per pallet, {computedLine.product.panelsPerContainer?.toLocaleString() || "-"} panels per container
+                      Packing: {formatNumber(computedLine.panelsPerPallet, 0)} panels/pallet · {computedLine.product.panelsPerContainer?.toLocaleString() || "—"} panels/container
                     </p>
                   )}
                   {computedLine.invalidPallets && (
-                    <p className="mt-2 text-xs font-medium text-red-600">This SKU needs container/pallet packing in product master before pallet entry can be used.</p>
+                    <p className="mt-2 text-xs font-medium text-red-600">This SKU needs container/pallet packing configured in product master.</p>
                   )}
                 </div>
               )
@@ -668,13 +648,12 @@ export default function SalesPage() {
 
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
             <div className="space-y-3">
-              {/* GST Invoice toggle */}
               <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded accent-blue-600"
                   checked={form.gstInvoice}
-                  onChange={(e) => setForm((current) => ({ ...current, gstInvoice: e.target.checked }))}
+                  onChange={(e) => setForm((cur) => ({ ...cur, gstInvoice: e.target.checked }))}
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-800">GST Invoice Required</p>
@@ -683,15 +662,20 @@ export default function SalesPage() {
               </label>
               {form.gstInvoice && (
                 <Input
-                  label="GST Rate (%) — exclusive, added on top"
+                  label="GST Rate (%)"
                   type="number"
                   step="0.1"
                   value={form.gstRate}
-                  onChange={(event) => setForm((current) => ({ ...current, gstRate: event.target.value }))}
+                  onChange={(e) => setForm((cur) => ({ ...cur, gstRate: e.target.value }))}
                 />
               )}
             </div>
-            <Input label="Notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
+
+            <Input
+              label="Notes"
+              value={form.notes}
+              onChange={(e) => setForm((cur) => ({ ...cur, notes: e.target.value }))}
+            />
 
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
               <div className="mb-2 flex items-center justify-between text-xs text-blue-800">
@@ -726,46 +710,11 @@ export default function SalesPage() {
           )}
 
           <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setShowCreate(false)}>
+            <Button variant="secondary" onClick={() => { setShowCreate(false); resetOrderForm() }}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} loading={saving}>
-              Create Sales Order
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal isOpen={showCustomerCreate} onClose={() => setShowCustomerCreate(false)} title="Add Customer">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Customer Name" required value={customerForm.name} onChange={(event) => setCustomerForm((current) => ({ ...current, name: event.target.value }))} />
-            <Select label="Type" value={customerForm.type} onChange={(event) => setCustomerForm((current) => ({ ...current, type: event.target.value }))}>
-              <option value="DIRECT">Direct</option>
-              <option value="DISTRIBUTOR">Distributor</option>
-              <option value="INSTALLER">Installer</option>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Phone" value={customerForm.contactPhone} onChange={(event) => setCustomerForm((current) => ({ ...current, contactPhone: event.target.value }))} />
-            <Input label="Credit Limit" type="number" value={customerForm.creditLimit} onChange={(event) => setCustomerForm((current) => ({ ...current, creditLimit: event.target.value }))} />
-          </div>
-
-          <Input label="Address" value={customerForm.address} onChange={(event) => setCustomerForm((current) => ({ ...current, address: event.target.value }))} />
-
-          <Select label="Payment Terms" value={customerForm.paymentTerms} onChange={(event) => setCustomerForm((current) => ({ ...current, paymentTerms: event.target.value }))}>
-            <option value="FULL_PAYMENT">Full Payment</option>
-            <option value="DEPOSIT_BALANCE">Deposit + Balance</option>
-            <option value="CREDIT">Credit</option>
-          </Select>
-
-          <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setShowCustomerCreate(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateCustomer} loading={savingCustomer}>
-              Save Customer
+            <Button onClick={handleSave} loading={saving}>
+              {editOrderId ? "Update Sales Order" : "Create Sales Order"}
             </Button>
           </div>
         </div>

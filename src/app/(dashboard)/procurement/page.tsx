@@ -51,6 +51,7 @@ interface PO {
   totalLandedCost: number | null
   landedCostPerPanel: number | null
   documents?: PODocument[]
+  notes?: string | null
 }
 
 interface ProductOption {
@@ -73,6 +74,7 @@ export default function ProcurementPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [showClear, setShowClear] = useState(false)
   const [showDocs, setShowDocs] = useState(false)
+  const [showDetail, setShowDetail] = useState(false)
   const [selectedPO, setSelectedPO] = useState<PO | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploadingDoc, setUploadingDoc] = useState(false)
@@ -93,7 +95,6 @@ export default function ProcurementPage() {
     containerTransport: "", gstInputAmount: "",
   })
 
-  // When product changes, auto-fill supplier & wattage
   const handleProductChange = (productId: string) => {
     const p = products?.find((x) => x.id === productId)
     setForm((prev) => ({
@@ -104,7 +105,6 @@ export default function ProcurementPage() {
     }))
   }
 
-  // When exchange rate is selected, pre-fill customRate with its value
   const handleRateChange = (rateId: string) => {
     const r = rates?.find((x) => x.id === rateId)
     setForm((prev) => ({
@@ -115,8 +115,6 @@ export default function ProcurementPage() {
   }
 
   const effectiveRate = parseFloat(form.customRate) || rates?.find((r) => r.id === form.exchangeRateId)?.rate || 0
-
-  // GST paid at import is part of cost — include everything in the total
   const clearTotal = Object.values(clearForm).reduce((s, v) => s + (parseFloat(v) || 0), 0)
 
   const handleCreate = async () => {
@@ -196,6 +194,11 @@ export default function ProcurementPage() {
     setShowDocs(true)
   }
 
+  const openDetail = (po: PO) => {
+    setSelectedPO(po)
+    setShowDetail(true)
+  }
+
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !selectedPO) return
@@ -229,20 +232,12 @@ export default function ProcurementPage() {
   const columns = [
     { key: "poNumber", header: "PO Number", sortable: true },
     { key: "product", header: "Product", render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-gray-400">{row.product?.code}</p></div> },
-    { key: "supplier", header: "Supplier", render: (row: PO) => row.supplier?.name || "-" },
+    { key: "supplier", header: "Supplier", render: (row: PO) => row.supplier?.name || "—" },
     { key: "noOfPanels", header: "Quantity", render: (row: PO) => `${row.noOfPanels.toLocaleString()} × ${row.panelWattage}W` },
     { key: "totalValueUsd", header: "USD Value", render: (row: PO) => `$${row.totalValueUsd.toLocaleString()}` },
     { key: "poAmountPkr", header: "PKR Amount", render: (row: PO) => formatCurrency(row.poAmountPkr) },
     { key: "landedCostPerPanel", header: "Landed/Panel", render: (row: PO) => row.landedCostPerPanel ? formatCurrency(row.landedCostPerPanel) : <span className="text-gray-400">—</span> },
     { key: "status", header: "Status", render: (row: PO) => <Badge status={row.status} /> },
-    {
-      key: "lcType", header: "LC Type", render: (row: PO) => (
-        <div>
-          <span>{row.lcType}</span>
-          {row.lcType === "USANCE" && row.usanceDays && <span className="text-xs text-gray-500 ml-1">({row.usanceDays}d)</span>}
-        </div>
-      ),
-    },
     { key: "createdAt", header: "Date", render: (row: PO) => formatDate(row.createdAt) },
     {
       key: "actions",
@@ -250,22 +245,23 @@ export default function ProcurementPage() {
       render: (row: PO) => (
         <div className="flex items-center gap-1 flex-wrap">
           {row.status === "DRAFT" && (
-            <Button size="sm" variant="ghost" onClick={() => handleStatusChange(row.id, "CONFIRMED")}>Confirm</Button>
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleStatusChange(row.id, "CONFIRMED") }}>Confirm</Button>
           )}
           {row.status === "CONFIRMED" && (
-            <Button size="sm" variant="ghost" onClick={() => handleStatusChange(row.id, "SHIPPED")}>Mark Shipped</Button>
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleStatusChange(row.id, "SHIPPED") }}>Mark Shipped</Button>
           )}
           {row.status === "SHIPPED" && (
-            <Button size="sm" variant="ghost" onClick={() => {
+            <Button size="sm" variant="ghost" onClick={(e) => {
+              e.stopPropagation()
               setSelectedPO(row)
               setClearForm({ lcValuePkr: String(row.poAmountPkr || ""), importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
               setShowClear(true)
             }}>
-              <FileCheck size={14} className="mr-1" />Enter Clearing
+              <FileCheck size={14} className="mr-1" />Clearing
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={() => openDocs(row)}>
-            <Paperclip size={14} className="mr-1" />Docs
+          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openDocs(row) }}>
+            <Paperclip size={14} />
           </Button>
         </div>
       ),
@@ -277,7 +273,7 @@ export default function ProcurementPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
-      <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleDocUpload} />
+      <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" title="Upload document" onChange={handleDocUpload} />
 
       <Header
         title="Purchase Orders"
@@ -285,8 +281,103 @@ export default function ProcurementPage() {
       />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={pos || []} emptyMessage="No purchase orders yet" />
+        <Table
+          columns={columns}
+          data={pos || []}
+          emptyMessage="No purchase orders yet"
+          onRowClick={openDetail}
+        />
       </div>
+
+      {/* ── PO Detail / Preview Popup ── */}
+      <Modal isOpen={showDetail} onClose={() => { setShowDetail(false); setSelectedPO(null) }} title={`PO Details — ${selectedPO?.poNumber}`} size="lg">
+        {selectedPO && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Product</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.product?.name}</p>
+                  <p className="text-xs text-gray-400">{selectedPO.product?.code}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Supplier</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.supplier?.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Quantity</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.noOfPanels.toLocaleString()} panels × {selectedPO.panelWattage}W</p>
+                  <p className="text-xs text-gray-400">{(selectedPO.noOfPanels * selectedPO.panelWattage / 1000).toFixed(1)} kW total</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">LC Type</p>
+                  <p className="font-semibold text-gray-900">
+                    {selectedPO.lcType}
+                    {selectedPO.lcType === "USANCE" && selectedPO.usanceDays && ` (${selectedPO.usanceDays} days)`}
+                  </p>
+                  {selectedPO.lcNumber && <p className="text-xs text-gray-400">{selectedPO.lcNumber}</p>}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">USD Value</p>
+                  <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">PKR Amount (at booking)</p>
+                  <p className="font-semibold text-gray-900">{formatCurrency(selectedPO.poAmountPkr)}</p>
+                </div>
+                {selectedPO.totalLandedCost && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Total Landed Cost</p>
+                    <p className="font-semibold text-blue-700">{formatCurrency(selectedPO.totalLandedCost)}</p>
+                    <p className="text-xs text-gray-400">{selectedPO.landedCostPerPanel ? `${formatCurrency(selectedPO.landedCostPerPanel)}/panel` : ""}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
+                  <Badge status={selectedPO.status} />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Created</p>
+                  <p className="font-semibold text-gray-900">{formatDate(selectedPO.createdAt)}</p>
+                </div>
+              </div>
+            </div>
+
+            {selectedPO.notes && (
+              <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
+                <p className="text-xs text-gray-500 mb-1">Notes</p>
+                {selectedPO.notes}
+              </div>
+            )}
+
+            <div className="flex flex-wrap justify-between gap-3 border-t pt-4">
+              <div className="flex gap-2">
+                {selectedPO.status === "DRAFT" && (
+                  <Button variant="secondary" size="sm" onClick={() => { handleStatusChange(selectedPO.id, "CONFIRMED"); setShowDetail(false) }}>Confirm PO</Button>
+                )}
+                {selectedPO.status === "CONFIRMED" && (
+                  <Button variant="secondary" size="sm" onClick={() => { handleStatusChange(selectedPO.id, "SHIPPED"); setShowDetail(false) }}>Mark Shipped</Button>
+                )}
+                {selectedPO.status === "SHIPPED" && (
+                  <Button variant="primary" size="sm" onClick={() => {
+                    setClearForm({ lcValuePkr: String(selectedPO.poAmountPkr || ""), importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+                    setShowDetail(false)
+                    setShowClear(true)
+                  }}>
+                    <FileCheck size={14} className="mr-1" />Enter Clearing
+                  </Button>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => { openDocs(selectedPO); setShowDetail(false) }}>
+                <Paperclip size={14} className="mr-1" />Documents
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* ── Create PO Modal ── */}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Purchase Order" size="lg">
@@ -302,7 +393,6 @@ export default function ProcurementPage() {
             </Select>
           </div>
 
-          {/* LC Type + conditional Usance Days */}
           <div className="grid grid-cols-3 gap-4">
             <Select label="LC Type" value={form.lcType} onChange={(e) => setForm({ ...form, lcType: e.target.value, usanceDays: "" })}>
               <option value="TT">TT</option>
@@ -331,20 +421,12 @@ export default function ProcurementPage() {
             <Input label="USD per Watt *" type="number" step="0.001" required value={form.usdPerWatt} onChange={(e) => setForm({ ...form, usdPerWatt: e.target.value })} />
           </div>
 
-          {/* Exchange Rate with editable override */}
           <div className="grid grid-cols-2 gap-4">
             <Select label="Exchange Rate" value={form.exchangeRateId} onChange={(e) => handleRateChange(e.target.value)}>
               <option value="">Select rate...</option>
               {rates?.map((r) => <option key={r.id} value={r.id}>{r.source} — Rs {r.rate}{r.notes ? ` (${r.notes})` : ""}</option>)}
             </Select>
-            <Input
-              label="Rate to Use (PKR/USD)"
-              type="number"
-              step="0.01"
-              value={form.customRate}
-              onChange={(e) => setForm({ ...form, customRate: e.target.value })}
-              placeholder="Auto-filled from selection above"
-            />
+            <Input label="Rate to Use (PKR/USD)" type="number" step="0.01" value={form.customRate} onChange={(e) => setForm({ ...form, customRate: e.target.value })} placeholder="Auto-filled from selection above" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -422,7 +504,7 @@ export default function ProcurementPage() {
 
           <div className="bg-blue-50 rounded-lg p-4 space-y-1 text-sm">
             <div className="flex justify-between font-semibold text-blue-900">
-              <span>Total Landed Cost (Import):</span>
+              <span>Total Landed Cost:</span>
               <span>{formatCurrency(clearTotal)}</span>
             </div>
             {selectedPO && clearTotal > 0 && (

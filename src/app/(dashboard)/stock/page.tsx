@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { StatCard } from "@/components/ui/Card"
+import { Badge } from "@/components/ui/Badge"
 import { Table } from "@/components/ui/Table"
 import { LoadingPage } from "@/components/ui/Spinner"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -147,6 +148,12 @@ export default function StockPage() {
 
   const clearablePOs = pos?.filter((p) => ["CLEARED", "CONFIRMED", "RECEIVED", "SHIPPED"].includes(p.status)) || []
 
+  // POs with CLEARED status but no matching stock entry (awaiting goods receipt)
+  const receivedPoIds = new Set((stock || []).map((s) => s.po?.poNumber))
+  const unreceivedPOs = (pos || []).filter((p) =>
+    ["CLEARED", "SHIPPED"].includes(p.status) && !receivedPoIds.has(p.poNumber)
+  )
+
   // Low stock alerts
   const lowStockEntries = stock?.filter(
     (entry) => entry.availableQuantity > 0 && entry.availableQuantity <= entry.product.lowStockThreshold
@@ -206,7 +213,7 @@ export default function StockPage() {
         )
       }
     },
-    { key: "costPerPanel", header: "Cost/Panel", render: (row: StockEntry) => formatCurrency(row.costPerPanel) },
+    { key: "costPerWatt", header: "Cost/Watt", render: (row: StockEntry) => `Rs ${row.costPerWatt.toFixed(2)}` },
     {
       key: "gstPerPanel", header: "GST/Panel",
       render: (row: StockEntry) => row.gstPerPanel > 0
@@ -338,6 +345,44 @@ export default function StockPage() {
               })}
               {dashboard.bySKU.length === 0 && <p className="text-gray-400 text-center py-4">No stock</p>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Awaiting Receipt */}
+      {unreceivedPOs.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900">Awaiting Goods Receipt ({unreceivedPOs.length})</h3>
+            <p className="text-xs text-gray-400 mt-0.5">CLEARED / SHIPPED POs not yet received into stock</p>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {unreceivedPOs.map((po) => (
+              <div key={po.id} className="px-6 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{po.poNumber}</p>
+                  <p className="text-xs text-gray-500">
+                    {po.noOfPanels.toLocaleString()} × {po.panelWattage}W
+                    {po.landedCostPerPanel ? ` · Expected cost: ${formatCurrency(po.landedCostPerPanel)}/panel` : " · No clearing yet"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge status={po.status} />
+                  <Button size="sm" variant="primary" onClick={() => {
+                    setReceiveForm({
+                      poId: po.id,
+                      warehouseId: po.warehouseId || "",
+                      panelQuantity: String(po.noOfPanels),
+                      costPerPanel: po.landedCostPerPanel ? String(po.landedCostPerPanel.toFixed(2)) : "",
+                      receivedAt: new Date().toISOString().split("T")[0],
+                    })
+                    setShowReceive(true)
+                  }}>
+                    Receive
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

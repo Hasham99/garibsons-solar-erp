@@ -18,6 +18,7 @@ interface TableProps<T = any> {
   data: T[]
   emptyMessage?: string
   keyField?: string
+  onRowClick?: (row: T) => void
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,6 +27,7 @@ export function Table<T extends Record<string, any>>({
   data,
   emptyMessage = "No data found",
   keyField = "id",
+  onRowClick,
 }: TableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
@@ -95,7 +97,11 @@ export function Table<T extends Record<string, any>>({
               </tr>
             ) : (
               pageData.map((row, idx) => (
-                <tr key={String(row[keyField]) || idx} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={String(row[keyField]) || idx}
+                  className={`hover:bg-gray-50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+                  onClick={() => onRowClick?.(row)}
+                >
                   {columns.map((col) => (
                     <td key={col.key} className={`px-4 py-3 text-sm text-gray-900 ${col.className || ""}`}>
                       {col.render ? col.render(row) : String(row[col.key] ?? "")}

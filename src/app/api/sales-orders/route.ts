@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const soNumber = await getNextRef("SO", "SO")
 
     const subTotal = (data.lines || []).reduce((s: number, l: { totalAmount: string | number }) => s + parseFloat(l.totalAmount as string), 0)
-    const gstRate = parseFloat(data.gstRate || 0)
+    const gstRate = data.gstInvoice ? (parseFloat(data.gstRate) || 0) : 0
     const gstAmount = subTotal * (gstRate / 100)
     const grandTotal = subTotal + gstAmount
 
