@@ -85,7 +85,7 @@ export default function ProcurementPage() {
   const [form, setForm] = useState({
     productId: "", supplierId: "", lcType: "TT", lcNumber: "", usanceDays: "",
     bankId: "", warehouseId: "", noOfPanels: "", panelWattage: "",
-    usdPerWatt: "", exchangeRateId: "", customRate: "", costingId: "", notes: "",
+    usdPerWatt: "", rsPerWatt: "", exchangeRateId: "", customRate: "", costingId: "", notes: "",
   })
 
   const [clearForm, setClearForm] = useState({
@@ -117,18 +117,30 @@ export default function ProcurementPage() {
   const effectiveRate = parseFloat(form.customRate) || rates?.find((r) => r.id === form.exchangeRateId)?.rate || 0
   const clearTotal = Object.values(clearForm).reduce((s, v) => s + (parseFloat(v) || 0), 0)
 
+  const isLocal = form.lcType === "LOCAL"
+
   const handleCreate = async () => {
-    if (!form.productId || !form.supplierId || !form.noOfPanels || !form.usdPerWatt) {
+    const missingPrice = isLocal ? !form.rsPerWatt : !form.usdPerWatt
+    if (!form.productId || !form.supplierId || !form.noOfPanels || missingPrice) {
       return toast.error("Fill all required fields")
     }
     setSaving(true)
     try {
       const panels = parseInt(form.noOfPanels)
       const wattage = parseInt(form.panelWattage)
-      const usdPW = parseFloat(form.usdPerWatt)
       const totalWatts = panels * wattage
-      const totalValueUsd = totalWatts * usdPW
-      const poAmountPkr = totalValueUsd * effectiveRate
+      let totalValueUsd = 0
+      let poAmountPkr = 0
+
+      if (isLocal) {
+        const rsPW = parseFloat(form.rsPerWatt)
+        poAmountPkr = totalWatts * rsPW
+        totalValueUsd = effectiveRate > 0 ? poAmountPkr / effectiveRate : 0
+      } else {
+        const usdPW = parseFloat(form.usdPerWatt)
+        totalValueUsd = totalWatts * usdPW
+        poAmountPkr = totalValueUsd * effectiveRate
+      }
 
       const res = await fetch("/api/purchase-orders", {
         method: "POST",
@@ -142,7 +154,7 @@ export default function ProcurementPage() {
         setForm({
           productId: "", supplierId: "", lcType: "TT", lcNumber: "", usanceDays: "",
           bankId: "", warehouseId: "", noOfPanels: "", panelWattage: "",
-          usdPerWatt: "", exchangeRateId: "", customRate: "", costingId: "", notes: "",
+          usdPerWatt: "", rsPerWatt: "", exchangeRateId: "", customRate: "", costingId: "", notes: "",
         })
         refetch()
       } else {
@@ -418,16 +430,22 @@ export default function ProcurementPage() {
           <div className="grid grid-cols-3 gap-4">
             <Input label="No. of Panels *" type="number" required value={form.noOfPanels} onChange={(e) => setForm({ ...form, noOfPanels: e.target.value })} />
             <Input label="Panel Wattage (W) *" type="number" required value={form.panelWattage} onChange={(e) => setForm({ ...form, panelWattage: e.target.value })} />
-            <Input label="USD per Watt *" type="number" step="0.001" required value={form.usdPerWatt} onChange={(e) => setForm({ ...form, usdPerWatt: e.target.value })} />
+            {isLocal ? (
+              <Input label="Rs per Watt *" type="number" step="0.01" required value={form.rsPerWatt} onChange={(e) => setForm({ ...form, rsPerWatt: e.target.value })} placeholder="e.g. 62.50" />
+            ) : (
+              <Input label="USD per Watt *" type="number" step="0.001" required value={form.usdPerWatt} onChange={(e) => setForm({ ...form, usdPerWatt: e.target.value })} />
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select label="Exchange Rate" value={form.exchangeRateId} onChange={(e) => handleRateChange(e.target.value)}>
-              <option value="">Select rate...</option>
-              {rates?.map((r) => <option key={r.id} value={r.id}>{r.source} — Rs {r.rate}{r.notes ? ` (${r.notes})` : ""}</option>)}
-            </Select>
-            <Input label="Rate to Use (PKR/USD)" type="number" step="0.01" value={form.customRate} onChange={(e) => setForm({ ...form, customRate: e.target.value })} placeholder="Auto-filled from selection above" />
-          </div>
+          {!isLocal && (
+            <div className="grid grid-cols-2 gap-4">
+              <Select label="Exchange Rate" value={form.exchangeRateId} onChange={(e) => handleRateChange(e.target.value)}>
+                <option value="">Select rate...</option>
+                {rates?.map((r) => <option key={r.id} value={r.id}>{r.source} — Rs {r.rate}{r.notes ? ` (${r.notes})` : ""}</option>)}
+              </Select>
+              <Input label="Rate to Use (PKR/USD)" type="number" step="0.01" value={form.customRate} onChange={(e) => setForm({ ...form, customRate: e.target.value })} placeholder="Auto-filled from selection above" />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Select label="Destination Warehouse" value={form.warehouseId} onChange={(e) => setForm({ ...form, warehouseId: e.target.value })}>
@@ -444,14 +462,25 @@ export default function ProcurementPage() {
 
           <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
 
-          {form.noOfPanels && form.panelWattage && form.usdPerWatt && (
+          {form.noOfPanels && form.panelWattage && (isLocal ? form.rsPerWatt : form.usdPerWatt) && (
             <div className="bg-blue-50 rounded-lg p-4 text-sm space-y-1">
               <p className="font-medium text-blue-900">Summary</p>
               {(() => {
                 const panels = parseInt(form.noOfPanels) || 0
                 const wattage = parseInt(form.panelWattage) || 0
-                const usdPW = parseFloat(form.usdPerWatt) || 0
                 const totalKW = (panels * wattage / 1000).toFixed(1)
+                if (isLocal) {
+                  const rsPW = parseFloat(form.rsPerWatt) || 0
+                  const totalPKR = (panels * wattage * rsPW).toLocaleString()
+                  return (
+                    <div className="text-blue-700 space-y-0.5">
+                      <p>{panels.toLocaleString()} panels × {wattage}W = {totalKW} kW</p>
+                      <p>Rs/Watt: Rs {rsPW}</p>
+                      <p className="font-semibold">Total PKR: Rs {totalPKR}</p>
+                    </div>
+                  )
+                }
+                const usdPW = parseFloat(form.usdPerWatt) || 0
                 const totalUSD = (panels * wattage * usdPW).toLocaleString()
                 const totalPKR = effectiveRate > 0 ? (panels * wattage * usdPW * effectiveRate).toLocaleString() : "—"
                 return (
