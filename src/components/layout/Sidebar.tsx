@@ -118,7 +118,7 @@ export function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
+      <nav className="sidebar-scroll flex-1 px-3 py-4 overflow-y-auto space-y-1">
         {navItems.map((item) => {
           if (!canView(item)) return null
 
