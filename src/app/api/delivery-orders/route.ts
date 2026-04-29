@@ -143,6 +143,7 @@ export async function POST(request: Request) {
           watts,
           status: "PENDING",
           notes: data.notes,
+          validityDays: data.validityDays ? parseInt(data.validityDays) : 3,
           createdById: session.userId || null,
         },
         include: {

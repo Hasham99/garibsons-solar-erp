@@ -471,11 +471,12 @@ model DeliveryOrder {
   authorizedAt DateTime?
   dispatchedAt DateTime?
 
-  createdById String?
-  createdBy   User?   @relation(fields: [createdById], references: [id])
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdById  String?
+  createdBy    User?   @relation(fields: [createdById], references: [id])
+  notes        String?
+  validityDays Int     @default(3)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   stockMovements StockMovement[]
   invoices       Invoice[]

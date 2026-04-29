@@ -7,7 +7,21 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     const deliveryOrder = await prisma.deliveryOrder.findUnique({
       where: { id },
       include: {
-        salesOrder: { include: { customer: true, lines: { include: { product: true } } } },
+        salesOrder: {
+          include: {
+            customer: true,
+            lines: {
+              include: {
+                product: {
+                  select: {
+                    name: true, code: true, wattage: true,
+                    panelsPerContainer: true, palletsPerContainer: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         warehouse: true,
         stockMovements: {
           include: {

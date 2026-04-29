@@ -4,11 +4,26 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { formatDate } from "@/lib/utils"
 
+interface PrintLine {
+  product: {
+    name: string
+    code: string
+    wattage: number
+    panelsPerContainer: number | null
+    palletsPerContainer: number | null
+  }
+  quantity: number
+  watts: number
+  ratePerWatt: number
+  totalAmount: number
+}
+
 interface DeliveryOrder {
   id: string
   doNumber: string
   quantity: number
   watts: number
+  validityDays: number
   status: string
   authorizedBy: string | null
   authorizedAt: string | null
@@ -18,10 +33,16 @@ interface DeliveryOrder {
   salesOrder: {
     soNumber: string
     customer: { name: string; address: string | null; ntn: string | null; contactPhone: string | null }
-    lines: Array<{ product: { name: string; code: string; wattage: number }; quantity: number; watts: number; ratePerWatt: number; totalAmount: number }>
+    lines: PrintLine[]
     grandTotal: number
   }
   warehouse: { name: string; location: string; godown: string | null }
+}
+
+function computePallets(panels: number, product: PrintLine["product"]): number | null {
+  if (!product.panelsPerContainer || !product.palletsPerContainer) return null
+  const panelsPerPallet = product.panelsPerContainer / product.palletsPerContainer
+  return Math.ceil(panels / panelsPerPallet)
 }
 
 export default function DeliveryOrderPrintPage() {
@@ -42,6 +63,29 @@ export default function DeliveryOrderPrintPage() {
   if (loading) return <div className="p-8 text-gray-500">Loading delivery order...</div>
   if (!order) return <div className="p-8 text-red-500">Delivery order not found</div>
 
+  const soTotalPanels = order.salesOrder.lines.reduce((s, l) => s + l.quantity, 0)
+  const doQty = order.quantity
+
+  // Prorate DO quantity across SO lines; last line absorbs rounding
+  const doLines = order.salesOrder.lines.map((line, i) => {
+    const isLast = i === order.salesOrder.lines.length - 1
+    const previous = order.salesOrder.lines.slice(0, i).reduce((s, l) => {
+      return s + (soTotalPanels > 0 ? Math.round((l.quantity / soTotalPanels) * doQty) : 0)
+    }, 0)
+    const qty = isLast
+      ? doQty - previous
+      : (soTotalPanels > 0 ? Math.round((line.quantity / soTotalPanels) * doQty) : 0)
+    const watts = qty * line.product.wattage
+    const pallets = computePallets(qty, line.product)
+    return { ...line, doQty: qty, doWatts: watts, pallets }
+  })
+
+  const totalPallets = doLines.every((l) => l.pallets !== null)
+    ? doLines.reduce((s, l) => s + (l.pallets ?? 0), 0)
+    : null
+
+  const validityDays = order.validityDays ?? 3
+
   return (
     <>
       <style>{`
@@ -55,10 +99,11 @@ export default function DeliveryOrderPrintPage() {
 
       <div className="max-w-3xl mx-auto p-8 bg-white">
         <div className="no-print flex justify-end mb-4 gap-2">
-          <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Print / Save PDF</button>
-          <button onClick={() => window.close()} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">Close</button>
+          <button type="button" onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Print / Save PDF</button>
+          <button type="button" onClick={() => window.close()} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">Close</button>
         </div>
 
+        {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">GARIBSONS PRIVATE LIMITED</h1>
@@ -71,6 +116,7 @@ export default function DeliveryOrderPrintPage() {
           </div>
         </div>
 
+        {/* Deliver To + Dispatch Details */}
         <div className="grid grid-cols-2 gap-8 mb-8">
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Deliver To</p>
@@ -94,42 +140,59 @@ export default function DeliveryOrderPrintPage() {
           </div>
         </div>
 
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 grid grid-cols-3 gap-4 text-center">
+        {/* Validity notice */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 mb-6 text-sm text-yellow-800 font-medium">
+          This Delivery Order is valid for <span className="font-bold">{validityDays} working day{validityDays !== 1 ? "s" : ""}</span> from the date of issue.
+        </div>
+
+        {/* Summary boxes */}
+        <div className={`bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 grid gap-4 text-center ${totalPallets !== null ? "grid-cols-4" : "grid-cols-3"}`}>
           <div>
             <p className="text-xs text-gray-500">Dispatch From</p>
-            <p className="font-semibold">{order.warehouse.name}</p>
+            <p className="font-semibold text-sm">{order.warehouse.name}</p>
             <p className="text-xs text-gray-500">{order.warehouse.location}</p>
             {order.warehouse.godown && <p className="text-xs text-gray-500">Godown: {order.warehouse.godown}</p>}
           </div>
           <div>
             <p className="text-xs text-gray-500">Total Panels</p>
-            <p className="font-bold text-2xl text-blue-700">{order.quantity.toLocaleString()}</p>
+            <p className="font-bold text-2xl text-blue-700">{doQty.toLocaleString()}</p>
           </div>
           <div>
             <p className="text-xs text-gray-500">Total Watts</p>
             <p className="font-bold text-2xl text-blue-700">{(order.watts / 1000).toFixed(1)} kW</p>
           </div>
+          {totalPallets !== null && (
+            <div>
+              <p className="text-xs text-gray-500">No. of Pallets</p>
+              <p className="font-bold text-2xl text-green-700">{totalPallets}</p>
+            </div>
+          )}
         </div>
 
+        {/* Line items — shows DO quantity, not full SO quantity */}
         <table className="w-full mb-6 text-sm border-collapse">
           <thead>
             <tr className="bg-gray-800 text-white">
               <th className="px-3 py-2 text-left">Product</th>
               <th className="px-3 py-2 text-center">Wattage</th>
-              <th className="px-3 py-2 text-right">Qty (Panels)</th>
-              <th className="px-3 py-2 text-right">Qty (Watts)</th>
+              <th className="px-3 py-2 text-right">Panels (DO)</th>
+              <th className="px-3 py-2 text-right">Watts</th>
+              {doLines.some((l) => l.pallets !== null) && <th className="px-3 py-2 text-right">Pallets</th>}
             </tr>
           </thead>
           <tbody>
-            {order.salesOrder.lines.map((line, i) => (
+            {doLines.map((line, i) => (
               <tr key={i} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                 <td className="px-3 py-2">
                   <p className="font-medium">{line.product.name}</p>
                   <p className="text-xs text-gray-500">{line.product.code}</p>
                 </td>
                 <td className="px-3 py-2 text-center">{line.product.wattage}W</td>
-                <td className="px-3 py-2 text-right font-semibold">{line.quantity.toLocaleString()}</td>
-                <td className="px-3 py-2 text-right">{line.watts.toLocaleString()}</td>
+                <td className="px-3 py-2 text-right font-semibold">{line.doQty.toLocaleString()}</td>
+                <td className="px-3 py-2 text-right">{line.doWatts.toLocaleString()}</td>
+                {doLines.some((l) => l.pallets !== null) && (
+                  <td className="px-3 py-2 text-right">{line.pallets ?? "—"}</td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -142,6 +205,7 @@ export default function DeliveryOrderPrintPage() {
           </div>
         )}
 
+        {/* Signatures */}
         <div className="border-t-2 border-gray-200 pt-6 grid grid-cols-3 gap-4 text-xs text-gray-500 text-center">
           <div>
             <p className="font-semibold text-gray-700 mb-10">Driver Signature</p>

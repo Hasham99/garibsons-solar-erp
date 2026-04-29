@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <div className="w-60 flex-shrink-0 flex flex-col">
+      <div className="w-60 flex-shrink-0 flex flex-col" data-sidebar>
         <Sidebar user={user} />
       </div>
       <main className="flex-1 overflow-y-auto bg-gray-50">

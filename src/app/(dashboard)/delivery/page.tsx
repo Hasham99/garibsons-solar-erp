@@ -61,7 +61,7 @@ export default function DeliveryPage() {
 
   const [showCreate, setShowCreate] = useState(Boolean(presetSoId))
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ soId: presetSoId || "", warehouseId: "", quantity: "", notes: "" })
+  const [form, setForm] = useState({ soId: presetSoId || "", warehouseId: "", quantity: "", validityDays: "3", notes: "" })
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOrder | null>(null)
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function DeliveryPage() {
       const response = await fetch("/api/delivery-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ soId: form.soId, warehouseId: form.warehouseId, quantity: requestedQty, notes: form.notes }),
+        body: JSON.stringify({ soId: form.soId, warehouseId: form.warehouseId, quantity: requestedQty, validityDays: form.validityDays, notes: form.notes }),
       })
 
       if (!response.ok) {
@@ -114,7 +114,7 @@ export default function DeliveryPage() {
 
       toast.success("Delivery order created and stock reserved")
       setShowCreate(false)
-      setForm({ soId: "", warehouseId: "", quantity: "", notes: "" })
+      setForm({ soId: "", warehouseId: "", quantity: "", validityDays: "3", notes: "" })
       refetch()
     } finally {
       setSaving(false)
@@ -295,7 +295,16 @@ export default function DeliveryPage() {
             </div>
           )}
 
-          <Input label="Notes" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Validity (working days)"
+              type="number"
+              value={form.validityDays}
+              onChange={(e) => setForm((prev) => ({ ...prev, validityDays: e.target.value }))}
+              placeholder="3"
+            />
+            <Input label="Notes" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
+          </div>
 
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
