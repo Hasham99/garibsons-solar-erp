@@ -192,7 +192,10 @@ export default function StockPage() {
   }
 
   const poWarehouseId = (po: POOption) =>
-    po.warehouseId || po.warehouse?.id || ""
+    po.warehouseId ||
+    po.warehouse?.id ||
+    (warehouses?.length === 1 ? warehouses[0].id : "") ||
+    ""
 
   // LOCAL POs are ready to receive as soon as they are CONFIRMED (no costing step needed).
   // Non-local POs require costing first and show up as READY_TO_RECEIVE (or CLEARED for legacy data).
