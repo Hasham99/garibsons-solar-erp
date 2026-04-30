@@ -131,13 +131,16 @@ export default function ProcurementPage() {
       const totalWatts = panels * wattage
       let totalValueUsd = 0
       let poAmountPkr = 0
+      let usdPerWatt = 0
 
       if (isLocal) {
         const rsPW = parseFloat(form.rsPerWatt)
         poAmountPkr = totalWatts * rsPW
         totalValueUsd = effectiveRate > 0 ? poAmountPkr / effectiveRate : 0
+        usdPerWatt = effectiveRate > 0 ? rsPW / effectiveRate : 0
       } else {
         const usdPW = parseFloat(form.usdPerWatt)
+        usdPerWatt = usdPW
         totalValueUsd = totalWatts * usdPW
         poAmountPkr = totalValueUsd * effectiveRate
       }
@@ -145,7 +148,7 @@ export default function ProcurementPage() {
       const res = await fetch("/api/purchase-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, totalWatts, totalValueUsd, poAmountPkr }),
+        body: JSON.stringify({ ...form, totalWatts, totalValueUsd, poAmountPkr, usdPerWatt }),
       })
 
       if (res.ok) {
@@ -176,13 +179,13 @@ export default function ProcurementPage() {
         body: JSON.stringify(clearForm),
       })
       if (res.ok) {
-        toast.success("Clearing charges saved")
+        toast.success("Costing saved — PO marked Ready to Receive")
         setShowClear(false)
         setSelectedPO(null)
         setClearForm({ lcValuePkr: "", importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
         refetch()
       } else {
-        toast.error("Failed to save clearing charges")
+        toast.error("Failed to save costing")
       }
     } finally {
       setSaving(false)
@@ -209,6 +212,17 @@ export default function ProcurementPage() {
   const openDetail = (po: PO) => {
     setSelectedPO(po)
     setShowDetail(true)
+  }
+
+  const openCosting = (po: PO) => {
+    setSelectedPO(po)
+    setClearForm({
+      lcValuePkr: String(po.poAmountPkr || ""),
+      importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "",
+      exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "",
+      containerTransport: "", gstInputAmount: "",
+    })
+    setShowClear(true)
   }
 
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -246,7 +260,12 @@ export default function ProcurementPage() {
     { key: "product", header: "Product", render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-gray-400">{row.product?.code}</p></div> },
     { key: "supplier", header: "Supplier", render: (row: PO) => row.supplier?.name || "—" },
     { key: "noOfPanels", header: "Quantity", render: (row: PO) => `${row.noOfPanels.toLocaleString()} × ${row.panelWattage}W` },
-    { key: "totalValueUsd", header: "USD Value", render: (row: PO) => `$${row.totalValueUsd.toLocaleString()}` },
+    {
+      key: "totalValueUsd", header: "USD Value",
+      render: (row: PO) => row.totalValueUsd > 0
+        ? `$${row.totalValueUsd.toLocaleString()}`
+        : <span className="text-gray-400">—</span>
+    },
     { key: "poAmountPkr", header: "PKR Amount", render: (row: PO) => formatCurrency(row.poAmountPkr) },
     { key: "landedCostPerPanel", header: "Landed/Panel", render: (row: PO) => row.landedCostPerPanel ? formatCurrency(row.landedCostPerPanel) : <span className="text-gray-400">—</span> },
     { key: "status", header: "Status", render: (row: PO) => <Badge status={row.status} /> },
@@ -259,7 +278,7 @@ export default function ProcurementPage() {
           {row.status === "DRAFT" && (
             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleStatusChange(row.id, "CONFIRMED") }}>Confirm</Button>
           )}
-          {row.status === "CONFIRMED" && (
+          {row.status === "CONFIRMED" && row.lcType !== "LOCAL" && (
             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleStatusChange(row.id, "SHIPPED") }}>Mark Shipped</Button>
           )}
           {row.status === "SHIPPED" && (
@@ -332,10 +351,12 @@ export default function ProcurementPage() {
               </div>
 
               <div className="space-y-3">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">USD Value</p>
-                  <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString()}</p>
-                </div>
+                {selectedPO.totalValueUsd > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">USD Value</p>
+                    <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString()}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">PKR Amount (at booking)</p>
                   <p className="font-semibold text-gray-900">{formatCurrency(selectedPO.poAmountPkr)}</p>
@@ -370,7 +391,7 @@ export default function ProcurementPage() {
                 {selectedPO.status === "DRAFT" && (
                   <Button variant="secondary" size="sm" onClick={() => { handleStatusChange(selectedPO.id, "CONFIRMED"); setShowDetail(false) }}>Confirm PO</Button>
                 )}
-                {selectedPO.status === "CONFIRMED" && (
+                {selectedPO.status === "CONFIRMED" && selectedPO.lcType !== "LOCAL" && (
                   <Button variant="secondary" size="sm" onClick={() => { handleStatusChange(selectedPO.id, "SHIPPED"); setShowDetail(false) }}>Mark Shipped</Button>
                 )}
                 {selectedPO.status === "SHIPPED" && (
@@ -437,15 +458,13 @@ export default function ProcurementPage() {
             )}
           </div>
 
-          {!isLocal && (
-            <div className="grid grid-cols-2 gap-4">
-              <Select label="Exchange Rate" value={form.exchangeRateId} onChange={(e) => handleRateChange(e.target.value)}>
-                <option value="">Select rate...</option>
-                {rates?.map((r) => <option key={r.id} value={r.id}>{r.source} — Rs {r.rate}{r.notes ? ` (${r.notes})` : ""}</option>)}
-              </Select>
-              <Input label="Rate to Use (PKR/USD)" type="number" step="0.01" value={form.customRate} onChange={(e) => setForm({ ...form, customRate: e.target.value })} placeholder="Auto-filled from selection above" />
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-4">
+            <Select label={isLocal ? "Exchange Rate (for USD equivalent)" : "Exchange Rate"} value={form.exchangeRateId} onChange={(e) => handleRateChange(e.target.value)}>
+              <option value="">Select rate...</option>
+              {rates?.map((r) => <option key={r.id} value={r.id}>{r.source} — Rs {r.rate}{r.notes ? ` (${r.notes})` : ""}</option>)}
+            </Select>
+            <Input label="Rate to Use (PKR/USD)" type="number" step="0.01" value={form.customRate} onChange={(e) => setForm({ ...form, customRate: e.target.value })} placeholder="Auto-filled from selection above" />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Select label="Destination Warehouse" value={form.warehouseId} onChange={(e) => setForm({ ...form, warehouseId: e.target.value })}>
@@ -471,12 +490,16 @@ export default function ProcurementPage() {
                 const totalKW = (panels * wattage / 1000).toFixed(1)
                 if (isLocal) {
                   const rsPW = parseFloat(form.rsPerWatt) || 0
-                  const totalPKR = (panels * wattage * rsPW).toLocaleString()
+                  const totalPKR = panels * wattage * rsPW
+                  const totalUSD = effectiveRate > 0 ? totalPKR / effectiveRate : null
                   return (
                     <div className="text-blue-700 space-y-0.5">
                       <p>{panels.toLocaleString()} panels × {wattage}W = {totalKW} kW</p>
                       <p>Rs/Watt: Rs {rsPW}</p>
-                      <p className="font-semibold">Total PKR: Rs {totalPKR}</p>
+                      <p className="font-semibold">Total PKR: Rs {totalPKR.toLocaleString()}</p>
+                      {totalUSD !== null && (
+                        <p>≈ USD ${totalUSD.toLocaleString(undefined, { maximumFractionDigits: 2 })} @ Rs {effectiveRate}</p>
+                      )}
                     </div>
                   )
                 }
@@ -501,13 +524,17 @@ export default function ProcurementPage() {
         </div>
       </Modal>
 
-      {/* ── Clearing Charges Modal ── */}
-      <Modal isOpen={showClear} onClose={() => setShowClear(false)} title={`Clearing Charges — ${selectedPO?.poNumber}`} size="lg">
+      {/* ── Costing / Clearing Charges Modal ── */}
+      <Modal isOpen={showClear} onClose={() => setShowClear(false)} title={`${selectedPO?.lcType === "LOCAL" ? "Calculate Costing" : "Clearing Charges"} — ${selectedPO?.poNumber}`} size="lg">
         <div className="space-y-4">
-          <p className="text-sm text-gray-500">Enter all charges as per vendor bills. All amounts in PKR.</p>
+          <p className="text-sm text-gray-500">
+            {selectedPO?.lcType === "LOCAL"
+              ? "Enter the total cost breakdown for this local purchase. All amounts in PKR."
+              : "Enter all charges as per vendor bills. All amounts in PKR."}
+          </p>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { key: "lcValuePkr",            label: "Document LC Value PKR *" },
+              { key: "lcValuePkr",            label: selectedPO?.lcType === "LOCAL" ? "Local Purchase Value PKR *" : "Document LC Value PKR *" },
               { key: "importFreightCost",     label: "Import Freight Cost" },
               { key: "importShippingFreight", label: "Import Shipping Freight" },
               { key: "bankCharges",           label: "Bank Charges" },
@@ -552,7 +579,9 @@ export default function ProcurementPage() {
 
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowClear(false)}>Cancel</Button>
-            <Button onClick={handleClear} loading={saving}>Save Clearing Charges</Button>
+            <Button onClick={handleClear} loading={saving}>
+              {selectedPO?.lcType === "LOCAL" ? "Save Costing & Mark Ready" : "Save Clearing Charges"}
+            </Button>
           </div>
         </div>
       </Modal>

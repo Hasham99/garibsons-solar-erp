@@ -19,6 +19,7 @@ interface TableProps<T = any> {
   emptyMessage?: string
   keyField?: string
   onRowClick?: (row: T) => void
+  compact?: boolean
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,6 +29,7 @@ export function Table<T extends Record<string, any>>({
   emptyMessage = "No data found",
   keyField = "id",
   onRowClick,
+  compact = false,
 }: TableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
@@ -60,16 +62,23 @@ export function Table<T extends Record<string, any>>({
   const totalPages = Math.ceil(sortedData.length / pageSize)
   const pageData = sortedData.slice((page - 1) * pageSize, page * pageSize)
 
+  const thClass = compact
+    ? `px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`
+    : `px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`
+  const tdClass = compact
+    ? `px-2 py-1.5 text-xs text-gray-900`
+    : `px-4 py-3 text-sm text-gray-900`
+
   return (
     <div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className={compact ? "w-full" : "overflow-x-auto"}>
+        <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.sortable ? "cursor-pointer hover:bg-gray-100 select-none" : ""} ${col.className || ""}`}
+                  className={`${thClass} ${col.sortable ? "cursor-pointer hover:bg-gray-100 select-none" : ""} ${col.className || ""}`}
                   onClick={() => col.sortable && handleSort(col.key)}
                 >
                   <div className="flex items-center gap-1">
@@ -103,7 +112,7 @@ export function Table<T extends Record<string, any>>({
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className={`px-4 py-3 text-sm text-gray-900 ${col.className || ""}`}>
+                    <td key={col.key} className={`${tdClass} ${col.className || ""}`}>
                       {col.render ? col.render(row) : String(row[col.key] ?? "")}
                     </td>
                   ))}

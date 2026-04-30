@@ -13,12 +13,12 @@ import { Badge } from "@/components/ui/Badge"
 import { Table } from "@/components/ui/Table"
 import { LoadingPage } from "@/components/ui/Spinner"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Plus, Package, DollarSign, AlertTriangle, SlidersHorizontal } from "lucide-react"
+import { Plus, Package, DollarSign, AlertTriangle, SlidersHorizontal, Pencil } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
 interface StockEntry {
   id: string
-  product: { id: string; name: string; code: string; lowStockThreshold: number }
+  product: { id: string; name: string; code: string; lowStockThreshold: number; wattage?: number }
   warehouse: { name: string }
   po: { poNumber: string } | null
   panelQuantity: number
@@ -60,6 +60,9 @@ interface POOption {
   panelWattage: number
   warehouseId: string | null
   landedCostPerPanel: number | null
+  landedCostPerWatt: number | null
+  poAmountPkr: number
+  lcType: string
   status: string
 }
 
@@ -79,11 +82,13 @@ export default function StockPage() {
 
   const [showReceive, setShowReceive] = useState(false)
   const [showAdjust, setShowAdjust] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<StockEntry | null>(null)
+  const [editingEntry, setEditingEntry] = useState<StockEntry | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [receiveForm, setReceiveForm] = useState({
-    poId: "", warehouseId: "", panelQuantity: "", costPerPanel: "",
+    poId: "", warehouseId: "", panelQuantity: "", costPerPanel: "", costPerWatt: "",
     receivedAt: new Date().toISOString().split("T")[0],
   })
 
@@ -92,6 +97,21 @@ export default function StockPage() {
     quantity: "",
     reason: "",
   })
+
+  const [editForm, setEditForm] = useState({
+    panelQuantity: "",
+    costPerPanel: "",
+    costPerWatt: "",
+    receivedAt: "",
+  })
+
+  // Build map of received panels per PO (by poNumber)
+  const receivedPanelsByPO = (stock || []).reduce((acc, entry) => {
+    if (entry.po?.poNumber) {
+      acc[entry.po.poNumber] = (acc[entry.po.poNumber] || 0) + entry.panelQuantity
+    }
+    return acc
+  }, {} as Record<string, number>)
 
   const handleReceive = async () => {
     if (!receiveForm.poId || !receiveForm.warehouseId || !receiveForm.panelQuantity) {
@@ -107,7 +127,7 @@ export default function StockPage() {
       if (res.ok) {
         toast.success("Stock received successfully")
         setShowReceive(false)
-        setReceiveForm({ poId: "", warehouseId: "", panelQuantity: "", costPerPanel: "", receivedAt: new Date().toISOString().split("T")[0] })
+        setReceiveForm({ poId: "", warehouseId: "", panelQuantity: "", costPerPanel: "", costPerWatt: "", receivedAt: new Date().toISOString().split("T")[0] })
         refetch()
         refetchDash()
       } else {
@@ -146,13 +166,42 @@ export default function StockPage() {
     }
   }
 
-  const clearablePOs = pos?.filter((p) => ["CLEARED", "CONFIRMED", "RECEIVED", "SHIPPED"].includes(p.status)) || []
+  const handleEdit = async () => {
+    if (!editingEntry) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/stock/${editingEntry.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      })
+      if (res.ok) {
+        toast.success("Stock entry updated")
+        setShowEdit(false)
+        setEditingEntry(null)
+        refetch()
+        refetchDash()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to update entry")
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
 
-  // POs with CLEARED status but no matching stock entry (awaiting goods receipt)
-  const receivedPoIds = new Set((stock || []).map((s) => s.po?.poNumber))
-  const unreceivedPOs = (pos || []).filter((p) =>
-    ["CLEARED", "SHIPPED"].includes(p.status) && !receivedPoIds.has(p.poNumber)
-  )
+  // LOCAL POs are ready to receive as soon as they are CONFIRMED (no costing step needed).
+  // Non-local POs require costing first and show up as READY_TO_RECEIVE (or CLEARED for legacy data).
+  const readyPOs = pos?.filter((p) =>
+    ["READY_TO_RECEIVE", "CLEARED"].includes(p.status) ||
+    (p.status === "CONFIRMED" && p.lcType === "LOCAL")
+  ) || []
+
+  // READY_TO_RECEIVE POs (fully or partially unreceived)
+  const unreceivedPOs = readyPOs.filter((po) => {
+    const received = receivedPanelsByPO[po.poNumber] || 0
+    return received < po.noOfPanels
+  })
 
   // Low stock alerts
   const lowStockEntries = stock?.filter(
@@ -165,36 +214,27 @@ export default function StockPage() {
     {
       key: "product", header: "Product",
       render: (row: StockEntry) => (
-        <div>
-          <p className="font-medium text-sm">{row.product?.name}</p>
-          <p className="text-xs text-gray-400">{row.product?.code}</p>
+        <div className="min-w-0">
+          <p className="font-medium leading-tight">{row.product?.name}</p>
+          <p className="text-gray-400 leading-tight">{row.product?.code}</p>
         </div>
       )
     },
-    { key: "warehouse", header: "Warehouse", render: (row: StockEntry) => row.warehouse?.name },
-    { key: "po", header: "PO / LC Ref", render: (row: StockEntry) => row.po?.poNumber || "-" },
     {
-      key: "panelQuantity", header: "Received",
-      render: (row: StockEntry) => `${row.panelQuantity.toLocaleString()} panels`
+      key: "warehouse", header: "Warehouse",
+      render: (row: StockEntry) => <span className="whitespace-nowrap">{row.warehouse?.name}</span>
     },
     {
-      key: "panelsSold", header: "Sold",
-      render: (row: StockEntry) => (
-        <span className="text-gray-600">{row.panelsSold.toLocaleString()}</span>
-      )
+      key: "po", header: "PO Ref",
+      render: (row: StockEntry) => <span className="whitespace-nowrap">{row.po?.poNumber || "—"}</span>
     },
     {
-      key: "currentQuantity", header: "Current",
+      key: "rcvdSold", header: "Rcvd / Sold",
       render: (row: StockEntry) => (
-        <span className="font-semibold text-gray-900">{row.currentQuantity.toLocaleString()}</span>
-      )
-    },
-    {
-      key: "reservedQuantity", header: "Reserved",
-      render: (row: StockEntry) => (
-        <span className={row.reservedQuantity > 0 ? "font-semibold text-amber-600" : "text-gray-400"}>
-          {row.reservedQuantity.toLocaleString()}
-        </span>
+        <div className="whitespace-nowrap">
+          <p>{row.panelQuantity.toLocaleString()}</p>
+          <p className="text-gray-400">{row.panelsSold.toLocaleString()} sold</p>
+        </div>
       )
     },
     {
@@ -207,34 +247,60 @@ export default function StockPage() {
             isLow ? "text-orange-600 font-semibold" :
             "text-green-700 font-semibold"
           }>
-            {row.availableQuantity.toLocaleString()}
-            {isLow && " ⚠"}
+            {row.availableQuantity.toLocaleString()}{isLow && " ⚠"}
           </span>
         )
       }
     },
-    { key: "costPerWatt", header: "Cost/Watt", render: (row: StockEntry) => `Rs ${row.costPerWatt.toFixed(2)}` },
     {
-      key: "gstPerPanel", header: "GST/Panel",
-      render: (row: StockEntry) => row.gstPerPanel > 0
-        ? <span className="text-orange-700">{formatCurrency(row.gstPerPanel)}</span>
-        : <span className="text-gray-400">-</span>
+      key: "reservedQuantity", header: "Reserved",
+      render: (row: StockEntry) => (
+        <span className={row.reservedQuantity > 0 ? "font-semibold text-amber-600" : "text-gray-400"}>
+          {row.reservedQuantity.toLocaleString()}
+        </span>
+      )
     },
     {
-      key: "availableValue", header: "Available Value",
-      render: (row: StockEntry) => formatCurrency(row.availableValue)
+      key: "costPerWatt", header: "Cost/W · GST",
+      render: (row: StockEntry) => (
+        <div className="whitespace-nowrap">
+          <p>Rs {row.costPerWatt.toFixed(2)}</p>
+          {row.gstPerPanel > 0 && <p className="text-orange-600">{formatCurrency(row.gstPerPanel)} gst</p>}
+        </div>
+      )
     },
     {
-      key: "agingDays", header: "Aging",
+      key: "availableValue", header: "Avail. Value",
+      render: (row: StockEntry) => <span className="whitespace-nowrap">{formatCurrency(row.availableValue)}</span>
+    },
+    {
+      key: "agingDays", header: "Age",
       render: (row: StockEntry) => agingBadge(row.agingDays)
     },
-    { key: "receivedAt", header: "Received", render: (row: StockEntry) => formatDate(row.receivedAt) },
+    {
+      key: "receivedAt", header: "Rcvd Date",
+      render: (row: StockEntry) => <span className="whitespace-nowrap">{formatDate(row.receivedAt)}</span>
+    },
     ...(canAdjust ? [{
-      key: "adjust", header: "",
+      key: "actions", header: "",
       render: (row: StockEntry) => (
-        <Button size="sm" variant="ghost" onClick={() => { setSelectedEntry(row); setShowAdjust(true) }}>
-          <SlidersHorizontal size={14} />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" title="Edit entry" onClick={() => {
+            setEditingEntry(row)
+            setEditForm({
+              panelQuantity: String(row.panelQuantity),
+              costPerPanel: String(row.costPerPanel.toFixed(2)),
+              costPerWatt: String(row.costPerWatt.toFixed(4)),
+              receivedAt: row.receivedAt.split("T")[0],
+            })
+            setShowEdit(true)
+          }}>
+            <Pencil size={12} />
+          </Button>
+          <Button size="sm" variant="ghost" title="Adjust stock" onClick={() => { setSelectedEntry(row); setShowAdjust(true) }}>
+            <SlidersHorizontal size={12} />
+          </Button>
+        </div>
       )
     }] : []),
   ]
@@ -353,36 +419,55 @@ export default function StockPage() {
       {unreceivedPOs.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900">Awaiting Goods Receipt ({unreceivedPOs.length})</h3>
-            <p className="text-xs text-gray-400 mt-0.5">CLEARED / SHIPPED POs not yet received into stock</p>
+            <h3 className="font-semibold text-gray-900">Ready to Receive ({unreceivedPOs.length})</h3>
+            <p className="text-xs text-gray-400 mt-0.5">POs with costing calculated — pending full goods receipt</p>
           </div>
           <div className="divide-y divide-gray-100">
-            {unreceivedPOs.map((po) => (
-              <div key={po.id} className="px-6 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{po.poNumber}</p>
-                  <p className="text-xs text-gray-500">
-                    {po.noOfPanels.toLocaleString()} × {po.panelWattage}W
-                    {po.landedCostPerPanel ? ` · Expected cost: ${formatCurrency(po.landedCostPerPanel)}/panel` : " · No clearing yet"}
-                  </p>
+            {unreceivedPOs.map((po) => {
+              const received = receivedPanelsByPO[po.poNumber] || 0
+              const remaining = po.noOfPanels - received
+              const isPartial = received > 0
+              return (
+                <div key={po.id} className="px-6 py-3 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900">{po.poNumber}</p>
+                      {isPartial && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Partial</span>}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {isPartial
+                        ? `${received.toLocaleString()} received · ${remaining.toLocaleString()} remaining of ${po.noOfPanels.toLocaleString()} × ${po.panelWattage}W`
+                        : `${po.noOfPanels.toLocaleString()} × ${po.panelWattage}W`}
+                      {po.landedCostPerPanel ? ` · Rs ${po.landedCostPerPanel.toFixed(2)}/panel` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge status={po.status} />
+                    <Button size="sm" variant="primary" onClick={() => {
+                      const localCPP = po.lcType === "LOCAL" && po.noOfPanels > 0
+                        ? po.poAmountPkr / po.noOfPanels : null
+                      const localCPW = po.lcType === "LOCAL" && po.noOfPanels > 0 && po.panelWattage > 0
+                        ? po.poAmountPkr / (po.noOfPanels * po.panelWattage) : null
+                      setReceiveForm({
+                        poId: po.id,
+                        warehouseId: po.warehouseId || "",
+                        panelQuantity: String(remaining),
+                        costPerPanel: po.landedCostPerPanel
+                          ? String(po.landedCostPerPanel.toFixed(2))
+                          : localCPP ? String(localCPP.toFixed(2)) : "",
+                        costPerWatt: po.landedCostPerWatt
+                          ? String(po.landedCostPerWatt.toFixed(4))
+                          : localCPW ? String(localCPW.toFixed(4)) : "",
+                        receivedAt: new Date().toISOString().split("T")[0],
+                      })
+                      setShowReceive(true)
+                    }}>
+                      Receive
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge status={po.status} />
-                  <Button size="sm" variant="primary" onClick={() => {
-                    setReceiveForm({
-                      poId: po.id,
-                      warehouseId: po.warehouseId || "",
-                      panelQuantity: String(po.noOfPanels),
-                      costPerPanel: po.landedCostPerPanel ? String(po.landedCostPerPanel.toFixed(2)) : "",
-                      receivedAt: new Date().toISOString().split("T")[0],
-                    })
-                    setShowReceive(true)
-                  }}>
-                    Receive
-                  </Button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -393,7 +478,7 @@ export default function StockPage() {
           <h3 className="font-semibold text-gray-900">Stock Entries (Batch View)</h3>
           <p className="text-xs text-gray-400">Aging: green ≤30d, yellow ≤60d, orange ≤90d, red 90d+</p>
         </div>
-        <Table columns={columns} data={(stock || [])} emptyMessage="No stock entries yet" />
+        <Table columns={columns} data={(stock || [])} emptyMessage="No stock entries yet" compact />
       </div>
 
       {/* Receive Stock Modal */}
@@ -404,22 +489,41 @@ export default function StockPage() {
             required
             value={receiveForm.poId}
             onChange={(e) => {
-              const po = clearablePOs.find((p) => p.id === e.target.value)
+              const po = readyPOs.find((p) => p.id === e.target.value)
+              if (!po) {
+                setReceiveForm({ ...receiveForm, poId: e.target.value })
+                return
+              }
+              const received = receivedPanelsByPO[po.poNumber] || 0
+              const remaining = Math.max(0, po.noOfPanels - received)
+              const localCostPerPanel = po.lcType === "LOCAL" && po.noOfPanels > 0
+                ? po.poAmountPkr / po.noOfPanels : null
+              const localCostPerWatt = po.lcType === "LOCAL" && po.noOfPanels > 0 && po.panelWattage > 0
+                ? po.poAmountPkr / (po.noOfPanels * po.panelWattage) : null
               setReceiveForm({
                 ...receiveForm,
                 poId: e.target.value,
-                warehouseId: po?.warehouseId || "",
-                panelQuantity: po ? String(po.noOfPanels) : "",
-                costPerPanel: po?.landedCostPerPanel ? String(po.landedCostPerPanel.toFixed(2)) : "",
+                warehouseId: po.warehouseId || "",
+                panelQuantity: String(remaining),
+                costPerPanel: po.landedCostPerPanel
+                  ? String(po.landedCostPerPanel.toFixed(2))
+                  : localCostPerPanel ? String(localCostPerPanel.toFixed(2)) : "",
+                costPerWatt: po.landedCostPerWatt
+                  ? String(po.landedCostPerWatt.toFixed(4))
+                  : localCostPerWatt ? String(localCostPerWatt.toFixed(4)) : "",
               })
             }}
           >
             <option value="">Select PO...</option>
-            {clearablePOs.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.poNumber} — {p.noOfPanels.toLocaleString()} × {p.panelWattage}W [{p.status}]
-              </option>
-            ))}
+            {readyPOs.map((p) => {
+              const received = receivedPanelsByPO[p.poNumber] || 0
+              const remaining = p.noOfPanels - received
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.poNumber} — {remaining.toLocaleString()} remaining of {p.noOfPanels.toLocaleString()} × {p.panelWattage}W
+                </option>
+              )
+            })}
           </Select>
 
           <Select
@@ -446,22 +550,100 @@ export default function StockPage() {
               step="0.01"
               value={receiveForm.costPerPanel}
               onChange={(e) => setReceiveForm({ ...receiveForm, costPerPanel: e.target.value })}
-              placeholder="Auto-filled from clearing"
+              placeholder="Auto-filled from costing"
             />
           </div>
 
-          <Input
-            label="Received Date"
-            type="date"
-            value={receiveForm.receivedAt}
-            onChange={(e) => setReceiveForm({ ...receiveForm, receivedAt: e.target.value })}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Cost per Watt (PKR)"
+              type="number"
+              step="0.0001"
+              value={receiveForm.costPerWatt}
+              onChange={(e) => setReceiveForm({ ...receiveForm, costPerWatt: e.target.value })}
+              placeholder="Auto-filled from costing"
+            />
+            <Input
+              label="Received Date"
+              type="date"
+              value={receiveForm.receivedAt}
+              onChange={(e) => setReceiveForm({ ...receiveForm, receivedAt: e.target.value })}
+            />
+          </div>
+
+          {receiveForm.poId && (() => {
+            const po = readyPOs.find((p) => p.id === receiveForm.poId)
+            if (!po) return null
+            const received = receivedPanelsByPO[po.poNumber] || 0
+            const remaining = po.noOfPanels - received
+            const entering = parseInt(receiveForm.panelQuantity) || 0
+            if (received === 0) return null
+            return (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                <p className="font-medium">Partial Delivery</p>
+                <p>Previously received: {received.toLocaleString()} panels · Remaining: {remaining.toLocaleString()} panels</p>
+                {entering < remaining && <p className="text-xs mt-1">Receiving {entering.toLocaleString()} now — {(remaining - entering).toLocaleString()} will remain after this batch.</p>}
+              </div>
+            )
+          })()}
 
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowReceive(false)}>Cancel</Button>
             <Button onClick={handleReceive} loading={saving}>Receive Stock</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Edit Stock Entry Modal */}
+      <Modal isOpen={showEdit} onClose={() => { setShowEdit(false); setEditingEntry(null) }} title="Edit Stock Entry">
+        {editingEntry && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-3 text-sm">
+              <p className="font-medium text-gray-900">{editingEntry.product.name}</p>
+              <p className="text-gray-500">{editingEntry.warehouse.name} · PO: {editingEntry.po?.poNumber || "—"}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Number of Panels"
+                type="number"
+                required
+                value={editForm.panelQuantity}
+                onChange={(e) => setEditForm({ ...editForm, panelQuantity: e.target.value })}
+              />
+              <Input
+                label="Cost per Panel (PKR)"
+                type="number"
+                step="0.01"
+                value={editForm.costPerPanel}
+                onChange={(e) => setEditForm({ ...editForm, costPerPanel: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Cost per Watt (PKR)"
+                type="number"
+                step="0.0001"
+                value={editForm.costPerWatt}
+                onChange={(e) => setEditForm({ ...editForm, costPerWatt: e.target.value })}
+              />
+              <Input
+                label="Received Date"
+                type="date"
+                value={editForm.receivedAt}
+                onChange={(e) => setEditForm({ ...editForm, receivedAt: e.target.value })}
+              />
+            </div>
+
+            <p className="text-xs text-gray-500">Changes will update the stock-in movement record accordingly.</p>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => { setShowEdit(false); setEditingEntry(null) }}>Cancel</Button>
+              <Button onClick={handleEdit} loading={saving}>Save Changes</Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Stock Adjustment Modal */}

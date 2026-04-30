@@ -80,10 +80,6 @@ export default function DeliveryOrderPrintPage() {
     return { ...line, doQty: qty, doWatts: watts, pallets }
   })
 
-  const totalPallets = doLines.every((l) => l.pallets !== null)
-    ? doLines.reduce((s, l) => s + (l.pallets ?? 0), 0)
-    : null
-
   const validityDays = order.validityDays ?? 3
 
   return (
@@ -129,7 +125,6 @@ export default function DeliveryOrderPrintPage() {
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Dispatch Details</p>
             <table className="text-sm text-gray-700 w-full">
               <tbody>
-                <tr><td className="text-gray-500 pr-4">DO No.:</td><td className="font-medium">{order.doNumber}</td></tr>
                 <tr><td className="text-gray-500 pr-4">SO No.:</td><td>{order.salesOrder.soNumber}</td></tr>
                 <tr><td className="text-gray-500 pr-4">Date:</td><td>{formatDate(order.createdAt)}</td></tr>
                 <tr><td className="text-gray-500 pr-4">Status:</td><td className="font-medium">{order.status}</td></tr>
@@ -140,33 +135,12 @@ export default function DeliveryOrderPrintPage() {
           </div>
         </div>
 
-        {/* Validity notice */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 mb-6 text-sm text-yellow-800 font-medium">
-          This Delivery Order is valid for <span className="font-bold">{validityDays} working day{validityDays !== 1 ? "s" : ""}</span> from the date of issue.
-        </div>
-
-        {/* Summary boxes */}
-        <div className={`bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 grid gap-4 text-center ${totalPallets !== null ? "grid-cols-4" : "grid-cols-3"}`}>
-          <div>
-            <p className="text-xs text-gray-500">Dispatch From</p>
-            <p className="font-semibold text-sm">{order.warehouse.name}</p>
-            <p className="text-xs text-gray-500">{order.warehouse.location}</p>
-            {order.warehouse.godown && <p className="text-xs text-gray-500">Godown: {order.warehouse.godown}</p>}
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Total Panels</p>
-            <p className="font-bold text-2xl text-blue-700">{doQty.toLocaleString()}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Total Watts</p>
-            <p className="font-bold text-2xl text-blue-700">{(order.watts / 1000).toFixed(1)} kW</p>
-          </div>
-          {totalPallets !== null && (
-            <div>
-              <p className="text-xs text-gray-500">No. of Pallets</p>
-              <p className="font-bold text-2xl text-green-700">{totalPallets}</p>
-            </div>
-          )}
+        {/* Warehouse / Dispatch From */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+          <p className="text-xs text-gray-500 mb-1">Dispatch From</p>
+          <p className="font-semibold text-sm text-gray-900">{order.warehouse.name}</p>
+          <p className="text-xs text-gray-500">{order.warehouse.location}</p>
+          {order.warehouse.godown && <p className="text-xs text-gray-500">Godown: {order.warehouse.godown}</p>}
         </div>
 
         {/* Line items — shows DO quantity, not full SO quantity */}
@@ -204,6 +178,11 @@ export default function DeliveryOrderPrintPage() {
             <p className="text-sm text-gray-700">{order.notes}</p>
           </div>
         )}
+
+        {/* Validity notice — shown below notes */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 mb-6 text-sm text-yellow-800 font-medium">
+          This Delivery Order is valid for <span className="font-bold">{validityDays} working day{validityDays !== 1 ? "s" : ""}</span> from the date of issue.
+        </div>
 
         {/* Signatures */}
         <div className="border-t-2 border-gray-200 pt-6 grid grid-cols-3 gap-4 text-xs text-gray-500 text-center">

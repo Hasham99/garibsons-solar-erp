@@ -16,6 +16,13 @@ export async function POST(request: Request) {
     const costPerWatt = parseFloat(data.costPerWatt || po.landedCostPerWatt || costPerPanel / po.panelWattage)
     const totalValue = costPerPanel * panelQuantity
 
+    // Calculate how many panels were previously received for this PO
+    const existing = await prisma.stockEntry.aggregate({
+      where: { poId: po.id },
+      _sum: { panelQuantity: true },
+    })
+    const previouslyReceived = existing._sum.panelQuantity || 0
+
     const entry = await prisma.stockEntry.create({
       data: {
         productId: po.productId,
@@ -43,18 +50,21 @@ export async function POST(request: Request) {
       },
     })
 
-    // Update PO status
-    await prisma.purchaseOrder.update({
-      where: { id: po.id },
-      data: { status: "RECEIVED" },
-    })
+    // Only mark PO as RECEIVED when all ordered panels have been received
+    const totalReceived = previouslyReceived + panelQuantity
+    if (totalReceived >= po.noOfPanels) {
+      await prisma.purchaseOrder.update({
+        where: { id: po.id },
+        data: { status: "RECEIVED" },
+      })
+    }
 
     await writeAuditLog({
       userId: session.userId,
       action: "STOCK_RECEIVE",
       entity: "StockEntry",
       entityId: entry.id,
-      changes: { poId: po.id, panelQuantity, wattQuantity, costPerPanel, totalValue },
+      changes: { poId: po.id, panelQuantity, wattQuantity, costPerPanel, totalValue, totalReceived, poTotal: po.noOfPanels },
     })
 
     return Response.json(entry, { status: 201 })

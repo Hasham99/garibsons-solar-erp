@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         totalLandedCost,
         landedCostPerPanel,
         landedCostPerWatt,
-        status: "CLEARED",
+        status: "READY_TO_RECEIVE",
       },
     })
 
