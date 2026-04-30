@@ -259,6 +259,11 @@ export default function ProcurementPage() {
     { key: "poNumber", header: "PO Number", sortable: true },
     { key: "product", header: "Product", render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-gray-400">{row.product?.code}</p></div> },
     { key: "supplier", header: "Supplier", render: (row: PO) => row.supplier?.name || "—" },
+    { key: "lcType", header: "LC Type", render: (row: PO) => (
+      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 whitespace-nowrap">
+        {row.lcType}{row.lcType === "USANCE" && row.usanceDays ? ` ${row.usanceDays}d` : ""}
+      </span>
+    )},
     { key: "noOfPanels", header: "Quantity", render: (row: PO) => `${row.noOfPanels.toLocaleString()} × ${row.panelWattage}W` },
     {
       key: "totalValueUsd", header: "USD Value",

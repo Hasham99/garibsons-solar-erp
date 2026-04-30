@@ -59,6 +59,7 @@ interface POOption {
   noOfPanels: number
   panelWattage: number
   warehouseId: string | null
+  warehouse?: { id: string; name: string } | null
   landedCostPerPanel: number | null
   landedCostPerWatt: number | null
   poAmountPkr: number
@@ -189,6 +190,9 @@ export default function StockPage() {
       setSaving(false)
     }
   }
+
+  const poWarehouseId = (po: POOption) =>
+    po.warehouseId || po.warehouse?.id || ""
 
   // LOCAL POs are ready to receive as soon as they are CONFIRMED (no costing step needed).
   // Non-local POs require costing first and show up as READY_TO_RECEIVE (or CLEARED for legacy data).
@@ -450,7 +454,7 @@ export default function StockPage() {
                         ? po.poAmountPkr / (po.noOfPanels * po.panelWattage) : null
                       setReceiveForm({
                         poId: po.id,
-                        warehouseId: po.warehouseId || "",
+                        warehouseId: poWarehouseId(po),
                         panelQuantity: String(remaining),
                         costPerPanel: po.landedCostPerPanel
                           ? String(po.landedCostPerPanel.toFixed(2))
@@ -489,29 +493,30 @@ export default function StockPage() {
             required
             value={receiveForm.poId}
             onChange={(e) => {
-              const po = readyPOs.find((p) => p.id === e.target.value)
+              const poId = e.target.value
+              const po = readyPOs.find((p) => p.id === poId)
               if (!po) {
-                setReceiveForm({ ...receiveForm, poId: e.target.value })
+                setReceiveForm((prev) => ({ ...prev, poId }))
                 return
               }
               const received = receivedPanelsByPO[po.poNumber] || 0
               const remaining = Math.max(0, po.noOfPanels - received)
-              const localCostPerPanel = po.lcType === "LOCAL" && po.noOfPanels > 0
+              const localCPP = po.lcType === "LOCAL" && po.noOfPanels > 0
                 ? po.poAmountPkr / po.noOfPanels : null
-              const localCostPerWatt = po.lcType === "LOCAL" && po.noOfPanels > 0 && po.panelWattage > 0
+              const localCPW = po.lcType === "LOCAL" && po.noOfPanels > 0 && po.panelWattage > 0
                 ? po.poAmountPkr / (po.noOfPanels * po.panelWattage) : null
-              setReceiveForm({
-                ...receiveForm,
-                poId: e.target.value,
-                warehouseId: po.warehouseId || "",
+              setReceiveForm((prev) => ({
+                ...prev,
+                poId,
+                warehouseId: poWarehouseId(po),
                 panelQuantity: String(remaining),
                 costPerPanel: po.landedCostPerPanel
                   ? String(po.landedCostPerPanel.toFixed(2))
-                  : localCostPerPanel ? String(localCostPerPanel.toFixed(2)) : "",
+                  : localCPP ? String(localCPP.toFixed(2)) : "",
                 costPerWatt: po.landedCostPerWatt
                   ? String(po.landedCostPerWatt.toFixed(4))
-                  : localCostPerWatt ? String(localCostPerWatt.toFixed(4)) : "",
-              })
+                  : localCPW ? String(localCPW.toFixed(4)) : "",
+              }))
             }}
           >
             <option value="">Select PO...</option>
