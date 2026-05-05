@@ -6,8 +6,13 @@ import { Header } from "@/components/layout/Header"
 import { Select } from "@/components/ui/Select"
 import { Card } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
+import { Button } from "@/components/ui/Button"
+import { Input } from "@/components/ui/Input"
+import { Modal } from "@/components/ui/Modal"
 import { LoadingPage } from "@/components/ui/Spinner"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { Plus } from "lucide-react"
+import toast, { Toaster } from "react-hot-toast"
 
 interface LedgerEntry {
   id: string
@@ -30,6 +35,14 @@ interface Supplier {
   name: string
 }
 
+interface SOOption {
+  id: string
+  soNumber: string
+  customer: { id: string; name: string }
+  grandTotal: number
+  status: string
+}
+
 interface PO {
   id: string
   poNumber: string
@@ -47,14 +60,64 @@ export default function LedgerPage() {
   const [tab, setTab] = useState<"customer" | "supplier">("customer")
   const [customerId, setCustomerId] = useState("")
   const [supplierId, setSupplierId] = useState("")
+  const [showReceipt, setShowReceipt] = useState(false)
+  const [savingReceipt, setSavingReceipt] = useState(false)
+  const [receiptForm, setReceiptForm] = useState({
+    customerId: "",
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    description: "",
+    reference: "",
+    soId: "",
+  })
 
   const { data: customers } = useFetch<Customer[]>("/api/customers")
   const { data: suppliers } = useFetch<Supplier[]>("/api/suppliers")
-  const { data: ledger, loading: ledgerLoading } = useFetch<LedgerEntry[]>(
+  const { data: salesOrders } = useFetch<SOOption[]>("/api/sales-orders")
+  const { data: ledger, loading: ledgerLoading, refetch: refetchLedger } = useFetch<LedgerEntry[]>(
     customerId ? `/api/ledger?customerId=${customerId}` : "/api/ledger",
     [customerId]
   )
   const { data: pos, loading: posLoading } = useFetch<PO[]>("/api/purchase-orders")
+
+  const eligibleSOs = (salesOrders || []).filter((o) =>
+    ["PAYMENT_CONFIRMED", "DO_ISSUED", "DELIVERED", "INVOICED"].includes(o.status)
+  )
+  const filteredSOs = receiptForm.customerId
+    ? eligibleSOs.filter((o) => o.customer.id === receiptForm.customerId)
+    : eligibleSOs
+
+  const handleRecordReceipt = async () => {
+    if (!receiptForm.customerId || !receiptForm.amount || !receiptForm.date) {
+      return toast.error("Customer, amount and date are required")
+    }
+    setSavingReceipt(true)
+    try {
+      const res = await fetch("/api/ledger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: receiptForm.customerId,
+          amount: receiptForm.amount,
+          date: receiptForm.date,
+          description: receiptForm.description || (receiptForm.reference ? `Collection — ${receiptForm.reference}` : "Collection Receipt"),
+          reference: receiptForm.reference,
+          soId: receiptForm.soId || undefined,
+        }),
+      })
+      if (res.ok) {
+        toast.success("Receipt recorded in ledger")
+        setShowReceipt(false)
+        setReceiptForm({ customerId: "", amount: "", date: new Date().toISOString().split("T")[0], description: "", reference: "", soId: "" })
+        refetchLedger()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to record receipt")
+      }
+    } finally {
+      setSavingReceipt(false)
+    }
+  }
 
   const filteredPOs = supplierId ? (pos || []).filter((p) => p.supplier && (suppliers?.find((s) => s.id === supplierId)?.name === p.supplier.name)) : (pos || [])
 
@@ -83,7 +146,17 @@ export default function LedgerPage() {
 
   return (
     <div className="space-y-6">
-      <Header title="Party Ledger" />
+      <Toaster position="top-right" />
+      <Header
+        title="Party Ledger"
+        actions={
+          tab === "customer" ? (
+            <Button onClick={() => setShowReceipt(true)}>
+              <Plus size={16} className="mr-2" />Record Collection
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Tab Switch */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
@@ -194,6 +267,81 @@ export default function LedgerPage() {
           </div>
         </>
       )}
+
+      {/* ── Record Collection / Receipt Modal ── */}
+      <Modal isOpen={showReceipt} onClose={() => setShowReceipt(false)} title="Record Collection / Receipt" size="lg">
+        <div className="space-y-4">
+          <div className="rounded-xl border border-green-100 bg-green-50 p-4">
+            <p className="text-sm font-semibold text-green-900">Record a customer payment or collection</p>
+            <p className="mt-1 text-xs text-green-700">
+              This creates a credit entry in the customer ledger. Link to a Sales Order if applicable.
+            </p>
+          </div>
+
+          <Select
+            label="Customer *"
+            required
+            value={receiptForm.customerId}
+            onChange={(e) => setReceiptForm((prev) => ({ ...prev, customerId: e.target.value, soId: "" }))}
+          >
+            <option value="">Select customer...</option>
+            {customers?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Amount (PKR) *"
+              type="number"
+              step="0.01"
+              required
+              value={receiptForm.amount}
+              onChange={(e) => setReceiptForm((prev) => ({ ...prev, amount: e.target.value }))}
+              placeholder="e.g. 500000"
+            />
+            <Input
+              label="Date *"
+              type="date"
+              required
+              value={receiptForm.date}
+              onChange={(e) => setReceiptForm((prev) => ({ ...prev, date: e.target.value }))}
+            />
+          </div>
+
+          <Input
+            label="Description"
+            value={receiptForm.description}
+            onChange={(e) => setReceiptForm((prev) => ({ ...prev, description: e.target.value }))}
+            placeholder="e.g. Cheque payment, bank transfer..."
+          />
+
+          <Input
+            label="Reference / Cheque No."
+            value={receiptForm.reference}
+            onChange={(e) => setReceiptForm((prev) => ({ ...prev, reference: e.target.value }))}
+            placeholder="Optional"
+          />
+
+          <Select
+            label="Link to Sales Order (optional)"
+            value={receiptForm.soId}
+            onChange={(e) => setReceiptForm((prev) => ({ ...prev, soId: e.target.value }))}
+          >
+            <option value="">Without SO (standalone receipt)</option>
+            {filteredSOs.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.soNumber} — {o.customer.name} — Rs {o.grandTotal.toLocaleString()}
+              </option>
+            ))}
+          </Select>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setShowReceipt(false)}>Cancel</Button>
+            <Button variant="success" onClick={handleRecordReceipt} loading={savingReceipt}>
+              Record Receipt
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ── Supplier Ledger ── */}
       {tab === "supplier" && (

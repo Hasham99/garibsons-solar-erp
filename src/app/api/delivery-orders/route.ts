@@ -145,10 +145,23 @@ export async function POST(request: Request) {
           notes: data.notes,
           validityDays: data.validityDays ? parseInt(data.validityDays) : 3,
           createdById: session.userId || null,
+          lines: data.lines?.length
+            ? {
+                create: data.lines
+                  .filter((l: { quantity: number }) => l.quantity > 0)
+                  .map((l: { soLineId?: string; productId: string; quantity: number; watts: number }) => ({
+                    soLineId: l.soLineId || null,
+                    productId: l.productId,
+                    quantity: l.quantity,
+                    watts: l.watts,
+                  })),
+              }
+            : undefined,
         },
         include: {
           salesOrder: { include: { customer: true, lines: { include: { product: true } } } },
           warehouse: true,
+          lines: { include: { product: true } },
         },
       })
 

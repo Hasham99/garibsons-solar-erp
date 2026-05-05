@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import { formatDate } from "@/lib/utils"
 
@@ -18,6 +18,18 @@ interface PrintLine {
   totalAmount: number
 }
 
+interface DOLine {
+  product: {
+    name: string
+    code: string
+    wattage: number
+    panelsPerContainer: number | null
+    palletsPerContainer: number | null
+  }
+  quantity: number
+  watts: number
+}
+
 interface DeliveryOrder {
   id: string
   doNumber: string
@@ -30,6 +42,7 @@ interface DeliveryOrder {
   dispatchedAt: string | null
   notes: string | null
   createdAt: string
+  lines: DOLine[]
   salesOrder: {
     soNumber: string
     customer: { name: string; address: string | null; ntn: string | null; contactPhone: string | null }
@@ -49,6 +62,8 @@ export default function DeliveryOrderPrintPage() {
   const { id } = useParams<{ id: string }>()
   const [order, setOrder] = useState<DeliveryOrder | null>(null)
   const [loading, setLoading] = useState(true)
+  const [imgWorking, setImgWorking] = useState(false)
+  const printAreaRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch(`/api/delivery-orders/${id}`)
@@ -60,25 +75,119 @@ export default function DeliveryOrderPrintPage() {
     if (!loading && order) setTimeout(() => window.print(), 500)
   }, [loading, order])
 
+  // A4 at 96 DPI = 794 × 1123px; we render at 2× for sharpness
+  const A4_W = 794
+  const A4_H = 1123
+  const PIXEL_RATIO = 2
+  const PAD = 48 // px padding on all sides (at 1×)
+
+  const buildA4Canvas = async (): Promise<HTMLCanvasElement | null> => {
+    if (!printAreaRef.current) return null
+    const { toPng } = await import("html-to-image")
+
+    // Capture at natural rendered size — no width override to avoid clipping
+    const dataUrl = await toPng(printAreaRef.current, {
+      quality: 1,
+      pixelRatio: PIXEL_RATIO,
+      backgroundColor: "#ffffff",
+    })
+
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const pad = PAD * PIXEL_RATIO
+        const canvasW = A4_W * PIXEL_RATIO
+        const contentAreaW = canvasW - pad * 2
+
+        // Scale content to fit exactly within the A4 content width
+        const scale = contentAreaW / img.width
+        const scaledW = contentAreaW
+        const scaledH = Math.round(img.height * scale)
+
+        const canvasH = Math.max(A4_H * PIXEL_RATIO, scaledH + pad * 2)
+
+        const canvas = document.createElement("canvas")
+        canvas.width = canvasW
+        canvas.height = canvasH
+
+        const ctx = canvas.getContext("2d")!
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, canvasW, canvasH)
+        ctx.drawImage(img, pad, pad, scaledW, scaledH)
+
+        resolve(canvas)
+      }
+      img.src = dataUrl
+    })
+  }
+
+  const handleDownloadImage = async () => {
+    if (!order) return
+    setImgWorking(true)
+    try {
+      const canvas = await buildA4Canvas()
+      if (!canvas) return
+      const a = document.createElement("a")
+      a.download = `DO-${order.doNumber}.png`
+      a.href = canvas.toDataURL("image/png", 1)
+      a.click()
+    } catch (e) {
+      console.error(e)
+      alert("Failed to generate image")
+    } finally {
+      setImgWorking(false)
+    }
+  }
+
+  const handleCopyImage = async () => {
+    if (!order) return
+    setImgWorking(true)
+    try {
+      const canvas = await buildA4Canvas()
+      if (!canvas) return
+      canvas.toBlob(async (blob) => {
+        if (!blob) return
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+          alert("DO image copied to clipboard!")
+        } catch {
+          alert("Copy to clipboard not supported in this browser. Use Download instead.")
+        }
+      }, "image/png")
+    } catch (e) {
+      console.error(e)
+      alert("Failed to copy image")
+    } finally {
+      setImgWorking(false)
+    }
+  }
+
   if (loading) return <div className="p-8 text-gray-500">Loading delivery order...</div>
   if (!order) return <div className="p-8 text-red-500">Delivery order not found</div>
 
-  const soTotalPanels = order.salesOrder.lines.reduce((s, l) => s + l.quantity, 0)
-  const doQty = order.quantity
-
-  // Prorate DO quantity across SO lines; last line absorbs rounding
-  const doLines = order.salesOrder.lines.map((line, i) => {
-    const isLast = i === order.salesOrder.lines.length - 1
-    const previous = order.salesOrder.lines.slice(0, i).reduce((s, l) => {
-      return s + (soTotalPanels > 0 ? Math.round((l.quantity / soTotalPanels) * doQty) : 0)
-    }, 0)
-    const qty = isLast
-      ? doQty - previous
-      : (soTotalPanels > 0 ? Math.round((line.quantity / soTotalPanels) * doQty) : 0)
-    const watts = qty * line.product.wattage
-    const pallets = computePallets(qty, line.product)
-    return { ...line, doQty: qty, doWatts: watts, pallets }
-  })
+  // Use actual per-product DO lines when available; fall back to proration for legacy DOs
+  const doLines = order.lines && order.lines.length > 0
+    ? order.lines.map((line) => ({
+        ...line,
+        doQty: line.quantity,
+        doWatts: line.watts,
+        pallets: computePallets(line.quantity, line.product),
+      }))
+    : (() => {
+        const soTotalPanels = order.salesOrder.lines.reduce((s, l) => s + l.quantity, 0)
+        const doQty = order.quantity
+        return order.salesOrder.lines.map((line, i) => {
+          const isLast = i === order.salesOrder.lines.length - 1
+          const previous = order.salesOrder.lines.slice(0, i).reduce((s, l) => {
+            return s + (soTotalPanels > 0 ? Math.round((l.quantity / soTotalPanels) * doQty) : 0)
+          }, 0)
+          const qty = isLast
+            ? doQty - previous
+            : (soTotalPanels > 0 ? Math.round((line.quantity / soTotalPanels) * doQty) : 0)
+          const watts = qty * line.product.wattage
+          return { ...line, doQty: qty, doWatts: watts, pallets: computePallets(qty, line.product) }
+        })
+      })()
 
   const validityDays = order.validityDays ?? 3
 
@@ -96,8 +205,16 @@ export default function DeliveryOrderPrintPage() {
       <div className="max-w-3xl mx-auto p-8 bg-white">
         <div className="no-print flex justify-end mb-4 gap-2">
           <button type="button" onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Print / Save PDF</button>
+          <button type="button" onClick={handleDownloadImage} disabled={imgWorking} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50">
+            {imgWorking ? "Working..." : "Download Image"}
+          </button>
+          <button type="button" onClick={handleCopyImage} disabled={imgWorking} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50">
+            Copy Image
+          </button>
           <button type="button" onClick={() => window.close()} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">Close</button>
         </div>
+
+        <div ref={printAreaRef}>
 
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
@@ -204,6 +321,7 @@ export default function DeliveryOrderPrintPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">Generated by Garibsons Solar ERP · {new Date().toLocaleString("en-PK")}</p>
+        </div>{/* end printAreaRef */}
       </div>
     </>
   )

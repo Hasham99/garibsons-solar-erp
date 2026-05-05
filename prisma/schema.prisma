@@ -129,10 +129,11 @@ model Product {
   defaultSupplierId String?
   defaultSupplier   Supplier? @relation("ProductDefaultSupplier", fields: [defaultSupplierId], references: [id])
 
-  purchaseOrders  PurchaseOrder[]
-  stockEntries    StockEntry[]
-  salesOrderLines SalesOrderLine[]
-  quotationLines  QuotationLine[]
+  purchaseOrders    PurchaseOrder[]
+  stockEntries      StockEntry[]
+  salesOrderLines   SalesOrderLine[]
+  quotationLines    QuotationLine[]
+  deliveryOrderLines DeliveryOrderLine[]
 }
 
 model Supplier {
@@ -453,6 +454,8 @@ model SalesOrderLine {
   ratePerPanel Float
   totalAmount  Float
   stockEntryId String?
+
+  deliveryLines DeliveryOrderLine[]
 }
 
 model DeliveryOrder {
@@ -478,8 +481,22 @@ model DeliveryOrder {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  lines          DeliveryOrderLine[]
   stockMovements StockMovement[]
   invoices       Invoice[]
+}
+
+model DeliveryOrderLine {
+  id            String        @id @default(cuid())
+  doId          String
+  deliveryOrder DeliveryOrder @relation(fields: [doId], references: [id], onDelete: Cascade)
+  soLineId      String?
+  salesOrderLine SalesOrderLine? @relation(fields: [soLineId], references: [id])
+  productId     String
+  product       Product       @relation(fields: [productId], references: [id])
+  quantity      Int
+  watts         Int
+  createdAt     DateTime      @default(now())
 }
 
 model Invoice {

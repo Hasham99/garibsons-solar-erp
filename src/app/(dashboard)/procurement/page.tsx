@@ -37,21 +37,43 @@ interface PODocument {
 interface PO {
   id: string
   poNumber: string
-  product: { name: string; code: string }
+  product: { name: string; code: string; wattage: number; panelsPerContainer: number | null; palletsPerContainer: number | null }
   supplier: { name: string }
+  bank: { name: string } | null
+  warehouse: { name: string; location: string } | null
+  exchangeRate: { source: string; rate: number; notes: string | null } | null
+  costing: { reference: string; landedCostPerWatt: number; landedCostPerPanel: number } | null
   noOfPanels: number
   panelWattage: number
+  totalWatts: number
+  noOfContainers: number | null
+  noOfPallets: number | null
+  usdPerWatt: number
   totalValueUsd: number
   poAmountPkr: number
+  leadTimeDays: number | null
   status: string
   lcType: string
   lcNumber: string | null
   usanceDays: number | null
   createdAt: string
+  notes?: string | null
+  // Clearing charges
+  lcValuePkr: number | null
+  importShippingFreight: number | null
+  bankCharges: number | null
+  marineInsurance: number | null
+  exciseCharges: number | null
+  shippingDO: number | null
+  terminalHandling: number | null
+  clearingCharges: number | null
+  miscClearing: number | null
+  containerTransport: number | null
+  gstInputAmount: number | null
   totalLandedCost: number | null
   landedCostPerPanel: number | null
+  landedCostPerWatt: number | null
   documents?: PODocument[]
-  notes?: string | null
 }
 
 interface ProductOption {
@@ -60,6 +82,8 @@ interface ProductOption {
   code: string
   wattage: number
   defaultSupplierId: string | null
+  panelsPerContainer: number | null
+  palletsPerContainer: number | null
 }
 
 export default function ProcurementPage() {
@@ -89,11 +113,14 @@ export default function ProcurementPage() {
   })
 
   const [clearForm, setClearForm] = useState({
-    lcValuePkr: "", importFreightCost: "", importShippingFreight: "",
+    lcValuePkr: "", importShippingFreight: "",
     bankCharges: "", marineInsurance: "", exciseCharges: "",
     shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "",
     containerTransport: "", gstInputAmount: "",
   })
+  const [freightUsd, setFreightUsd] = useState("")
+  const [freightExRate, setFreightExRate] = useState("")
+  const [incoterm, setIncoterm] = useState<"FOB" | "CNF">("FOB")
 
   const handleProductChange = (productId: string) => {
     const p = products?.find((x) => x.id === productId)
@@ -115,6 +142,14 @@ export default function ProcurementPage() {
   }
 
   const effectiveRate = parseFloat(form.customRate) || rates?.find((r) => r.id === form.exchangeRateId)?.rate || 0
+
+  // Auto-compute PKR freight from USD inputs
+  const computedFreightPkr = (() => {
+    const usd = parseFloat(freightUsd) || 0
+    const rate = parseFloat(freightExRate) || 0
+    return usd > 0 && rate > 0 ? usd * rate : 0
+  })()
+
   const clearTotal = Object.values(clearForm).reduce((s, v) => s + (parseFloat(v) || 0), 0)
 
   const isLocal = form.lcType === "LOCAL"
@@ -173,16 +208,19 @@ export default function ProcurementPage() {
     if (!selectedPO) return
     setSaving(true)
     try {
+      const payload = { ...clearForm, importFreightCost: "0" }
       const res = await fetch(`/api/purchase-orders/${selectedPO.id}/clear`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(clearForm),
+        body: JSON.stringify(payload),
       })
       if (res.ok) {
         toast.success("Costing saved — PO marked Ready to Receive")
         setShowClear(false)
         setSelectedPO(null)
-        setClearForm({ lcValuePkr: "", importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+        setFreightUsd("")
+        setFreightExRate("")
+        setClearForm({ lcValuePkr: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
         refetch()
       } else {
         toast.error("Failed to save costing")
@@ -218,10 +256,13 @@ export default function ProcurementPage() {
     setSelectedPO(po)
     setClearForm({
       lcValuePkr: String(po.poAmountPkr || ""),
-      importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "",
+      importShippingFreight: "", bankCharges: "", marineInsurance: "",
       exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "",
       containerTransport: "", gstInputAmount: "",
     })
+    setFreightUsd("")
+    setFreightExRate("")
+    setIncoterm("FOB")
     setShowClear(true)
   }
 
@@ -290,7 +331,10 @@ export default function ProcurementPage() {
             <Button size="sm" variant="ghost" onClick={(e) => {
               e.stopPropagation()
               setSelectedPO(row)
-              setClearForm({ lcValuePkr: String(row.poAmountPkr || ""), importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+              setClearForm({ lcValuePkr: String(row.poAmountPkr || ""), importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+              setFreightUsd("")
+              setFreightExRate("")
+              setIncoterm("FOB")
               setShowClear(true)
             }}>
               <FileCheck size={14} className="mr-1" />Clearing
@@ -328,69 +372,195 @@ export default function ProcurementPage() {
       {/* ── PO Detail / Preview Popup ── */}
       <Modal isOpen={showDetail} onClose={() => { setShowDetail(false); setSelectedPO(null) }} title={`PO Details — ${selectedPO?.poNumber}`} size="lg">
         {selectedPO && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Product</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.product?.name}</p>
-                  <p className="text-xs text-gray-400">{selectedPO.product?.code}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Supplier</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.supplier?.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Quantity</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.noOfPanels.toLocaleString()} panels × {selectedPO.panelWattage}W</p>
-                  <p className="text-xs text-gray-400">{(selectedPO.noOfPanels * selectedPO.panelWattage / 1000).toFixed(1)} kW total</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">LC Type</p>
-                  <p className="font-semibold text-gray-900">
-                    {selectedPO.lcType}
-                    {selectedPO.lcType === "USANCE" && selectedPO.usanceDays && ` (${selectedPO.usanceDays} days)`}
-                  </p>
-                  {selectedPO.lcNumber && <p className="text-xs text-gray-400">{selectedPO.lcNumber}</p>}
-                </div>
-              </div>
+          <div className="space-y-5 text-sm">
 
-              <div className="space-y-3">
-                {selectedPO.totalValueUsd > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">USD Value</p>
-                    <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString()}</p>
-                  </div>
-                )}
+            {/* ── Section: Basic Info ── */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Purchase Order Info</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">PKR Amount (at booking)</p>
-                  <p className="font-semibold text-gray-900">{formatCurrency(selectedPO.poAmountPkr)}</p>
+                  <p className="text-xs text-gray-500">PO Number</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.poNumber}</p>
                 </div>
-                {selectedPO.totalLandedCost && (
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Total Landed Cost</p>
-                    <p className="font-semibold text-blue-700">{formatCurrency(selectedPO.totalLandedCost)}</p>
-                    <p className="text-xs text-gray-400">{selectedPO.landedCostPerPanel ? `${formatCurrency(selectedPO.landedCostPerPanel)}/panel` : ""}</p>
-                  </div>
-                )}
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
+                  <p className="text-xs text-gray-500">Status</p>
                   <Badge status={selectedPO.status} />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Created</p>
+                  <p className="text-xs text-gray-500">Product</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.product?.name}</p>
+                  <p className="text-xs text-gray-400">{selectedPO.product?.code} · {selectedPO.product?.wattage}W</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Supplier</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.supplier?.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">LC Type</p>
+                  <p className="font-semibold text-gray-900">
+                    {selectedPO.lcType}
+                    {selectedPO.lcType === "USANCE" && selectedPO.usanceDays ? ` — ${selectedPO.usanceDays} days usance` : ""}
+                  </p>
+                  {selectedPO.lcNumber && <p className="text-xs text-gray-400">LC#: {selectedPO.lcNumber}</p>}
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Bank</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.bank?.name || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Destination Warehouse</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.warehouse?.name || "—"}</p>
+                  {selectedPO.warehouse?.location && <p className="text-xs text-gray-400">{selectedPO.warehouse.location}</p>}
+                </div>
+                {selectedPO.leadTimeDays && (
+                  <div>
+                    <p className="text-xs text-gray-500">Lead Time</p>
+                    <p className="font-semibold text-gray-900">{selectedPO.leadTimeDays} days</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-500">Created</p>
                   <p className="font-semibold text-gray-900">{formatDate(selectedPO.createdAt)}</p>
                 </div>
               </div>
             </div>
 
-            {selectedPO.notes && (
-              <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
-                <p className="text-xs text-gray-500 mb-1">Notes</p>
-                {selectedPO.notes}
+            {/* ── Section: Quantity & Pricing ── */}
+            <div className="border-t pt-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Quantity & Pricing</p>
+              <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                <div>
+                  <p className="text-xs text-gray-500">No. of Panels</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.noOfPanels.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Panel Wattage</p>
+                  <p className="font-semibold text-gray-900">{selectedPO.panelWattage}W</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Total Watts</p>
+                  <p className="font-semibold text-gray-900">{(selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage).toLocaleString()} W</p>
+                  <p className="text-xs text-gray-400">{((selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage) / 1000).toFixed(1)} kW</p>
+                </div>
+                {(() => {
+                  const ppc = selectedPO.product?.panelsPerContainer
+                  const computed = ppc && ppc > 0 ? Math.ceil(selectedPO.noOfPanels / ppc) : selectedPO.noOfContainers
+                  return computed ? (
+                    <>
+                      <div>
+                        <p className="text-xs text-gray-500">No. of Containers</p>
+                        <p className="font-semibold text-blue-700">{computed}</p>
+                      </div>
+                      {selectedPO.noOfPallets && (
+                        <div>
+                          <p className="text-xs text-gray-500">No. of Pallets</p>
+                          <p className="font-semibold text-gray-900">{selectedPO.noOfPallets}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : null
+                })()}
+                {selectedPO.lcType !== "LOCAL" && (
+                  <div>
+                    <p className="text-xs text-gray-500">USD per Watt</p>
+                    <p className="font-semibold text-gray-900">${selectedPO.usdPerWatt?.toFixed(4)}</p>
+                  </div>
+                )}
+                {selectedPO.exchangeRate && (
+                  <div>
+                    <p className="text-xs text-gray-500">Exchange Rate</p>
+                    <p className="font-semibold text-gray-900">Rs {selectedPO.exchangeRate.rate}</p>
+                    <p className="text-xs text-gray-400">{selectedPO.exchangeRate.source}{selectedPO.exchangeRate.notes ? ` · ${selectedPO.exchangeRate.notes}` : ""}</p>
+                  </div>
+                )}
+                {selectedPO.totalValueUsd > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-500">Total USD Value</p>
+                    <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-500">PKR Amount (at booking)</p>
+                  <p className="font-semibold text-gray-900">{formatCurrency(selectedPO.poAmountPkr)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Section: Linked Costing ── */}
+            {selectedPO.costing && (
+              <div className="border-t pt-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Linked Costing</p>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Costing Reference</p>
+                    <p className="font-semibold text-gray-900">{selectedPO.costing.reference}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Landed Cost/Watt</p>
+                    <p className="font-semibold text-blue-700">Rs {selectedPO.costing.landedCostPerWatt?.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Landed Cost/Panel</p>
+                    <p className="font-semibold text-blue-700">{formatCurrency(selectedPO.costing.landedCostPerPanel)}</p>
+                  </div>
+                </div>
               </div>
             )}
 
+            {/* ── Section: Clearing Charges ── */}
+            {selectedPO.totalLandedCost != null && (
+              <div className="border-t pt-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Clearing Charges</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                  {[
+                    { label: "LC / Purchase Value",   value: selectedPO.lcValuePkr },
+                    { label: "Import Shipping Freight", value: selectedPO.importShippingFreight },
+                    { label: "Bank Charges",           value: selectedPO.bankCharges },
+                    { label: "Marine / Transit Insurance", value: selectedPO.marineInsurance },
+                    { label: "Excise",                 value: selectedPO.exciseCharges },
+                    { label: "Shipping DO",            value: selectedPO.shippingDO },
+                    { label: "Terminal (THC)",          value: selectedPO.terminalHandling },
+                    { label: "Customs & Clearing",     value: selectedPO.clearingCharges },
+                    { label: "Miscellaneous Clearing", value: selectedPO.miscClearing },
+                    { label: "Transportation",         value: selectedPO.containerTransport },
+                    { label: "GST Paid at Import",     value: selectedPO.gstInputAmount },
+                  ].filter(({ value }) => value != null && value > 0).map(({ label, value }) => (
+                    <div key={label} className="flex items-center justify-between py-1 border-b border-gray-100">
+                      <span className="text-gray-500">{label}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(value!)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 bg-blue-50 rounded-lg p-3 grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xs text-blue-600">Total Landed Cost</p>
+                    <p className="font-bold text-blue-900">{formatCurrency(selectedPO.totalLandedCost)}</p>
+                  </div>
+                  {selectedPO.landedCostPerPanel && (
+                    <div>
+                      <p className="text-xs text-blue-600">Per Panel</p>
+                      <p className="font-bold text-blue-900">{formatCurrency(selectedPO.landedCostPerPanel)}</p>
+                    </div>
+                  )}
+                  {selectedPO.landedCostPerWatt && (
+                    <div>
+                      <p className="text-xs text-blue-600">Per Watt</p>
+                      <p className="font-bold text-blue-900">Rs {selectedPO.landedCostPerWatt.toFixed(2)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Notes ── */}
+            {selectedPO.notes && (
+              <div className="border-t pt-3">
+                <p className="text-xs text-gray-500 mb-1">Notes</p>
+                <p className="text-gray-700 whitespace-pre-line">{selectedPO.notes}</p>
+              </div>
+            )}
+
+            {/* ── Actions ── */}
             <div className="flex flex-wrap justify-between gap-3 border-t pt-4">
               <div className="flex gap-2">
                 {selectedPO.status === "DRAFT" && (
@@ -401,7 +571,10 @@ export default function ProcurementPage() {
                 )}
                 {selectedPO.status === "SHIPPED" && (
                   <Button variant="primary" size="sm" onClick={() => {
-                    setClearForm({ lcValuePkr: String(selectedPO.poAmountPkr || ""), importFreightCost: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+                    setClearForm({ lcValuePkr: String(selectedPO.poAmountPkr || ""), importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+                    setFreightUsd("")
+                    setFreightExRate("")
+                    setIncoterm("FOB")
                     setShowDetail(false)
                     setShowClear(true)
                   }}>
@@ -493,6 +666,14 @@ export default function ProcurementPage() {
                 const panels = parseInt(form.noOfPanels) || 0
                 const wattage = parseInt(form.panelWattage) || 0
                 const totalKW = (panels * wattage / 1000).toFixed(1)
+                const selectedProduct = products?.find((p) => p.id === form.productId)
+                const panelsPerContainer = selectedProduct?.panelsPerContainer
+                const palletsPerContainer = selectedProduct?.palletsPerContainer
+                const containers = panelsPerContainer && panelsPerContainer > 0 ? Math.ceil(panels / panelsPerContainer) : null
+                const pallets = panelsPerContainer && palletsPerContainer && panelsPerContainer > 0
+                  ? Math.ceil(panels / (panelsPerContainer / palletsPerContainer))
+                  : null
+
                 if (isLocal) {
                   const rsPW = parseFloat(form.rsPerWatt) || 0
                   const totalPKR = panels * wattage * rsPW
@@ -500,6 +681,7 @@ export default function ProcurementPage() {
                   return (
                     <div className="text-blue-700 space-y-0.5">
                       <p>{panels.toLocaleString()} panels × {wattage}W = {totalKW} kW</p>
+                      {containers !== null && <p className="font-medium text-blue-800">Containers: {containers} · {panelsPerContainer} panels/container{pallets !== null ? ` · Pallets: ${pallets}` : ""}</p>}
                       <p>Rs/Watt: Rs {rsPW}</p>
                       <p className="font-semibold">Total PKR: Rs {totalPKR.toLocaleString()}</p>
                       {totalUSD !== null && (
@@ -514,6 +696,7 @@ export default function ProcurementPage() {
                 return (
                   <div className="text-blue-700 space-y-0.5">
                     <p>{panels.toLocaleString()} panels × {wattage}W = {totalKW} kW</p>
+                    {containers !== null && <p className="font-medium text-blue-800">Containers: {containers} · {panelsPerContainer} panels/container{pallets !== null ? ` · Pallets: ${pallets}` : ""}</p>}
                     <p>Total USD: ${totalUSD}</p>
                     <p>Total PKR @ Rs{effectiveRate || "?"}: Rs {totalPKR}</p>
                   </div>
@@ -535,22 +718,96 @@ export default function ProcurementPage() {
           <p className="text-sm text-gray-500">
             {selectedPO?.lcType === "LOCAL"
               ? "Enter the total cost breakdown for this local purchase. All amounts in PKR."
-              : "Enter all charges as per vendor bills. All amounts in PKR."}
+              : "Enter all charges as per vendor bills. All amounts in PKR unless noted."}
           </p>
+
+          {/* FOB / CNF toggle for non-local POs */}
+          {selectedPO?.lcType !== "LOCAL" && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-700">Shipping Terms:</span>
+              {(["FOB", "CNF"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setIncoterm(t)}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    incoterm === t
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+              <span className="text-xs text-gray-400">
+                {incoterm === "FOB" ? "Freight charged separately" : "Freight included in price — skip freight"}
+              </span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={selectedPO?.lcType === "LOCAL" ? "Local Purchase Value PKR *" : "Document LC Value PKR *"}
+              type="number" step="0.01"
+              value={clearForm.lcValuePkr}
+              onChange={(e) => setClearForm({ ...clearForm, lcValuePkr: e.target.value })}
+            />
+
+            {/* Import Shipping Freight — USD inputs for non-local FOB; hidden for CNF */}
+            {selectedPO?.lcType !== "LOCAL" && incoterm === "FOB" ? (
+              <div className="col-span-2 bg-gray-50 rounded-lg p-3 space-y-3 border border-gray-200">
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Import Shipping Freight (USD → PKR)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <Input
+                    label="Freight (USD $)"
+                    type="number" step="0.01"
+                    value={freightUsd}
+                    onChange={(e) => {
+                      setFreightUsd(e.target.value)
+                      const pkr = (parseFloat(e.target.value) || 0) * (parseFloat(freightExRate) || 0)
+                      if (pkr > 0) setClearForm((prev) => ({ ...prev, importShippingFreight: pkr.toFixed(2) }))
+                    }}
+                    placeholder="e.g. 15000"
+                  />
+                  <Input
+                    label="Exchange Rate (PKR/USD)"
+                    type="number" step="0.01"
+                    value={freightExRate}
+                    onChange={(e) => {
+                      setFreightExRate(e.target.value)
+                      const pkr = (parseFloat(freightUsd) || 0) * (parseFloat(e.target.value) || 0)
+                      if (pkr > 0) setClearForm((prev) => ({ ...prev, importShippingFreight: pkr.toFixed(2) }))
+                    }}
+                    placeholder="e.g. 278.50"
+                  />
+                  <Input
+                    label="Freight PKR (auto-computed)"
+                    type="number" step="0.01"
+                    value={clearForm.importShippingFreight}
+                    onChange={(e) => setClearForm({ ...clearForm, importShippingFreight: e.target.value })}
+                    placeholder={computedFreightPkr > 0 ? computedFreightPkr.toFixed(2) : "0"}
+                  />
+                </div>
+              </div>
+            ) : selectedPO?.lcType === "LOCAL" ? (
+              <Input
+                label="Import Shipping Freight"
+                type="number" step="0.01"
+                value={clearForm.importShippingFreight}
+                onChange={(e) => setClearForm({ ...clearForm, importShippingFreight: e.target.value })}
+              />
+            ) : null}
+
             {[
-              { key: "lcValuePkr",            label: selectedPO?.lcType === "LOCAL" ? "Local Purchase Value PKR *" : "Document LC Value PKR *" },
-              { key: "importFreightCost",     label: "Import Freight Cost" },
-              { key: "importShippingFreight", label: "Import Shipping Freight" },
-              { key: "bankCharges",           label: "Bank Charges" },
-              { key: "marineInsurance",       label: "Insurance Marine/Transit 0.15%" },
-              { key: "exciseCharges",         label: "Excise 0.80%" },
-              { key: "shippingDO",            label: "Shipping DO" },
-              { key: "terminalHandling",      label: "Terminal (THC)" },
-              { key: "clearingCharges",       label: "Misc Customs & Clearing" },
-              { key: "miscClearing",          label: "Miscellaneous Clearing" },
-              { key: "containerTransport",    label: "Transportation" },
-              { key: "gstInputAmount",        label: "GST Paid at Import (part of cost)" },
+              { key: "bankCharges",        label: "Bank Charges" },
+              { key: "marineInsurance",    label: "Insurance Marine/Transit 0.15%" },
+              { key: "exciseCharges",      label: "Excise 0.80%" },
+              { key: "shippingDO",         label: "Shipping DO" },
+              { key: "terminalHandling",   label: "Terminal (THC)" },
+              { key: "clearingCharges",    label: "Misc Customs & Clearing" },
+              { key: "miscClearing",       label: "Miscellaneous Clearing" },
+              { key: "containerTransport", label: "Transportation" },
+              { key: "gstInputAmount",     label: "GST Paid at Import (part of cost)" },
             ].map(({ key, label }) => (
               <Input
                 key={key}

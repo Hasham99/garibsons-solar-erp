@@ -85,10 +85,75 @@ const AGING_BUCKETS = [
   { label: "90+ Days", key: "over90", color: "bg-red-100 border-red-300 text-red-900" },
 ]
 
+interface POStatusRow {
+  id: string
+  poNumber: string
+  product: string
+  supplier: string
+  noOfPanels: number
+  panelWattage: number
+  totalValueUsd: number
+  poAmountPkr: number
+  totalLandedCost: number | null
+  landedCostPerPanel: number | null
+  status: string
+  lcType: string
+  noOfContainers: number | null
+  receivedPanels: number
+  pendingPanels: number
+  createdAt: string
+}
+
+interface POStatusData {
+  rows: POStatusRow[]
+  byStatus: Record<string, number>
+}
+
+interface StockSummaryRow {
+  id: string
+  product: string
+  productCode: string
+  wattage: number
+  warehouse: string
+  poNumber: string | null
+  panelsPerContainer: number | null
+  currentPanels: number
+  reservedPanels: number
+  availablePanels: number
+  currentWatts: number
+  availableWatts: number
+  containers: number | null
+  availContainers: number | null
+  pallets: number | null
+  soReservedPanels: number
+  doDispatchedPanels: number
+  costPerPanel: number
+  availableValue: number
+  totalValue: number
+}
+
+interface StockSummaryData {
+  rows: StockSummaryRow[]
+  totals: {
+    currentPanels: number
+    availablePanels: number
+    reservedPanels: number
+    currentWatts: number
+    availableWatts: number
+    totalValue: number
+    availableValue: number
+    soReservedPanels: number
+    doDispatchedPanels: number
+  }
+}
+
+type StockUnit = "panel" | "watt" | "container" | "pallet"
+
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState<"receivables" | "gst" | "pl">("receivables")
+  const [activeTab, setActiveTab] = useState<"receivables" | "gst" | "pl" | "po-status" | "stock">("receivables")
   const [gstMonth, setGstMonth] = useState(new Date().toISOString().slice(0, 7))
   const [exportingGST, setExportingGST] = useState(false)
+  const [stockUnit, setStockUnit] = useState<StockUnit>("panel")
 
   const { data: plData, loading: plLoading } = useFetch<PLData>("/api/reports/pl")
   const { data: receivables, loading: recLoading } = useFetch<ReceivablesData>("/api/reports/receivables")
@@ -96,6 +161,8 @@ export default function ReportsPage() {
     `/api/reports/gst${gstMonth ? `?month=${gstMonth}` : ""}`,
     [gstMonth]
   )
+  const { data: poStatusData, loading: poStatusLoading } = useFetch<POStatusData>("/api/reports/po-status")
+  const { data: stockSummary, loading: stockLoading } = useFetch<StockSummaryData>("/api/reports/stock-summary")
 
   const handleGSTExport = async () => {
     setExportingGST(true)
@@ -115,10 +182,23 @@ export default function ReportsPage() {
     }
   }
 
+  const fmtStock = (panels: number, row: StockSummaryRow): string => {
+    if (stockUnit === "watt") return `${(panels * row.wattage).toLocaleString()} W`
+    if (stockUnit === "container" && row.panelsPerContainer && row.panelsPerContainer > 0)
+      return `${Math.ceil(panels / row.panelsPerContainer)} ctr`
+    if (stockUnit === "pallet" && row.pallets !== null && row.currentPanels > 0)
+      return `${Math.ceil((panels / row.currentPanels) * row.pallets)} plt`
+    return panels.toLocaleString()
+  }
+
+  const PO_STATUSES = ["DRAFT", "CONFIRMED", "SHIPPED", "READY_TO_RECEIVE", "RECEIVED", "CANCELLED"]
+
   const tabs = [
     { key: "receivables", label: "Receivables Aging" },
     { key: "gst", label: "GST Returns" },
     { key: "pl", label: "P&L by Shipment" },
+    { key: "po-status", label: "PO Status" },
+    { key: "stock", label: "Stock Reports" },
   ]
 
   return (
@@ -396,6 +476,152 @@ export default function ReportsPage() {
                         </td>
                         <td className="px-3 py-3 text-sm font-bold text-gray-600">{formatCurrency(plData.totals.inventoryValue)}</td>
                         <td />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {/* ── PO STATUS ── */}
+      {activeTab === "po-status" && (
+        <div className="space-y-6">
+          {poStatusLoading ? <LoadingPage /> : (
+            <>
+              {/* Status summary chips */}
+              {poStatusData && (
+                <div className="flex flex-wrap gap-3">
+                  {PO_STATUSES.map((s) => (
+                    <div key={s} className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-2">
+                      <Badge status={s} />
+                      <span className="font-bold text-gray-900">{poStatusData.byStatus[s] ?? 0}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {["PO #", "Product", "Supplier", "LC Type", "Panels", "Containers", "USD Value", "PKR Amount", "Landed/Panel", "Received", "Pending", "Status", "Date"].map((h) => (
+                        <th key={h} className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {poStatusData?.rows.map((row) => (
+                      <tr key={row.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-3 text-sm font-medium text-blue-700">{row.poNumber}</td>
+                        <td className="px-3 py-3 text-sm max-w-[140px] truncate">{row.product}</td>
+                        <td className="px-3 py-3 text-sm text-gray-500">{row.supplier}</td>
+                        <td className="px-3 py-3 text-sm">{row.lcType}</td>
+                        <td className="px-3 py-3 text-sm">{row.noOfPanels.toLocaleString()} × {row.panelWattage}W</td>
+                        <td className="px-3 py-3 text-sm">{row.noOfContainers ?? "—"}</td>
+                        <td className="px-3 py-3 text-sm">{row.totalValueUsd > 0 ? `$${row.totalValueUsd.toLocaleString()}` : "—"}</td>
+                        <td className="px-3 py-3 text-sm">{formatCurrency(row.poAmountPkr)}</td>
+                        <td className="px-3 py-3 text-sm">{row.landedCostPerPanel ? formatCurrency(row.landedCostPerPanel) : "—"}</td>
+                        <td className="px-3 py-3 text-sm text-green-700">{row.receivedPanels.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-sm text-orange-600">{row.pendingPanels > 0 ? row.pendingPanels.toLocaleString() : "—"}</td>
+                        <td className="px-3 py-3"><Badge status={row.status} /></td>
+                        <td className="px-3 py-3 text-sm text-gray-500">{formatDate(row.createdAt)}</td>
+                      </tr>
+                    ))}
+                    {(!poStatusData?.rows || poStatusData.rows.length === 0) && (
+                      <tr><td colSpan={13} className="px-4 py-12 text-center text-gray-400 text-sm">No purchase orders found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── STOCK REPORTS ── */}
+      {activeTab === "stock" && (
+        <div className="space-y-6">
+          {stockLoading ? <LoadingPage /> : (
+            <>
+              {/* Totals */}
+              {stockSummary && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {[
+                    { label: "Physical Stock", value: `${stockSummary.totals.currentPanels.toLocaleString()} panels`, sub: `${(stockSummary.totals.currentWatts / 1000).toFixed(0)} kW`, color: "blue" },
+                    { label: "Ready to Sale (Available)", value: `${stockSummary.totals.availablePanels.toLocaleString()} panels`, sub: formatCurrency(stockSummary.totals.availableValue), color: "green" },
+                    { label: "Sale Order Base Stock", value: `${stockSummary.totals.soReservedPanels.toLocaleString()} panels`, sub: "Reserved for active SOs", color: "yellow" },
+                    { label: "Delivery Order Base Stock", value: `${stockSummary.totals.doDispatchedPanels.toLocaleString()} panels`, sub: "Dispatched via DOs", color: "purple" },
+                  ].map(({ label, value, sub, color }) => (
+                    <div key={label} className={`bg-white rounded-xl border border-${color}-200 p-4`}>
+                      <p className={`text-sm text-${color}-600`}>{label}</p>
+                      <p className="font-bold text-lg mt-1">{value}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{sub}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Unit filter */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700">View by:</span>
+                <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                  {(["panel", "watt", "container", "pallet"] as StockUnit[]).map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setStockUnit(u)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
+                        stockUnit === u ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {["Product", "Warehouse", "PO", "Physical", "Available", "Reserved", "SO Based", "DO Dispatched", "Value"].map((h) => (
+                        <th key={h} className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {stockSummary?.rows.map((row) => (
+                      <tr key={row.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-3 text-sm">
+                          <p className="font-medium">{row.product}</p>
+                          <p className="text-xs text-gray-400">{row.productCode} · {row.wattage}W</p>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600">{row.warehouse}</td>
+                        <td className="px-3 py-3 text-sm text-gray-500">{row.poNumber ?? "—"}</td>
+                        <td className="px-3 py-3 text-sm font-medium">{fmtStock(row.currentPanels, row)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-green-700">{fmtStock(row.availablePanels, row)}</td>
+                        <td className="px-3 py-3 text-sm text-amber-600">{row.reservedPanels > 0 ? fmtStock(row.reservedPanels, row) : "—"}</td>
+                        <td className="px-3 py-3 text-sm text-blue-600">{row.soReservedPanels > 0 ? fmtStock(row.soReservedPanels, row) : "—"}</td>
+                        <td className="px-3 py-3 text-sm text-purple-600">{row.doDispatchedPanels > 0 ? fmtStock(row.doDispatchedPanels, row) : "—"}</td>
+                        <td className="px-3 py-3 text-sm">{formatCurrency(row.availableValue)}</td>
+                      </tr>
+                    ))}
+                    {(!stockSummary?.rows || stockSummary.rows.length === 0) && (
+                      <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-sm">No stock data found</td></tr>
+                    )}
+                  </tbody>
+                  {stockSummary && stockSummary.rows.length > 0 && (
+                    <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                      <tr>
+                        <td colSpan={3} className="px-3 py-3 text-sm font-bold text-gray-700">TOTAL</td>
+                        <td className="px-3 py-3 text-sm font-bold">{stockSummary.totals.currentPanels.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-sm font-bold text-green-700">{stockSummary.totals.availablePanels.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-sm font-bold text-amber-600">{stockSummary.totals.reservedPanels.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-sm font-bold text-blue-600">{stockSummary.totals.soReservedPanels.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-sm font-bold text-purple-600">{stockSummary.totals.doDispatchedPanels.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-sm font-bold">{formatCurrency(stockSummary.totals.availableValue)}</td>
                       </tr>
                     </tfoot>
                   )}

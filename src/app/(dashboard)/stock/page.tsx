@@ -74,6 +74,8 @@ function agingBadge(days: number) {
   return <span className="text-red-600 text-xs font-semibold">{days}d ⚠</span>
 }
 
+type UnitView = "panel" | "watt" | "container" | "pallet"
+
 export default function StockPage() {
   const { user } = useAuth()
   const { data: stock, loading, refetch } = useFetch<StockEntry[]>("/api/stock")
@@ -81,6 +83,7 @@ export default function StockPage() {
   const { data: pos } = useFetch<POOption[]>("/api/purchase-orders")
   const { data: warehouses } = useFetch<{ id: string; name: string }[]>("/api/warehouses")
 
+  const [unitView, setUnitView] = useState<UnitView>("panel")
   const [showReceive, setShowReceive] = useState(false)
   const [showAdjust, setShowAdjust] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
@@ -217,6 +220,19 @@ export default function StockPage() {
 
   const canAdjust = ["ADMIN", "WAREHOUSE"].includes(user?.role || "")
 
+  const formatQty = (panels: number, entry: StockEntry): string => {
+    const panelsPerContainer = (entry.product as unknown as { panelsPerContainer?: number }).panelsPerContainer
+    const palletsPerContainer = (entry.product as unknown as { palletsPerContainer?: number }).palletsPerContainer
+    if (unitView === "watt") return `${(panels * (entry.product?.wattage || 1)).toLocaleString()} W`
+    if (unitView === "container" && panelsPerContainer && panelsPerContainer > 0)
+      return `${Math.ceil(panels / panelsPerContainer)} ctr`
+    if (unitView === "pallet" && panelsPerContainer && palletsPerContainer && panelsPerContainer > 0) {
+      const panelsPerPallet = panelsPerContainer / palletsPerContainer
+      return `${Math.ceil(panels / panelsPerPallet)} plt`
+    }
+    return panels.toLocaleString()
+  }
+
   const columns = [
     {
       key: "product", header: "Product",
@@ -239,8 +255,8 @@ export default function StockPage() {
       key: "rcvdSold", header: "Rcvd / Sold",
       render: (row: StockEntry) => (
         <div className="whitespace-nowrap">
-          <p>{row.panelQuantity.toLocaleString()}</p>
-          <p className="text-gray-400">{row.panelsSold.toLocaleString()} sold</p>
+          <p>{formatQty(row.panelQuantity, row)}</p>
+          <p className="text-gray-400">{formatQty(row.panelsSold, row)} sold</p>
         </div>
       )
     },
@@ -254,7 +270,7 @@ export default function StockPage() {
             isLow ? "text-orange-600 font-semibold" :
             "text-green-700 font-semibold"
           }>
-            {row.availableQuantity.toLocaleString()}{isLow && " ⚠"}
+            {formatQty(row.availableQuantity, row)}{isLow && " ⚠"}
           </span>
         )
       }
@@ -263,7 +279,7 @@ export default function StockPage() {
       key: "reservedQuantity", header: "Reserved",
       render: (row: StockEntry) => (
         <span className={row.reservedQuantity > 0 ? "font-semibold text-amber-600" : "text-gray-400"}>
-          {row.reservedQuantity.toLocaleString()}
+          {formatQty(row.reservedQuantity, row)}
         </span>
       )
     },
@@ -481,9 +497,26 @@ export default function StockPage() {
 
       {/* Stock Entries Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
           <h3 className="font-semibold text-gray-900">Stock Entries (Batch View)</h3>
-          <p className="text-xs text-gray-400">Aging: green ≤30d, yellow ≤60d, orange ≤90d, red 90d+</p>
+          <div className="flex items-center gap-3">
+            {/* Unit view filter */}
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+              {(["panel", "watt", "container", "pallet"] as UnitView[]).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setUnitView(u)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
+                    unitView === u ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400">Aging: green ≤30d, yellow ≤60d, orange ≤90d, red 90d+</p>
+          </div>
         </div>
         <Table columns={columns} data={(stock || [])} emptyMessage="No stock entries yet" compact />
       </div>

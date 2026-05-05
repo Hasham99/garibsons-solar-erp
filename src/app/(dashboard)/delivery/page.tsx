@@ -43,7 +43,8 @@ interface SalesOrderOption {
   status: string
   paymentTerms: string
   lines: Array<{
-    product: { name: string; wattage: number }
+    id?: string
+    product: { id?: string; name: string; wattage: number }
     quantity: number
     watts: number
   }>
@@ -61,7 +62,8 @@ export default function DeliveryPage() {
 
   const [showCreate, setShowCreate] = useState(Boolean(presetSoId))
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ soId: presetSoId || "", warehouseId: "", quantity: "", validityDays: "3", notes: "" })
+  const [form, setForm] = useState({ soId: presetSoId || "", warehouseId: "", validityDays: "3", notes: "" })
+  const [lineQtys, setLineQtys] = useState<Record<number, string>>({})
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOrder | null>(null)
 
   useEffect(() => {
@@ -75,35 +77,61 @@ export default function DeliveryPage() {
   const selectedOrder = orders?.find((o) => o.id === form.soId)
 
   const orderTotalPanels = selectedOrder?.lines.reduce((t, l) => t + l.quantity, 0) || 0
-  const orderTotalWatts = selectedOrder?.lines.reduce((t, l) => t + l.watts, 0) || 0
   const alreadyDispatchedPanels = selectedOrder?.deliveryOrders
     ?.filter((d) => d.status !== "CANCELLED")
     .reduce((t, d) => t + d.quantity, 0) || 0
   const remainingPanels = orderTotalPanels - alreadyDispatchedPanels
 
-  // Default quantity to remaining when SO is selected
+  // Default line quantities to remaining when SO is selected
   useEffect(() => {
-    if (form.soId && remainingPanels > 0 && !form.quantity) {
-      setForm((prev) => ({ ...prev, quantity: String(remainingPanels) }))
+    if (form.soId && selectedOrder && remainingPanels > 0 && Object.keys(lineQtys).length === 0) {
+      const defaults: Record<number, string> = {}
+      const ratio = remainingPanels / orderTotalPanels
+      selectedOrder.lines.forEach((line, i) => {
+        const isLast = i === selectedOrder.lines.length - 1
+        const filled = selectedOrder.lines.slice(0, i).reduce((s, _, j) => s + (parseInt(defaults[j]) || 0), 0)
+        defaults[i] = isLast ? String(remainingPanels - filled) : String(Math.round(line.quantity * ratio))
+      })
+      setLineQtys(defaults)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.soId, remainingPanels])
 
-  const requestedQty = parseInt(form.quantity) || 0
+  // Reset line quantities when SO changes
+  useEffect(() => {
+    setLineQtys({})
+  }, [form.soId])
+
+  const requestedQty = Object.values(lineQtys).reduce((s, v) => s + (parseInt(v) || 0), 0)
 
   const handleCreate = async () => {
     if (!form.soId || !form.warehouseId) {
       return toast.error("Select both a sales order and warehouse")
     }
-    if (requestedQty <= 0) return toast.error("Enter a valid quantity")
+    if (requestedQty <= 0) return toast.error("Enter at least 1 panel across the lines")
     if (requestedQty > remainingPanels) return toast.error(`Only ${remainingPanels} panels remaining`)
+
+    // Build per-line payload
+    const lines = selectedOrder?.lines.map((line, i) => ({
+      soLineId: (line as { id?: string }).id,
+      productId: line.product?.id || "",
+      quantity: parseInt(lineQtys[i] || "0") || 0,
+      watts: (parseInt(lineQtys[i] || "0") || 0) * line.product.wattage,
+    })).filter((l) => l.quantity > 0)
 
     setSaving(true)
     try {
       const response = await fetch("/api/delivery-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ soId: form.soId, warehouseId: form.warehouseId, quantity: requestedQty, validityDays: form.validityDays, notes: form.notes }),
+        body: JSON.stringify({
+          soId: form.soId,
+          warehouseId: form.warehouseId,
+          quantity: requestedQty,
+          lines,
+          validityDays: form.validityDays,
+          notes: form.notes,
+        }),
       })
 
       if (!response.ok) {
@@ -114,7 +142,8 @@ export default function DeliveryPage() {
 
       toast.success("Delivery order created and stock reserved")
       setShowCreate(false)
-      setForm({ soId: "", warehouseId: "", quantity: "", validityDays: "3", notes: "" })
+      setForm({ soId: "", warehouseId: "", validityDays: "3", notes: "" })
+      setLineQtys({})
       refetch()
     } finally {
       setSaving(false)
@@ -206,7 +235,7 @@ export default function DeliveryPage() {
       </div>
 
       {/* ── Create DO Modal ── */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Delivery Order" size="lg">
+      <Modal isOpen={showCreate} onClose={() => { setShowCreate(false); setLineQtys({}) }} title="Create Delivery Order" size="lg">
         <div className="space-y-4">
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
             <p className="text-sm font-semibold text-blue-900">Reserve stock from a payment-confirmed sales order</p>
@@ -280,13 +309,38 @@ export default function DeliveryPage() {
             {warehouses?.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </Select>
 
-          <Input
-            label={`Panels to Deliver${remainingPanels > 0 ? ` (max ${remainingPanels})` : ""}`}
-            type="number"
-            value={form.quantity}
-            onChange={(e) => setForm((prev) => ({ ...prev, quantity: e.target.value }))}
-            placeholder={remainingPanels > 0 ? String(remainingPanels) : "0"}
-          />
+          {/* Per-line quantity inputs */}
+          {selectedOrder && selectedOrder.lines.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">
+                Panels to Deliver — per product
+                {remainingPanels > 0 && <span className="text-gray-400 font-normal"> (max {remainingPanels} remaining)</span>}
+              </p>
+              {selectedOrder.lines.map((line, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{line.product.name}</p>
+                    <p className="text-xs text-gray-500">{line.product.wattage}W · ordered {line.quantity.toLocaleString()} panels</p>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max={line.quantity}
+                    value={lineQtys[i] ?? ""}
+                    onChange={(e) => setLineQtys((prev) => ({ ...prev, [i]: e.target.value }))}
+                    placeholder="0"
+                    className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              ))}
+              {requestedQty > 0 && (
+                <div className="flex items-center justify-between rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm">
+                  <span className="text-blue-700 font-medium">Total panels this DO:</span>
+                  <span className="font-bold text-blue-900">{requestedQty.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {selectedOrder && requestedQty > 0 && requestedQty < remainingPanels && (
             <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">

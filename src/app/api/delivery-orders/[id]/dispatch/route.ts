@@ -20,6 +20,9 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       const deliveryOrder = await tx.deliveryOrder.findUnique({
         where: { id },
         include: {
+          salesOrder: {
+            include: { customer: true },
+          },
           stockMovements: {
             where: {
               type: { in: ["RESERVATION", "RELEASE", "STOCK_OUT"] },
@@ -72,6 +75,29 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
         where: { id: deliveryOrder.soId },
         data: { status: "DELIVERED" },
       })
+
+      // Auto-book customer ledger debit for this delivery
+      const customer = deliveryOrder.salesOrder?.customer
+      if (customer) {
+        const lastEntry = await tx.partyLedger.findFirst({
+          where: { customerId: customer.id },
+          orderBy: { date: "desc" },
+          select: { balance: true },
+        })
+        const prevBalance = lastEntry?.balance ?? 0
+        const debitAmount = deliveryOrder.salesOrder.grandTotal
+        await tx.partyLedger.create({
+          data: {
+            customerId: customer.id,
+            date: new Date(),
+            description: `DO Dispatched — ${deliveryOrder.doNumber} (${deliveryOrder.salesOrder.soNumber})`,
+            debit: debitAmount,
+            credit: 0,
+            balance: prevBalance + debitAmount,
+            soId: deliveryOrder.soId,
+          },
+        })
+      }
 
       return { dispatchedOrder, outstandingReservations }
     })
