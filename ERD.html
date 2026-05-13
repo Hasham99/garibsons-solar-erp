@@ -1,423 +1,449 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Garibsons Solar ERP — Entity Relationship Diagram</title>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #f8fafc; color: #1e293b; }
-    header { background: #1e293b; color: #fff; padding: 18px 32px; display: flex; align-items: center; gap: 16px; }
-    header h1 { font-size: 1.25rem; font-weight: 600; }
-    header span { font-size: 0.8rem; opacity: 0.6; background: rgba(255,255,255,0.1); padding: 3px 10px; border-radius: 20px; }
-    .controls { padding: 14px 32px; display: flex; gap: 10px; border-bottom: 1px solid #e2e8f0; background: #fff; }
-    button { padding: 6px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f1f5f9; cursor: pointer; font-size: 0.85rem; }
-    button:hover { background: #e2e8f0; }
-    .wrap { padding: 32px; overflow: auto; }
-    .mermaid { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px; min-height: 400px; }
-    .legend { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; }
-    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #64748b; }
-    .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Garibsons Solar ERP — ERD</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+header{background:#1e293b;border-bottom:1px solid #334155;padding:14px 24px;display:flex;align-items:center;gap:12px}
+header h1{font-size:1rem;font-weight:700;color:#f1f5f9}
+header span{font-size:0.75rem;color:#475569;margin-left:auto}
+.tabs{display:flex;gap:1px;padding:14px 24px 0;border-bottom:1px solid #334155;flex-wrap:wrap;background:#0f172a}
+.tab{padding:8px 16px;border-radius:6px 6px 0 0;font-size:0.8rem;font-weight:500;cursor:pointer;color:#64748b;border:1px solid transparent;border-bottom:none;transition:all .15s}
+.tab:hover{color:#e2e8f0;background:#1e293b}
+.tab.active{color:#38bdf8;background:#1e293b;border-color:#334155}
+.panel{display:none;padding:24px}
+.panel.active{display:block}
+.desc{font-size:0.78rem;color:#64748b;margin-bottom:20px;line-height:1.6;max-width:800px}
+.desc b{color:#94a3b8}
+
+/* entity grid */
+.grid{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.entity{background:#1e293b;border:1px solid #334155;border-radius:10px;min-width:210px;max-width:270px;flex:1 1 210px;overflow:hidden}
+.entity-head{padding:9px 14px;font-size:0.82rem;font-weight:700;letter-spacing:.02em;border-bottom:1px solid #334155}
+.entity-fields{padding:6px 0}
+.field{display:grid;grid-template-columns:52px 1fr auto;gap:0 8px;padding:3px 14px;font-size:0.72rem;align-items:center}
+.field:hover{background:#263048}
+.ftype{color:#64748b;font-family:monospace}
+.fname{color:#e2e8f0}
+.fkey{font-size:0.63rem;font-weight:700;padding:1px 5px;border-radius:3px}
+.fkey.pk{background:#1e3a5f;color:#60a5fa}
+.fkey.fk{background:#1a2e1a;color:#4ade80}
+.fkey.uq{background:#2d1f3a;color:#a78bfa}
+
+/* relationships table */
+.rel-section{margin-top:24px}
+.rel-section h3{font-size:0.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.rel-table{width:100%;border-collapse:collapse;font-size:0.75rem}
+.rel-table th{text-align:left;padding:6px 12px;color:#475569;font-weight:500;border-bottom:1px solid #1e293b;white-space:nowrap}
+.rel-table td{padding:6px 12px;border-bottom:1px solid #1a2435;color:#94a3b8}
+.rel-table td:first-child{color:#e2e8f0;font-weight:500}
+.rel-table td:nth-child(2){color:#38bdf8;font-family:monospace;font-size:0.7rem}
+.from{color:#e2e8f0}.to{color:#94a3b8}
+.card{font-size:0.7rem;padding:1px 7px;border-radius:3px;background:#162035;color:#60a5fa;font-family:monospace}
+.diagram-wrap{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;overflow:auto}
+
+/* ── Overview ─────────────────────────────────────────────── */
+.ov-stats{display:flex;margin-bottom:20px;background:#1e293b;border:1px solid #334155;border-radius:10px;overflow:hidden}
+.ov-stat{flex:1;display:flex;flex-direction:column;align-items:center;padding:16px 8px;gap:3px;border-right:1px solid #334155}
+.ov-stat:last-child{border-right:none}
+.ov-stat-num{font-size:1.6rem;font-weight:800;color:#f1f5f9;line-height:1}
+.ov-stat-lbl{font-size:0.63rem;color:#64748b;text-transform:uppercase;letter-spacing:.08em;text-align:center}
+.ov-flow-wrap{position:relative;margin-bottom:16px}
+.ov-nodes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.ov-node{border-radius:10px;border:1px solid;overflow:hidden;background:#1e293b}
+.ov-node-head{padding:10px 14px;font-size:0.81rem;font-weight:700;letter-spacing:.02em;display:flex;align-items:center}
+.ov-node-count{margin-left:auto;font-size:0.62rem;font-weight:600;padding:1px 7px;border-radius:3px;background:rgba(0,0,0,.35);opacity:.8}
+.ov-node-body{padding:9px 14px 13px;display:flex;flex-direction:column;gap:3px}
+.ov-ec{font-size:0.7rem;color:#4b5563;display:flex;align-items:center;gap:7px;padding:1px 0;line-height:1.4}
+.ov-ec::before{content:'';width:3px;height:3px;border-radius:50%;background:currentColor;flex-shrink:0}
+.ov-ec.main{color:#cbd5e1;font-weight:600}
+.ov-ec i{font-style:normal;font-size:.62rem;opacity:.55}
+.ov-sys{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;background:#1c1917;border:1px solid #44403c;border-radius:10px;margin-bottom:16px}
+.ov-sys-lbl{font-size:0.73rem;font-weight:700;color:#a8a29e;white-space:nowrap}
+.ov-sys-chips{display:flex;gap:8px}
+.ov-sys-chip{font-size:0.68rem;padding:2px 9px;border:1px solid #44403c;border-radius:4px;color:#78716c}
+.ov-sys-note{margin-left:auto;font-size:0.67rem;color:#57534e}
+.ov-legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:7px}
+.ov-li{font-size:0.7rem;color:#475569;padding:8px 12px;background:#1e293b;border-radius:6px;border-left:3px solid #334155;display:flex;align-items:center;gap:8px}
+.ov-ln{font-size:0.62rem;font-weight:700;padding:1px 5px;border-radius:3px;background:#0f172a;color:#94a3b8;font-family:monospace;flex-shrink:0}
+</style>
 </head>
 <body>
+
 <header>
-  <h1>Garibsons Solar ERP</h1>
-  <span>Entity Relationship Diagram</span>
-  <span style="margin-left:auto; opacity:0.5; font-size:0.75rem;">Generated 13 May 2026</span>
+  <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+    <rect x="3" y="3" width="7" height="7" rx="1.5" fill="#38bdf8"/>
+    <rect x="14" y="3" width="7" height="7" rx="1.5" fill="#818cf8"/>
+    <rect x="3" y="14" width="7" height="7" rx="1.5" fill="#34d399"/>
+    <rect x="14" y="14" width="7" height="7" rx="1.5" fill="#fb923c"/>
+  </svg>
+  <h1>Garibsons Solar ERP &mdash; Entity Relationship Diagram</h1>
+  <span>25 models &middot; 6 domains</span>
 </header>
-<div class="controls">
-  <button onclick="document.querySelector('.mermaid').requestFullscreen()">⛶ Fullscreen</button>
-  <button onclick="window.print()">🖨 Print</button>
-</div>
-<div class="wrap">
-<div class="mermaid">
-erDiagram
 
-  User {
-    string id PK
-    string name
-    string email UK
-    string password
-    UserRole role
-    boolean active
-    datetime createdAt
-  }
-
-  ExchangeRate {
-    string id PK
-    datetime date
-    string source
-    float rate
-    datetime createdAt
-  }
-
-  TaxConfig {
-    string id PK
-    string name
-    float customsDuty
-    float additionalCD
-    float excise
-    float salesTax
-    float additionalST
-    float incomeTax
-    float handlingPerWatt
-    boolean isDefault
-  }
-
-  Product {
-    string id PK
-    string code UK
-    string name
-    string category
-    int wattage
-    string brand
-    string skuName
-    int panelsPerContainer
-    int palletsPerContainer
-    int lowStockThreshold
-    boolean active
-    string defaultSupplierId FK
-  }
-
-  Supplier {
-    string id PK
-    string name
-    string country
-    string contactPerson
-    string contactEmail
-    string paymentTerms
-    boolean active
-  }
-
-  Customer {
-    string id PK
-    string name
-    CustomerType type
-    string ntn
-    string strn
-    string address
-    PaymentTerms paymentTerms
-    float creditLimit
-    boolean active
-  }
-
-  CustomerContact {
-    string id PK
-    string customerId FK
-    string name
-    string whatsapp
-    boolean isPrimary
-  }
-
-  Warehouse {
-    string id PK
-    string name
-    string location
-    string godown
-    string manager
-    boolean active
-  }
-
-  WarehouseContact {
-    string id PK
-    string warehouseId FK
-    string name
-    string whatsapp
-    boolean isPrimary
-  }
-
-  Bank {
-    string id PK
-    string name
-    string branch
-    boolean active
-  }
-
-  CostingCalculation {
-    string id PK
-    string reference UK
-    string status
-    float fobPerWatt
-    float freightPerWatt
-    float landedCostPerWatt
-    float landedCostPerPanel
-    float totalShipmentValue
-    string exchangeRateId FK
-    string taxConfigId FK
-    int panelWattage
-    int totalPanels
-  }
-
-  PurchaseOrder {
-    string id PK
-    string poNumber UK
-    string productId FK
-    string supplierId FK
-    LCType lcType
-    string lcNumber
-    int usanceDays
-    string bankId FK
-    string warehouseId FK
-    int noOfContainers
-    int noOfPanels
-    int panelWattage
-    int totalWatts
-    float usdPerWatt
-    float totalValueUsd
-    float poAmountPkr
-    string exchangeRateId FK
-    string costingId FK
-    float gstInputAmount
-    float landedCostPerWatt
-    string status
-  }
-
-  PODocument {
-    string id PK
-    string poId FK
-    string docType
-    string fileName
-    string fileUrl
-    datetime uploadedAt
-  }
-
-  StockEntry {
-    string id PK
-    string productId FK
-    string warehouseId FK
-    string poId FK
-    string lcReference
-    int panelQuantity
-    int wattQuantity
-    float costPerPanel
-    float costPerWatt
-    float totalValue
-    datetime receivedAt
-  }
-
-  StockMovement {
-    string id PK
-    string stockEntryId FK
-    StockMovementType type
-    int quantity
-    int watts
-    string poId FK
-    string soId FK
-    string doId FK
-    string userId FK
-    string reason
-  }
-
-  Quotation {
-    string id PK
-    string qNumber UK
-    string customerId FK
-    datetime validUntil
-    string status
-  }
-
-  QuotationLine {
-    string id PK
-    string quotationId FK
-    string productId FK
-    int quantity
-    int watts
-    float ratePerWatt
-    float totalAmount
-  }
-
-  SalesOrder {
-    string id PK
-    string soNumber UK
-    string customerId FK
-    string quotationId FK
-    SalesOrderStatus status
-    float subTotal
-    float gstAmount
-    float grandTotal
-    string createdById FK
-    datetime createdAt
-  }
-
-  SalesOrderLine {
-    string id PK
-    string soId FK
-    string productId FK
-    int quantity
-    int watts
-    float ratePerWatt
-    float totalAmount
-  }
-
-  DeliveryOrder {
-    string id PK
-    string doNumber UK
-    string soId FK
-    string warehouseId FK
-    int quantity
-    int watts
-    string status
-    string authorizedBy
-    int validityDays
-    string createdById FK
-    datetime createdAt
-  }
-
-  DeliveryOrderLine {
-    string id PK
-    string doId FK
-    string soLineId FK
-    string productId FK
-    int quantity
-    int watts
-  }
-
-  Invoice {
-    string id PK
-    string invoiceNumber UK
-    string soId FK
-    string doId FK
-    string customerId
-    float subTotal
-    float gstAmount
-    float grandTotal
-    string status
-    datetime invoiceDate
-  }
-
-  Payment {
-    string id PK
-    string invoiceId FK
-    float amount
-    datetime paymentDate
-    string method
-    string reference
-  }
-
-  PartyLedger {
-    string id PK
-    string customerId FK
-    datetime date
-    string description
-    float debit
-    float credit
-    float balance
-    string invoiceId FK
-    string soId FK
-  }
-
-  Expense {
-    string id PK
-    datetime date
-    ExpenseCategory category
-    string description
-    float amount
-    string paidTo
-    string createdById FK
-  }
-
-  CustomerReceipt {
-    string id PK
-    string receiptNo UK
-    string customerId FK
-    string bankId FK
-    float amount
-    datetime valueDate
-    string createdById FK
-  }
-
-  AuditLog {
-    string id PK
-    string userId FK
-    string action
-    string entity
-    string entityId
-    string changes
-    datetime createdAt
-  }
-
-  ExpenseCategoryDef {
-    string id PK
-    string name UK
-    boolean isSystem
-    boolean active
-  }
-
-  %% Relationships
-  Product ||--o{ PurchaseOrder : "ordered via"
-  Product ||--o{ StockEntry : "stocked as"
-  Product ||--o{ SalesOrderLine : "sold in"
-  Product ||--o{ QuotationLine : "quoted in"
-  Product ||--o{ DeliveryOrderLine : "dispatched in"
-  Product }o--o| Supplier : "default supplier"
-
-  Supplier ||--o{ PurchaseOrder : "supplies"
-
-  Customer ||--o{ SalesOrder : "places"
-  Customer ||--o{ Quotation : "quoted to"
-  Customer ||--o{ PartyLedger : "ledger for"
-  Customer ||--o{ CustomerContact : "contacts"
-  Customer ||--o{ CustomerReceipt : "receipts"
-
-  Warehouse ||--o{ StockEntry : "holds"
-  Warehouse ||--o{ PurchaseOrder : "receives into"
-  Warehouse ||--o{ DeliveryOrder : "dispatches from"
-  Warehouse ||--o{ WarehouseContact : "contacts"
-
-  Bank ||--o{ PurchaseOrder : "finances"
-  Bank ||--o{ CustomerReceipt : "received at"
-
-  ExchangeRate ||--o{ PurchaseOrder : "rated by"
-  ExchangeRate ||--o{ CostingCalculation : "used in"
-
-  TaxConfig ||--o{ CostingCalculation : "applied in"
-
-  CostingCalculation ||--o{ PurchaseOrder : "costed by"
-
-  PurchaseOrder ||--o{ PODocument : "has docs"
-  PurchaseOrder ||--o{ StockEntry : "received as"
-  PurchaseOrder ||--o{ StockMovement : "moves"
-
-  StockEntry ||--o{ StockMovement : "tracks"
-
-  Quotation ||--o{ QuotationLine : "contains"
-  Quotation ||--o{ SalesOrder : "converts to"
-
-  SalesOrder ||--o{ SalesOrderLine : "contains"
-  SalesOrder ||--o{ DeliveryOrder : "fulfilled by"
-  SalesOrder ||--o{ StockMovement : "moves"
-  SalesOrder ||--o{ Invoice : "invoiced as"
-  SalesOrder ||--o{ PartyLedger : "recorded in"
-
-  SalesOrderLine ||--o{ DeliveryOrderLine : "dispatched via"
-
-  DeliveryOrder ||--o{ DeliveryOrderLine : "contains"
-  DeliveryOrder ||--o{ StockMovement : "reserves"
-  DeliveryOrder ||--o{ Invoice : "billed as"
-
-  Invoice ||--o{ Payment : "paid via"
-  Invoice ||--o{ PartyLedger : "recorded in"
-
-  User ||--o{ SalesOrder : "created by"
-  User ||--o{ DeliveryOrder : "created by"
-  User ||--o{ StockMovement : "performed by"
-  User ||--o{ Expense : "created by"
-  User ||--o{ CustomerReceipt : "created by"
-  User ||--o{ AuditLog : "audited by"
+<div class="tabs">
+  <div class="tab active" onclick="show('overview',this)">Overview</div>
+  <div class="tab" onclick="show('procurement',this)">Procurement</div>
+  <div class="tab" onclick="show('inventory',this)">Inventory</div>
+  <div class="tab" onclick="show('sales',this)">Sales</div>
+  <div class="tab" onclick="show('delivery',this)">Delivery</div>
+  <div class="tab" onclick="show('finance',this)">Finance</div>
 </div>
 
-<div class="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Core entities</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Financial entities</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Movement/audit entities</div>
-  <div class="legend-item" style="margin-left:auto; color:#94a3b8">|| = one &nbsp; o{ = many &nbsp; o| = zero-or-one</div>
+<div id="tab-overview" class="panel active">
+
+  <!-- Stats strip -->
+  <div class="ov-stats">
+    <div class="ov-stat"><span class="ov-stat-num">25</span><span class="ov-stat-lbl">Models</span></div>
+    <div class="ov-stat"><span class="ov-stat-num">6</span><span class="ov-stat-lbl">Domains</span></div>
+    <div class="ov-stat"><span class="ov-stat-num">40+</span><span class="ov-stat-lbl">Relations</span></div>
+    <div class="ov-stat"><span class="ov-stat-num">5</span><span class="ov-stat-lbl">Core Flows</span></div>
+  </div>
+
+  <!-- Domain cards + SVG arrows -->
+  <div class="ov-flow-wrap">
+    <svg id="ov-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:2"></svg>
+    <div class="ov-nodes">
+
+      <!-- Row 1 -->
+      <div class="ov-node" id="ov-procurement" style="border-color:#3b82f6">
+        <div class="ov-node-head" style="background:#0f2744;color:#93c5fd">
+          <span>Procurement</span><span class="ov-node-count">7 models</span>
+        </div>
+        <div class="ov-node-body">
+          <div class="ov-ec">Supplier</div>
+          <div class="ov-ec">Bank</div>
+          <div class="ov-ec">ExchangeRate</div>
+          <div class="ov-ec">TaxConfig</div>
+          <div class="ov-ec">CostingCalculation</div>
+          <div class="ov-ec main">PurchaseOrder</div>
+          <div class="ov-ec">PODocument</div>
+        </div>
+      </div>
+
+      <div class="ov-node" id="ov-inventory" style="border-color:#f97316">
+        <div class="ov-node-head" style="background:#431407;color:#fed7aa">
+          <span>Inventory</span><span class="ov-node-count">5 models</span>
+        </div>
+        <div class="ov-node-body">
+          <div class="ov-ec">Product</div>
+          <div class="ov-ec">Warehouse</div>
+          <div class="ov-ec">WarehouseContact</div>
+          <div class="ov-ec main">StockEntry</div>
+          <div class="ov-ec main">StockMovement</div>
+        </div>
+      </div>
+
+      <div class="ov-node" id="ov-sales" style="border-color:#22c55e">
+        <div class="ov-node-head" style="background:#052e16;color:#86efac">
+          <span>Sales</span><span class="ov-node-count">6 models</span>
+        </div>
+        <div class="ov-node-body">
+          <div class="ov-ec">Customer</div>
+          <div class="ov-ec">CustomerContact</div>
+          <div class="ov-ec">Quotation</div>
+          <div class="ov-ec">QuotationLine</div>
+          <div class="ov-ec main">SalesOrder</div>
+          <div class="ov-ec">SalesOrderLine</div>
+        </div>
+      </div>
+
+      <!-- Row 2: empty | Delivery | Finance -->
+      <div style="visibility:hidden;pointer-events:none"></div>
+
+      <div class="ov-node" id="ov-delivery" style="border-color:#a855f7">
+        <div class="ov-node-head" style="background:#2e1065;color:#d8b4fe">
+          <span>Delivery</span><span class="ov-node-count">5 models</span>
+        </div>
+        <div class="ov-node-body">
+          <div class="ov-ec">SalesOrder <i>(ref)</i></div>
+          <div class="ov-ec">SalesOrderLine <i>(ref)</i></div>
+          <div class="ov-ec main">DeliveryOrder</div>
+          <div class="ov-ec">DeliveryOrderLine</div>
+          <div class="ov-ec">StockMovement <i>(ref)</i></div>
+        </div>
+      </div>
+
+      <div class="ov-node" id="ov-finance" style="border-color:#ec4899">
+        <div class="ov-node-head" style="background:#1a0030;color:#f9a8d4">
+          <span>Finance</span><span class="ov-node-count">6 models</span>
+        </div>
+        <div class="ov-node-body">
+          <div class="ov-ec main">Invoice</div>
+          <div class="ov-ec">Payment</div>
+          <div class="ov-ec">PartyLedger</div>
+          <div class="ov-ec">CustomerReceipt</div>
+          <div class="ov-ec">Expense</div>
+          <div class="ov-ec">AuditLog</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- System cross-cutting -->
+  <div class="ov-sys">
+    <span class="ov-sys-lbl">System (cross-cutting)</span>
+    <div class="ov-sys-chips">
+      <span class="ov-sys-chip">User</span>
+      <span class="ov-sys-chip">AuditLog</span>
+    </div>
+    <span class="ov-sys-note">Every write is attributed to a User and captured in AuditLog</span>
+  </div>
+
+  <!-- Flow legend -->
+  <div class="ov-legend">
+    <div class="ov-li" style="border-left-color:#60a5fa"><span class="ov-ln">①</span> PO received → StockEntry created</div>
+    <div class="ov-li" style="border-left-color:#fb923c"><span class="ov-ln">②</span> DO issued → StockMovement RESERVATION</div>
+    <div class="ov-li" style="border-left-color:#4ade80"><span class="ov-ln">③</span> SO confirmed → DeliveryOrder issued</div>
+    <div class="ov-li" style="border-left-color:#c084fc"><span class="ov-ln">④</span> DO dispatched → STOCK_OUT movement</div>
+    <div class="ov-li" style="border-left-color:#f472b6"><span class="ov-ln">⑤</span> DO dispatched → Invoice generated</div>
+  </div>
+
 </div>
-</div>
+
+<div id="tab-procurement" class="panel"></div>
+<div id="tab-inventory" class="panel"></div>
+<div id="tab-sales" class="panel"></div>
+<div id="tab-delivery" class="panel"></div>
+<div id="tab-finance" class="panel"></div>
 
 <script>
-  mermaid.initialize({ startOnLoad: true, theme: 'default', er: { diagramPadding: 30 } })
+
+// ── domain colour map ────────────────────────────────────────
+const DOMAIN_COLOR = {
+  procurement: { border: '#3b82f6', head: '#0f2744', headText: '#93c5fd' },
+  inventory:   { border: '#f97316', head: '#431407', headText: '#fed7aa' },
+  sales:       { border: '#22c55e', head: '#052e16', headText: '#86efac' },
+  delivery:    { border: '#a855f7', head: '#2e1065', headText: '#d8b4fe' },
+  finance:     { border: '#ec4899', head: '#1a0030', headText: '#f9a8d4' },
+  system:      { border: '#78716c', head: '#1c1917', headText: '#d6d3d1' },
+}
+
+// ── entity definitions ───────────────────────────────────────
+// [type, name, key?]  key: 'pk' | 'fk' | 'uq' | ''
+const DOMAINS = {
+  procurement: {
+    desc: '<b>PurchaseOrder</b> is the central entity — linked to Supplier, Bank, ExchangeRate, CostingCalculation and Product. <b>CostingCalculation</b> models the full landed cost before shipment. <b>PODocument</b> stores BL / LC / packing-list attachments.',
+    entities: {
+      Supplier:           [['string','id','pk'],['string','name',''],['string','country',''],['string','contactPerson',''],['string','paymentTerms',''],['bool','active','']],
+      Bank:               [['string','id','pk'],['string','name',''],['string','branch',''],['bool','active','']],
+      ExchangeRate:       [['string','id','pk'],['date','date',''],['string','source',''],['float','rate',''],['string','notes','']],
+      TaxConfig:          [['string','id','pk'],['string','name',''],['float','customsDuty',''],['float','excise',''],['float','salesTax',''],['float','incomeTax',''],['float','handlingPerWatt',''],['bool','isDefault','']],
+      CostingCalculation: [['string','id','pk'],['string','reference','uq'],['string','status',''],['float','fobPerWatt',''],['float','freightPerWatt',''],['float','landedCostPerWatt',''],['float','landedCostPerPanel',''],['float','totalShipmentValue',''],['string','exchangeRateId','fk'],['string','taxConfigId','fk']],
+      PurchaseOrder:      [['string','id','pk'],['string','poNumber','uq'],['string','productId','fk'],['string','supplierId','fk'],['string','bankId','fk'],['string','warehouseId','fk'],['string','exchangeRateId','fk'],['string','costingId','fk'],['string','lcType',''],['string','lcNumber',''],['int','usanceDays',''],['int','noOfContainers',''],['int','noOfPanels',''],['int','panelWattage',''],['int','totalWatts',''],['float','usdPerWatt',''],['float','totalValueUsd',''],['float','poAmountPkr',''],['float','gstInputAmount',''],['float','landedCostPerWatt',''],['string','status','']],
+      PODocument:         [['string','id','pk'],['string','poId','fk'],['string','docType',''],['string','fileName',''],['string','fileUrl','']],
+    },
+    relations: [
+      ['Supplier','PurchaseOrder','1 → N','supplies'],
+      ['Bank','PurchaseOrder','1 → N','finances'],
+      ['ExchangeRate','PurchaseOrder','1 → N','rates'],
+      ['ExchangeRate','CostingCalculation','1 → N','used in'],
+      ['TaxConfig','CostingCalculation','1 → N','applied in'],
+      ['CostingCalculation','PurchaseOrder','1 → N','costed by'],
+      ['PurchaseOrder','PODocument','1 → N','has documents'],
+    ],
+  },
+
+  inventory: {
+    desc: '<b>StockEntry</b> is created when goods arrive against a PO. <b>StockMovement</b> records every action. Available stock = STOCK_IN − STOCK_OUT − net RESERVATIONs.',
+    entities: {
+      Product:          [['string','id','pk'],['string','code','uq'],['string','name',''],['string','brand',''],['string','skuName',''],['int','wattage',''],['int','panelsPerContainer',''],['int','palletsPerContainer',''],['int','lowStockThreshold',''],['string','defaultSupplierId','fk'],['bool','active','']],
+      Warehouse:        [['string','id','pk'],['string','name',''],['string','location',''],['string','godown',''],['string','manager',''],['bool','active','']],
+      WarehouseContact: [['string','id','pk'],['string','warehouseId','fk'],['string','name',''],['string','whatsapp',''],['bool','isPrimary','']],
+      StockEntry:       [['string','id','pk'],['string','productId','fk'],['string','warehouseId','fk'],['string','poId','fk'],['string','lcReference',''],['int','panelQuantity',''],['int','wattQuantity',''],['float','costPerPanel',''],['float','costPerWatt',''],['float','totalValue',''],['date','receivedAt','']],
+      StockMovement:    [['string','id','pk'],['string','stockEntryId','fk'],['string','type',''],['int','quantity',''],['int','watts',''],['string','poId','fk'],['string','soId','fk'],['string','doId','fk'],['string','userId','fk'],['string','reason',''],['date','createdAt','']],
+    },
+    relations: [
+      ['Product','StockEntry','1 → N','stocked as'],
+      ['Warehouse','StockEntry','1 → N','held in'],
+      ['Warehouse','WarehouseContact','1 → N','contacts'],
+      ['PurchaseOrder (external)','StockEntry','1 → N','received as'],
+      ['StockEntry','StockMovement','1 → N','tracked by'],
+    ],
+    note: 'Movement types: STOCK_IN · STOCK_OUT · RESERVATION · RELEASE · TRANSFER · ADJUSTMENT',
+  },
+
+  sales: {
+    desc: '<b>Quotation</b> is optional — a SalesOrder can be raised directly. Each <b>SalesOrderLine</b> is one product SKU with quantity, wattage and rate.',
+    entities: {
+      Customer:        [['string','id','pk'],['string','name',''],['string','type',''],['string','ntn',''],['string','strn',''],['string','address',''],['float','creditLimit',''],['string','paymentTerms',''],['bool','active','']],
+      CustomerContact: [['string','id','pk'],['string','customerId','fk'],['string','name',''],['string','whatsapp',''],['bool','isPrimary','']],
+      Quotation:       [['string','id','pk'],['string','qNumber','uq'],['string','customerId','fk'],['date','validUntil',''],['string','status','']],
+      QuotationLine:   [['string','id','pk'],['string','quotationId','fk'],['string','productId','fk'],['int','quantity',''],['int','watts',''],['float','ratePerWatt',''],['float','totalAmount','']],
+      SalesOrder:      [['string','id','pk'],['string','soNumber','uq'],['string','customerId','fk'],['string','quotationId','fk'],['string','status',''],['float','subTotal',''],['float','gstAmount',''],['float','grandTotal',''],['string','createdById','fk'],['date','createdAt','']],
+      SalesOrderLine:  [['string','id','pk'],['string','soId','fk'],['string','productId','fk'],['int','quantity',''],['int','watts',''],['float','ratePerWatt',''],['float','ratePerPanel',''],['float','totalAmount','']],
+    },
+    relations: [
+      ['Customer','CustomerContact','1 → N','contacts'],
+      ['Customer','Quotation','1 → N','quoted to'],
+      ['Customer','SalesOrder','1 → N','places'],
+      ['Quotation','QuotationLine','1 → N','lines'],
+      ['Quotation','SalesOrder','1 → N','converts to'],
+      ['SalesOrder','SalesOrderLine','1 → N','lines'],
+      ['Product (external)','QuotationLine','1 → N','in quotation'],
+      ['Product (external)','SalesOrderLine','1 → N','in order'],
+    ],
+    note: 'SO Status: DRAFT → PENDING_PAYMENT → PAYMENT_CONFIRMED → DO_ISSUED → DELIVERED → INVOICED → CANCELLED',
+  },
+
+  delivery: {
+    desc: '<b>DeliveryOrder</b> is issued after payment is confirmed. It reserves stock via RESERVATION movements. A single SO can have multiple partial DOs. Dispatch creates STOCK_OUT movements and releases reservations.',
+    entities: {
+      SalesOrder:       [['string','id','pk'],['string','soNumber','uq'],['string','customerId','fk'],['string','status',''],['float','grandTotal','']],
+      SalesOrderLine:   [['string','id','pk'],['string','soId','fk'],['string','productId','fk'],['int','quantity',''],['int','watts',''],['float','ratePerWatt','']],
+      DeliveryOrder:    [['string','id','pk'],['string','doNumber','uq'],['string','soId','fk'],['string','warehouseId','fk'],['int','quantity',''],['int','watts',''],['string','status',''],['string','authorizedBy',''],['date','authorizedAt',''],['date','dispatchedAt',''],['int','validityDays',''],['string','createdById','fk']],
+      DeliveryOrderLine:[['string','id','pk'],['string','doId','fk'],['string','soLineId','fk'],['string','productId','fk'],['int','quantity',''],['int','watts','']],
+      StockMovement:    [['string','id','pk'],['string','stockEntryId','fk'],['string','type',''],['int','quantity',''],['int','watts',''],['string','doId','fk'],['string','reason','']],
+    },
+    relations: [
+      ['SalesOrder','SalesOrderLine','1 → N','lines'],
+      ['SalesOrder','DeliveryOrder','1 → N','fulfilled by'],
+      ['Warehouse (external)','DeliveryOrder','1 → N','dispatched from'],
+      ['DeliveryOrder','DeliveryOrderLine','1 → N','lines'],
+      ['SalesOrderLine','DeliveryOrderLine','1 → N','maps to'],
+      ['DeliveryOrder','StockMovement','1 → N','reserves / releases'],
+      ['DeliveryOrder','Invoice (see Finance)','1 → N','billed as'],
+    ],
+    note: 'DO Status: PENDING → AUTHORIZED → DISPATCHED · CANCELLED',
+  },
+
+  finance: {
+    desc: '<b>Invoice</b> is generated from a DeliveryOrder. <b>Payment</b> records partial or full settlements. <b>PartyLedger</b> maintains a running balance per customer. <b>CustomerReceipt</b> logs bank deposits independently of invoices.',
+    entities: {
+      Invoice:         [['string','id','pk'],['string','invoiceNumber','uq'],['string','soId','fk'],['string','doId','fk'],['string','customerId',''],['date','invoiceDate',''],['float','subTotal',''],['float','gstAmount',''],['float','grandTotal',''],['string','status','']],
+      Payment:         [['string','id','pk'],['string','invoiceId','fk'],['float','amount',''],['date','paymentDate',''],['string','method',''],['string','reference','']],
+      PartyLedger:     [['string','id','pk'],['string','customerId','fk'],['date','date',''],['string','description',''],['float','debit',''],['float','credit',''],['float','balance',''],['string','invoiceId','fk'],['string','soId','fk']],
+      CustomerReceipt: [['string','id','pk'],['string','receiptNo','uq'],['string','customerId','fk'],['string','bankId','fk'],['float','amount',''],['date','valueDate',''],['string','reference','']],
+      Expense:         [['string','id','pk'],['date','date',''],['string','category',''],['string','description',''],['float','amount',''],['string','paidTo',''],['string','createdById','fk']],
+      AuditLog:        [['string','id','pk'],['string','userId','fk'],['string','action',''],['string','entity',''],['string','entityId',''],['string','changes',''],['date','createdAt','']],
+    },
+    relations: [
+      ['SalesOrder (external)','Invoice','1 → N','invoiced as'],
+      ['DeliveryOrder (external)','Invoice','1 → N','billed as'],
+      ['Invoice','Payment','1 → N','paid via'],
+      ['Invoice','PartyLedger','1 → N','logged in'],
+      ['SalesOrder (external)','PartyLedger','1 → N','logged in'],
+      ['Customer (external)','PartyLedger','1 → N','ledger for'],
+      ['Customer (external)','CustomerReceipt','1 → N','receipts'],
+      ['Bank (external)','CustomerReceipt','1 → N','received at'],
+      ['User (external)','Expense','1 → N','created by'],
+      ['User (external)','AuditLog','1 → N','audited by'],
+    ],
+    note: 'Invoice Status: UNPAID · PARTIAL · PAID &nbsp;|&nbsp; Expense Categories: SALARY · COMMISSION · WAREHOUSE_RENT · UTILITIES · TRANSPORT · MARKETING · OFFICE · OTHER',
+  },
+}
+
+// ── renderer ─────────────────────────────────────────────────
+function renderDomain(domainKey) {
+  const dom = DOMAINS[domainKey]
+  const col = DOMAIN_COLOR[domainKey]
+  let html = `<p class="desc">${dom.desc}</p><div class="grid">`
+
+  for (const [ename, fields] of Object.entries(dom.entities)) {
+    html += `<div class="entity" style="border-color:${col.border}">
+      <div class="entity-head" style="background:${col.head};color:${col.headText}">${ename}</div>
+      <div class="entity-fields">`
+    for (const [type, name, key] of fields) {
+      const keyHtml = key ? `<span class="fkey ${key}">${key.toUpperCase()}</span>` : '<span></span>'
+      html += `<div class="field"><span class="ftype">${type}</span><span class="fname">${name}</span>${keyHtml}</div>`
+    }
+    html += `</div></div>`
+  }
+
+  html += `</div>`
+
+  if (dom.relations?.length) {
+    html += `<div class="rel-section">
+      <h3>Relationships</h3>
+      <table class="rel-table">
+        <thead><tr><th>From</th><th>Cardinality</th><th>To</th><th>Label</th></tr></thead>
+        <tbody>`
+    for (const [from, to, card, label] of dom.relations) {
+      html += `<tr>
+        <td class="from">${from}</td>
+        <td><span class="card">${card}</span></td>
+        <td class="to">${to}</td>
+        <td>${label}</td>
+      </tr>`
+    }
+    html += `</tbody></table></div>`
+  }
+
+  if (dom.note) {
+    html += `<p class="desc" style="margin-top:14px">${dom.note}</p>`
+  }
+
+  return html
+}
+
+// ── populate tabs ─────────────────────────────────────────────
+for (const key of ['procurement','inventory','sales','delivery','finance']) {
+  document.getElementById('tab-' + key).innerHTML = renderDomain(key)
+}
+
+// ── Overview arrow drawing ────────────────────────────────────
+function ov_arrow(x1, y1, x2, y2, color, label) {
+  const ang = Math.atan2(y2 - y1, x2 - x1), s = 8
+  const ax1 = x2 - s * Math.cos(ang - 0.38), ay1 = y2 - s * Math.sin(ang - 0.38)
+  const ax2 = x2 - s * Math.cos(ang + 0.38), ay2 = y2 - s * Math.sin(ang + 0.38)
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2
+  const lw = label.length * 4.8 + 14
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.5" opacity="0.45" stroke-dasharray="5 3"/>` +
+    `<polygon points="${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}" fill="${color}" opacity="0.75"/>` +
+    `<rect x="${mx - lw / 2}" y="${my - 9}" width="${lw}" height="15" rx="3" fill="#0f172a"/>` +
+    `<text x="${mx}" y="${my}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="9" font-family="system-ui,sans-serif">${label}</text>`
+}
+
+function drawOverviewArrows() {
+  const nodes = document.querySelector('.ov-nodes')
+  const svg = document.getElementById('ov-svg')
+  if (!nodes || !svg) return
+  const nr = nodes.getBoundingClientRect()
+  svg.setAttribute('width', nr.width)
+  svg.setAttribute('height', nr.height)
+  svg.style.width = nr.width + 'px'
+  svg.style.height = nr.height + 'px'
+  function p(id) {
+    const el = document.getElementById(id)
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    return {
+      cx: r.left - nr.left + r.width / 2, cy: r.top - nr.top + r.height / 2,
+      right: r.right - nr.left, left: r.left - nr.left,
+      top: r.top - nr.top, bottom: r.bottom - nr.top,
+      w: r.width, h: r.height,
+    }
+  }
+  const proc = p('ov-procurement'), inv = p('ov-inventory'), sales = p('ov-sales')
+  const del = p('ov-delivery'), fin = p('ov-finance')
+  if (!proc || !inv || !sales || !del || !fin) return
+  let h = ''
+  // Procurement → Inventory: received as
+  h += ov_arrow(proc.right, proc.cy, inv.left, inv.cy, '#60a5fa', 'received as')
+  // Inventory ↓ Delivery: reserves
+  h += ov_arrow(inv.cx, inv.bottom, del.cx, del.top, '#fb923c', 'reserves')
+  // Sales ↘ Delivery: fulfilled by
+  h += ov_arrow(sales.cx, sales.bottom, del.cx + del.w * 0.22, del.top, '#4ade80', 'fulfilled by')
+  // Delivery → Finance: billed as
+  h += ov_arrow(del.right, del.cy, fin.left, fin.cy, '#c084fc', 'billed as')
+  svg.innerHTML = h
+}
+
+setTimeout(drawOverviewArrows, 80)
+window.addEventListener('resize', drawOverviewArrows)
+
+// ── tab switching ─────────────────────────────────────────────
+function show(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+  document.getElementById('tab-' + id).classList.add('active')
+  el.classList.add('active')
+  if (id === 'overview') setTimeout(drawOverviewArrows, 50)
+}
 </script>
 </body>
 </html>
