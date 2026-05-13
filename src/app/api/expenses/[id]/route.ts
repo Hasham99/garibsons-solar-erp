@@ -9,7 +9,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       where: { id },
       data: {
         date: new Date(data.date),
-        category: data.category,
+        category: "OTHER",
+        categoryName: data.categoryName || data.category,
         description: data.description,
         amount: parseFloat(data.amount),
         paidTo: data.paidTo || null,

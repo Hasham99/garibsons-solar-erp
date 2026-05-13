@@ -10,7 +10,8 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { LoadingPage } from "@/components/ui/Spinner"
 import { formatCurrency } from "@/lib/utils"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Receipt } from "lucide-react"
+import { useRouter } from "next/navigation"
 import toast, { Toaster } from "react-hot-toast"
 
 interface CustomerContact {
@@ -52,6 +53,7 @@ const emptyForm = {
 const emptyContact: CustomerContact = { name: "", whatsapp: "" }
 
 export default function CustomersPage() {
+  const router = useRouter()
   const { data: customers, loading, refetch } = useFetch<Customer[]>("/api/customers")
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -146,7 +148,17 @@ export default function CustomersPage() {
     },
     {
       key: "actions", header: "Actions", render: (row: Customer) => (
-        <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}><Pencil size={14} /></Button>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}><Pencil size={14} /></Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => router.push(`/masters/customers/${row.id}/receipts`)}
+            title="View Receipts"
+          >
+            <Receipt size={14} className="mr-1" />Receipts
+          </Button>
+        </div>
       ),
     },
   ]

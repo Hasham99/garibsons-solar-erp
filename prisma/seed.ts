@@ -24,7 +24,7 @@ async function main() {
 
   // ── Counters ──
   const year = new Date().getFullYear()
-  for (const type of ["PO", "SO", "QT", "DO", "SOL-DO", "COST", "INV"]) {
+  for (const type of ["PO", "SO", "QT", "DO", "SOL-DO", "COST", "INV", "RCP"]) {
     await prisma.counter.upsert({
       where: { id: `${type}-${year}` },
       update: {},
@@ -32,6 +32,20 @@ async function main() {
     })
   }
   console.log("✅ Counters")
+
+  // ── Expense Categories ──
+  const systemCategories = [
+    "Salary", "Commission", "Warehouse Rent", "Utilities",
+    "Transport", "Marketing", "Office / Admin", "Other",
+  ]
+  for (const name of systemCategories) {
+    await prisma.expenseCategoryDef.upsert({
+      where: { name },
+      update: {},
+      create: { name, isSystem: true, active: true },
+    })
+  }
+  console.log("✅ Expense categories")
 
   // ── Banks ──
   const banks = [

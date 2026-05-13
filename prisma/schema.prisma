@@ -80,6 +80,7 @@ model User {
   stockAdjustments StockMovement[]
   deliveryOrders   DeliveryOrder[]
   expenses         Expense[]
+  customerReceipts CustomerReceipt[]
 }
 
 model ExchangeRate {
@@ -175,6 +176,7 @@ model Customer {
   ledgerEntries PartyLedger[]
   quotations    Quotation[]
   contacts      CustomerContact[]
+  receipts      CustomerReceipt[]
 }
 
 model CustomerContact {
@@ -220,7 +222,8 @@ model Bank {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  purchaseOrders PurchaseOrder[]
+  purchaseOrders   PurchaseOrder[]
+  customerReceipts CustomerReceipt[]
 }
 
 model CostingCalculation {
@@ -570,16 +573,43 @@ model Counter {
 }
 
 model Expense {
-  id          String          @id @default(cuid())
-  date        DateTime
-  category    ExpenseCategory
-  description String
-  amount      Float
-  paidTo      String?
-  reference   String?
-  notes       String?
-  createdById String?
-  createdBy   User?           @relation(fields: [createdById], references: [id])
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id           String          @id @default(cuid())
+  date         DateTime
+  category     ExpenseCategory
+  categoryName String?
+  description  String
+  amount       Float
+  paidTo       String?
+  reference    String?
+  notes        String?
+  createdById  String?
+  createdBy    User?           @relation(fields: [createdById], references: [id])
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model ExpenseCategoryDef {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isSystem  Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model CustomerReceipt {
+  id           String    @id @default(cuid())
+  receiptNo    String    @unique
+  customerId   String
+  customer     Customer  @relation(fields: [customerId], references: [id])
+  bankId       String
+  bank         Bank      @relation(fields: [bankId], references: [id])
+  amount       Float
+  reference    String?
+  valueDate    DateTime
+  whatsappDate DateTime?
+  notes        String?
+  createdById  String?
+  createdBy    User?     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

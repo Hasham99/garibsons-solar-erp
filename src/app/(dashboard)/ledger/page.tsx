@@ -11,18 +11,30 @@ import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { LoadingPage } from "@/components/ui/Spinner"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Plus } from "lucide-react"
+import { Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
-interface LedgerEntry {
+interface LedgerRow {
   id: string
   date: string
+  type: "SO" | "DO" | "PARTIAL" | "RECEIPT"
+  reference: string
+  soNumber?: string
+  doNumber?: string
   description: string
+  qtyTotal: number
+  qtyDelivered: number
+  qtyRemaining: number
   debit: number
   credit: number
   runningBalance: number
-  invoice: { invoiceNumber: string } | null
-  salesOrder: { soNumber: string } | null
+}
+
+interface LedgerResponse {
+  rows: LedgerRow[]
+  totalDebits: number
+  totalCredits: number
+  balance: number
 }
 
 interface Customer {
@@ -35,12 +47,9 @@ interface Supplier {
   name: string
 }
 
-interface SOOption {
+interface Bank {
   id: string
-  soNumber: string
-  customer: { id: string; name: string }
-  grandTotal: number
-  status: string
+  name: string
 }
 
 interface PO {
@@ -56,6 +65,20 @@ interface PO {
   createdAt: string
 }
 
+const TYPE_STYLES: Record<string, string> = {
+  SO:      "bg-blue-50 border-l-4 border-l-blue-400",
+  DO:      "bg-green-50 border-l-4 border-l-green-400",
+  PARTIAL: "bg-amber-50 border-l-4 border-l-amber-400",
+  RECEIPT: "bg-purple-50 border-l-4 border-l-purple-400",
+}
+
+const TYPE_BADGE: Record<string, string> = {
+  SO:      "bg-blue-100 text-blue-700",
+  DO:      "bg-green-100 text-green-700",
+  PARTIAL: "bg-amber-100 text-amber-700",
+  RECEIPT: "bg-purple-100 text-purple-700",
+}
+
 export default function LedgerPage() {
   const [tab, setTab] = useState<"customer" | "supplier">("customer")
   const [customerId, setCustomerId] = useState("")
@@ -63,84 +86,64 @@ export default function LedgerPage() {
   const [showReceipt, setShowReceipt] = useState(false)
   const [savingReceipt, setSavingReceipt] = useState(false)
   const [receiptForm, setReceiptForm] = useState({
-    customerId: "",
+    bankId: "",
     amount: "",
-    date: new Date().toISOString().split("T")[0],
-    description: "",
     reference: "",
-    soId: "",
+    valueDate: new Date().toISOString().split("T")[0],
+    whatsappDate: "",
+    notes: "",
   })
 
   const { data: customers } = useFetch<Customer[]>("/api/customers")
   const { data: suppliers } = useFetch<Supplier[]>("/api/suppliers")
-  const { data: salesOrders } = useFetch<SOOption[]>("/api/sales-orders")
-  const { data: ledger, loading: ledgerLoading, refetch: refetchLedger } = useFetch<LedgerEntry[]>(
-    customerId ? `/api/ledger?customerId=${customerId}` : "/api/ledger",
+  const { data: banks } = useFetch<Bank[]>("/api/banks")
+  const { data: ledgerData, loading: ledgerLoading, refetch: refetchLedger } = useFetch<LedgerResponse>(
+    customerId ? `/api/ledger?customerId=${customerId}` : "",
     [customerId]
   )
   const { data: pos, loading: posLoading } = useFetch<PO[]>("/api/purchase-orders")
 
-  const eligibleSOs = (salesOrders || []).filter((o) =>
-    ["PAYMENT_CONFIRMED", "DO_ISSUED", "DELIVERED", "INVOICED"].includes(o.status)
-  )
-  const filteredSOs = receiptForm.customerId
-    ? eligibleSOs.filter((o) => o.customer.id === receiptForm.customerId)
-    : eligibleSOs
+  const rows = ledgerData?.rows || []
+  const totalDebits = ledgerData?.totalDebits || 0
+  const totalCredits = ledgerData?.totalCredits || 0
+  const balance = ledgerData?.balance || 0
 
   const handleRecordReceipt = async () => {
-    if (!receiptForm.customerId || !receiptForm.amount || !receiptForm.date) {
-      return toast.error("Customer, amount and date are required")
+    if (!customerId || !receiptForm.bankId || !receiptForm.amount || !receiptForm.valueDate) {
+      return toast.error("Bank, amount and date are required")
     }
     setSavingReceipt(true)
     try {
-      const res = await fetch("/api/ledger", {
+      const res = await fetch(`/api/customers/${customerId}/receipts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerId: receiptForm.customerId,
-          amount: receiptForm.amount,
-          date: receiptForm.date,
-          description: receiptForm.description || (receiptForm.reference ? `Collection — ${receiptForm.reference}` : "Collection Receipt"),
-          reference: receiptForm.reference,
-          soId: receiptForm.soId || undefined,
+          bankId: receiptForm.bankId,
+          amount: parseFloat(receiptForm.amount),
+          reference: receiptForm.reference || null,
+          valueDate: receiptForm.valueDate,
+          whatsappDate: receiptForm.whatsappDate || null,
+          notes: receiptForm.notes || null,
         }),
       })
       if (res.ok) {
-        toast.success("Receipt recorded in ledger")
+        toast.success("Collection recorded")
         setShowReceipt(false)
-        setReceiptForm({ customerId: "", amount: "", date: new Date().toISOString().split("T")[0], description: "", reference: "", soId: "" })
+        setReceiptForm({ bankId: "", amount: "", reference: "", valueDate: new Date().toISOString().split("T")[0], whatsappDate: "", notes: "" })
         refetchLedger()
       } else {
         const data = await res.json()
-        toast.error(data.error || "Failed to record receipt")
+        toast.error(data.error || "Failed to record collection")
       }
     } finally {
       setSavingReceipt(false)
     }
   }
 
-  const filteredPOs = supplierId ? (pos || []).filter((p) => p.supplier && (suppliers?.find((s) => s.id === supplierId)?.name === p.supplier.name)) : (pos || [])
+  const filteredPOs = supplierId
+    ? (pos || []).filter((p) => p.supplier && (suppliers?.find((s) => s.id === supplierId)?.name === p.supplier.name))
+    : (pos || [])
 
-  const totalDebit = ledger?.reduce((s, e) => s + e.debit, 0) || 0
-  const totalCredit = ledger?.reduce((s, e) => s + e.credit, 0) || 0
-  const netBalance = totalDebit - totalCredit
-
-  // Customer aging
-  const now = new Date()
-  const aging = { current: 0, "1-30": 0, "31-60": 0, "61-90": 0, over90: 0 }
-  ledger?.forEach((entry) => {
-    if (entry.debit > entry.credit) {
-      const days = Math.floor((now.getTime() - new Date(entry.date).getTime()) / (1000 * 60 * 60 * 24))
-      const outstanding = entry.debit - entry.credit
-      if (days <= 0) aging.current += outstanding
-      else if (days <= 30) aging["1-30"] += outstanding
-      else if (days <= 60) aging["31-60"] += outstanding
-      else if (days <= 90) aging["61-90"] += outstanding
-      else aging.over90 += outstanding
-    }
-  })
-
-  // Supplier summary
   const supplierTotalPkr = filteredPOs.reduce((s, p) => s + p.poAmountPkr, 0)
   const supplierTotalLanded = filteredPOs.reduce((s, p) => s + (p.totalLandedCost || 0), 0)
 
@@ -150,7 +153,7 @@ export default function LedgerPage() {
       <Header
         title="Party Ledger"
         actions={
-          tab === "customer" ? (
+          tab === "customer" && customerId ? (
             <Button onClick={() => setShowReceipt(true)}>
               <Plus size={16} className="mr-2" />Record Collection
             </Button>
@@ -181,164 +184,187 @@ export default function LedgerPage() {
             <div className="flex items-end gap-4">
               <div className="w-72">
                 <Select label="Select Customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-                  <option value="">All Customers</option>
+                  <option value="">— Select a customer —</option>
                   {customers?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
               </div>
             </div>
           </Card>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <p className="text-sm text-gray-500">Total Debit</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalDebit)}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <p className="text-sm text-gray-500">Total Credit</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalCredit)}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <p className="text-sm text-gray-500">Net Receivable</p>
-              <p className={`text-2xl font-bold mt-1 ${netBalance > 0 ? "text-orange-600" : "text-green-600"}`}>
-                {formatCurrency(Math.abs(netBalance))}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Receivables Aging</h3>
-            <div className="grid grid-cols-5 gap-4">
-              {[
-                { label: "Current", value: aging.current, color: "green" },
-                { label: "1–30 days", value: aging["1-30"], color: "yellow" },
-                { label: "31–60 days", value: aging["31-60"], color: "orange" },
-                { label: "61–90 days", value: aging["61-90"], color: "red" },
-                { label: "Over 90", value: aging.over90, color: "red" },
-              ].map(({ label, value, color }) => (
-                <div key={label} className={`p-3 rounded-lg bg-${color}-50 border border-${color}-100`}>
-                  <p className="text-xs text-gray-500">{label}</p>
-                  <p className={`font-bold text-${color}-700 mt-1`}>{formatCurrency(value)}</p>
+          {customerId && (
+            <>
+              {/* Balance Banner */}
+              {!ledgerLoading && ledgerData && (
+                <div className={`rounded-xl p-4 flex items-center justify-between ${
+                  balance <= 0
+                    ? "bg-green-50 border border-green-200"
+                    : "bg-orange-50 border border-orange-200"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    {balance <= 0
+                      ? <TrendingUp size={20} className="text-green-600" />
+                      : <TrendingDown size={20} className="text-orange-600" />
+                    }
+                    <div>
+                      <p className={`font-semibold text-sm ${balance <= 0 ? "text-green-900" : "text-orange-900"}`}>
+                        {balance <= 0
+                          ? `Advance Credit: ${formatCurrency(Math.abs(balance))}`
+                          : `Pending Receivable: ${formatCurrency(balance)}`
+                        }
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Total SO value: {formatCurrency(totalDebits)} · Total collected: {formatCurrency(totalCredits)}
+                      </p>
+                    </div>
+                  </div>
+                  <Wallet size={24} className={balance <= 0 ? "text-green-400" : "text-orange-400"} />
                 </div>
-              ))}
-            </div>
-          </div>
+              )}
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-900">Ledger Entries</h3>
-            </div>
-            {ledgerLoading ? (
-              <LoadingPage />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {["Date", "Description", "Reference", "Debit", "Credit", "Balance"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {ledger && ledger.length > 0 ? ledger.map((entry) => (
-                      <tr key={entry.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm">{formatDate(entry.date)}</td>
-                        <td className="px-4 py-3 text-sm">{entry.description}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {entry.invoice?.invoiceNumber || entry.salesOrder?.soNumber || "—"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-red-600 font-medium">
-                          {entry.debit > 0 ? formatCurrency(entry.debit) : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-green-600 font-medium">
-                          {entry.credit > 0 ? formatCurrency(entry.credit) : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold">{formatCurrency(entry.runningBalance)}</td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center text-gray-400">No ledger entries found</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <p className="text-sm text-gray-500">Total Debit (SOs)</p>
+                  <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalDebits)}</p>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <p className="text-sm text-gray-500">Total Collected</p>
+                  <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalCredits)}</p>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <p className={`text-sm ${balance <= 0 ? "text-green-600" : "text-gray-500"}`}>
+                    {balance <= 0 ? "Advance Credit" : "Net Receivable"}
+                  </p>
+                  <p className={`text-2xl font-bold mt-1 ${balance <= 0 ? "text-green-600" : "text-orange-600"}`}>
+                    {formatCurrency(Math.abs(balance))}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900">Ledger Entries</h3>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    {[
+                      { color: "bg-blue-100 text-blue-700",   label: "Sales Order" },
+                      { color: "bg-green-100 text-green-700", label: "Delivery Order" },
+                      { color: "bg-amber-100 text-amber-700", label: "Partial" },
+                      { color: "bg-purple-100 text-purple-700", label: "Collection" },
+                    ].map((b) => (
+                      <span key={b.label} className={`px-2 py-0.5 rounded-full font-medium ${b.color}`}>{b.label}</span>
+                    ))}
+                  </div>
+                </div>
+                {ledgerLoading ? (
+                  <LoadingPage />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {["Date", "Type", "Reference", "Description", "Total Qty", "Delivered", "Remaining", "Debit", "Credit", "Balance"].map((h) => (
+                            <th key={h} className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {rows.length > 0 ? rows.map((row) => (
+                          <tr key={row.id} className={`${TYPE_STYLES[row.type]} hover:opacity-90`}>
+                            <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</td>
+                            <td className="px-3 py-2.5">
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${TYPE_BADGE[row.type]}`}>
+                                {row.type === "SO" ? "Sales Order"
+                                  : row.type === "DO" ? `DO (${row.soNumber})`
+                                  : row.type === "PARTIAL" ? "Partial"
+                                  : "Collection"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-xs font-medium text-gray-800 whitespace-nowrap">{row.reference}</td>
+                            <td className="px-3 py-2.5 text-xs text-gray-600 max-w-xs">{row.description}</td>
+                            <td className="px-3 py-2.5 text-xs text-center text-gray-700">
+                              {row.qtyTotal > 0 ? row.qtyTotal.toLocaleString() : "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-center text-green-700 font-medium">
+                              {row.qtyDelivered > 0 ? row.qtyDelivered.toLocaleString() : "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-center">
+                              {row.qtyRemaining > 0
+                                ? <span className="text-amber-700 font-medium">{row.qtyRemaining.toLocaleString()}</span>
+                                : "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-red-600 font-medium whitespace-nowrap">
+                              {row.debit > 0 ? formatCurrency(row.debit) : "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-green-600 font-medium whitespace-nowrap">
+                              {row.credit > 0 ? formatCurrency(row.credit) : "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs font-bold whitespace-nowrap">
+                              <span className={row.runningBalance <= 0 ? "text-green-700" : "text-gray-900"}>
+                                {formatCurrency(row.runningBalance)}
+                              </span>
+                            </td>
+                          </tr>
+                        )) : (
+                          <tr>
+                            <td colSpan={10} className="px-4 py-12 text-center text-gray-400">No ledger entries for this customer</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {!customerId && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-400">
+              Select a customer above to view their ledger
+            </div>
+          )}
         </>
       )}
 
-      {/* ── Record Collection / Receipt Modal ── */}
-      <Modal isOpen={showReceipt} onClose={() => setShowReceipt(false)} title="Record Collection / Receipt" size="lg">
+      {/* ── Record Collection Modal ── */}
+      <Modal isOpen={showReceipt} onClose={() => setShowReceipt(false)} title="Record Collection" size="md">
         <div className="space-y-4">
-          <div className="rounded-xl border border-green-100 bg-green-50 p-4">
-            <p className="text-sm font-semibold text-green-900">Record a customer payment or collection</p>
-            <p className="mt-1 text-xs text-green-700">
-              This creates a credit entry in the customer ledger. Link to a Sales Order if applicable.
-            </p>
-          </div>
-
-          <Select
-            label="Customer *"
-            required
-            value={receiptForm.customerId}
-            onChange={(e) => setReceiptForm((prev) => ({ ...prev, customerId: e.target.value, soId: "" }))}
-          >
-            <option value="">Select customer...</option>
-            {customers?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <Select label="Bank *" required value={receiptForm.bankId} onChange={(e) => setReceiptForm((p) => ({ ...p, bankId: e.target.value }))}>
+            <option value="">Select bank...</option>
+            {banks?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
-
+          <Input
+            label="Amount (PKR) *"
+            type="number" step="0.01" required
+            value={receiptForm.amount}
+            onChange={(e) => setReceiptForm((p) => ({ ...p, amount: e.target.value }))}
+            placeholder="e.g. 500000"
+          />
+          <Input
+            label="Reference / Slip No."
+            value={receiptForm.reference}
+            onChange={(e) => setReceiptForm((p) => ({ ...p, reference: e.target.value }))}
+          />
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Amount (PKR) *"
-              type="number"
-              step="0.01"
-              required
-              value={receiptForm.amount}
-              onChange={(e) => setReceiptForm((prev) => ({ ...prev, amount: e.target.value }))}
-              placeholder="e.g. 500000"
+              label="Bank Value Date *"
+              type="date" required
+              value={receiptForm.valueDate}
+              onChange={(e) => setReceiptForm((p) => ({ ...p, valueDate: e.target.value }))}
             />
             <Input
-              label="Date *"
+              label="WhatsApp Confirmation Date"
               type="date"
-              required
-              value={receiptForm.date}
-              onChange={(e) => setReceiptForm((prev) => ({ ...prev, date: e.target.value }))}
+              value={receiptForm.whatsappDate}
+              onChange={(e) => setReceiptForm((p) => ({ ...p, whatsappDate: e.target.value }))}
             />
           </div>
-
           <Input
-            label="Description"
-            value={receiptForm.description}
-            onChange={(e) => setReceiptForm((prev) => ({ ...prev, description: e.target.value }))}
-            placeholder="e.g. Cheque payment, bank transfer..."
+            label="Notes"
+            value={receiptForm.notes}
+            onChange={(e) => setReceiptForm((p) => ({ ...p, notes: e.target.value }))}
           />
-
-          <Input
-            label="Reference / Cheque No."
-            value={receiptForm.reference}
-            onChange={(e) => setReceiptForm((prev) => ({ ...prev, reference: e.target.value }))}
-            placeholder="Optional"
-          />
-
-          <Select
-            label="Link to Sales Order (optional)"
-            value={receiptForm.soId}
-            onChange={(e) => setReceiptForm((prev) => ({ ...prev, soId: e.target.value }))}
-          >
-            <option value="">Without SO (standalone receipt)</option>
-            {filteredSOs.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.soNumber} — {o.customer.name} — Rs {o.grandTotal.toLocaleString()}
-              </option>
-            ))}
-          </Select>
-
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowReceipt(false)}>Cancel</Button>
-            <Button variant="success" onClick={handleRecordReceipt} loading={savingReceipt}>
-              Record Receipt
-            </Button>
+            <Button variant="success" onClick={handleRecordReceipt} loading={savingReceipt}>Record Collection</Button>
           </div>
         </div>
       </Modal>

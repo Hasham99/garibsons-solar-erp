@@ -19,14 +19,16 @@ export async function POST(request: Request) {
     const data = await request.json()
     const session = await getSession()
 
-    if (!data.date || !data.category || !data.description || !data.amount) {
+    const categoryName = data.categoryName || data.category
+    if (!data.date || !categoryName || !data.description || !data.amount) {
       return Response.json({ error: "Date, category, description and amount are required" }, { status: 400 })
     }
 
     const expense = await prisma.expense.create({
       data: {
         date: new Date(data.date),
-        category: data.category,
+        category: "OTHER",
+        categoryName,
         description: data.description,
         amount: parseFloat(data.amount),
         paidTo: data.paidTo || null,

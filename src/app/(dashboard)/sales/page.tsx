@@ -109,6 +109,7 @@ export default function SalesPage() {
   const [uploadingProof, setUploadingProof] = useState<string | null>(null)
   const [viewProof, setViewProof] = useState<{ url: string; soNumber: string } | null>(null)
   const [customerQuery, setCustomerQuery] = useState("")
+  const [customerBalance, setCustomerBalance] = useState<{ totalCollected: number; totalSOValue: number; balance: number } | null>(null)
   const [form, setForm] = useState(emptyOrderForm)
   const [lines, setLines] = useState<DraftLine[]>([
     { productId: "", quantityMode: "PANELS", quantity: "", ratePerWatt: "" },
@@ -254,6 +255,11 @@ export default function SalesPage() {
       paymentTerms: customer.paymentTerms,
     }))
     setCustomerQuery(customer.name)
+    setCustomerBalance(null)
+    fetch(`/api/customers/${customer.id}/balance`)
+      .then((r) => r.json())
+      .then((data) => setCustomerBalance(data))
+      .catch(() => {})
   }
 
   const handleSave = async () => {
@@ -551,6 +557,18 @@ export default function SalesPage() {
                 <span className="rounded-full bg-white px-2.5 py-1 font-medium">{selectedCustomer.name}</span>
                 <span>Terms: {selectedCustomer.paymentTerms.replace(/_/g, " ")}</span>
                 {selectedCustomer.creditLimit && <span>Credit limit: {formatCurrency(selectedCustomer.creditLimit)}</span>}
+                {customerBalance !== null && (
+                  <span className={`rounded-full px-2.5 py-1 font-semibold ${
+                    customerBalance.balance >= 0
+                      ? "bg-green-100 text-green-800"
+                      : "bg-orange-100 text-orange-800"
+                  }`}>
+                    {customerBalance.balance >= 0
+                      ? `Advance: ${formatCurrency(customerBalance.balance)}`
+                      : `Pending: ${formatCurrency(Math.abs(customerBalance.balance))}`
+                    }
+                  </span>
+                )}
               </div>
             )}
           </div>

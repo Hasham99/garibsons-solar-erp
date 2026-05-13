@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useFetch } from "@/hooks/useFetch"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
@@ -11,7 +11,7 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { LoadingPage } from "@/components/ui/Spinner"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Plus, FileCheck, Upload, Paperclip, Trash2, ExternalLink } from "lucide-react"
+import { Plus, FileCheck, Upload, Paperclip, Trash2, ExternalLink, Pencil } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
 const DOC_TYPES = [
@@ -106,11 +106,20 @@ export default function ProcurementPage() {
   const [poDocs, setPoDocs] = useState<PODocument[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [form, setForm] = useState({
+  const [editingPoId, setEditingPoId] = useState<string | null>(null)
+
+  const emptyForm = {
     productId: "", supplierId: "", lcType: "TT", lcNumber: "", usanceDays: "",
     bankId: "", warehouseId: "", noOfPanels: "", panelWattage: "",
     usdPerWatt: "", rsPerWatt: "", exchangeRateId: "", customRate: "", costingId: "", notes: "",
-  })
+  }
+  const [form, setForm] = useState(emptyForm)
+
+  useEffect(() => {
+    if (warehouses && warehouses.length > 0 && !form.warehouseId) {
+      setForm((prev) => ({ ...prev, warehouseId: warehouses[0].id }))
+    }
+  }, [warehouses])
 
   const [clearForm, setClearForm] = useState({
     lcValuePkr: "", importShippingFreight: "",
@@ -154,6 +163,29 @@ export default function ProcurementPage() {
 
   const isLocal = form.lcType === "LOCAL"
 
+  const openEditPO = (po: PO) => {
+    setEditingPoId(po.id)
+    setForm({
+      productId: po.product ? (products?.find((p) => p.code === po.product.code)?.id ?? "") : "",
+      supplierId: suppliers?.find((s) => s.name === po.supplier?.name)?.id ?? "",
+      lcType: po.lcType,
+      lcNumber: po.lcNumber ?? "",
+      usanceDays: po.usanceDays ? String(po.usanceDays) : "",
+      bankId: po.bank ? (banks?.find((b) => b.name === po.bank!.name)?.id ?? "") : "",
+      warehouseId: po.warehouse ? (warehouses?.find((w) => w.name === po.warehouse!.name)?.id ?? "") : "",
+      noOfPanels: String(po.noOfPanels),
+      panelWattage: String(po.panelWattage),
+      usdPerWatt: String(po.usdPerWatt ?? ""),
+      rsPerWatt: "",
+      exchangeRateId: po.exchangeRate ? (rates?.find((r) => r.rate === po.exchangeRate!.rate)?.id ?? "") : "",
+      customRate: po.exchangeRate ? String(po.exchangeRate.rate) : "",
+      costingId: po.costing ? (costings?.find((c) => c.reference === po.costing!.reference)?.id ?? "") : "",
+      notes: po.notes ?? "",
+    })
+    setShowCreate(true)
+    setShowDetail(false)
+  }
+
   const handleCreate = async () => {
     const missingPrice = isLocal ? !form.rsPerWatt : !form.usdPerWatt
     if (!form.productId || !form.supplierId || !form.noOfPanels || missingPrice) {
@@ -180,24 +212,23 @@ export default function ProcurementPage() {
         poAmountPkr = totalValueUsd * effectiveRate
       }
 
-      const res = await fetch("/api/purchase-orders", {
-        method: "POST",
+      const url = editingPoId ? `/api/purchase-orders/${editingPoId}` : "/api/purchase-orders"
+      const method = editingPoId ? "PUT" : "POST"
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, totalWatts, totalValueUsd, poAmountPkr, usdPerWatt }),
       })
 
       if (res.ok) {
-        toast.success("Purchase order created")
+        toast.success(editingPoId ? "Purchase order updated" : "Purchase order created")
         setShowCreate(false)
-        setForm({
-          productId: "", supplierId: "", lcType: "TT", lcNumber: "", usanceDays: "",
-          bankId: "", warehouseId: "", noOfPanels: "", panelWattage: "",
-          usdPerWatt: "", rsPerWatt: "", exchangeRateId: "", customRate: "", costingId: "", notes: "",
-        })
+        setEditingPoId(null)
+        setForm(emptyForm)
         refetch()
       } else {
         const data = await res.json()
-        toast.error(data.error || "Failed to create PO")
+        toast.error(data.error || "Failed to save PO")
       }
     } finally {
       setSaving(false)
@@ -321,6 +352,11 @@ export default function ProcurementPage() {
       header: "Actions",
       render: (row: PO) => (
         <div className="flex items-center gap-1 flex-wrap">
+          {(row.status === "DRAFT") && (
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openEditPO(row) }}>
+              <Pencil size={13} className="mr-1" />Edit
+            </Button>
+          )}
           {row.status === "DRAFT" && (
             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleStatusChange(row.id, "CONFIRMED") }}>Confirm</Button>
           )}
@@ -521,7 +557,7 @@ export default function ProcurementPage() {
                     { label: "Shipping DO",            value: selectedPO.shippingDO },
                     { label: "Terminal (THC)",          value: selectedPO.terminalHandling },
                     { label: "Customs & Clearing",     value: selectedPO.clearingCharges },
-                    { label: "Miscellaneous Clearing", value: selectedPO.miscClearing },
+                    { label: "Administrative Cost", value: selectedPO.miscClearing },
                     { label: "Transportation",         value: selectedPO.containerTransport },
                     { label: "GST Paid at Import",     value: selectedPO.gstInputAmount },
                   ].filter(({ value }) => value != null && value > 0).map(({ label, value }) => (
@@ -564,6 +600,11 @@ export default function ProcurementPage() {
             <div className="flex flex-wrap justify-between gap-3 border-t pt-4">
               <div className="flex gap-2">
                 {selectedPO.status === "DRAFT" && (
+                  <Button variant="ghost" size="sm" onClick={() => openEditPO(selectedPO)}>
+                    <Pencil size={13} className="mr-1" />Edit PO
+                  </Button>
+                )}
+                {selectedPO.status === "DRAFT" && (
                   <Button variant="secondary" size="sm" onClick={() => { handleStatusChange(selectedPO.id, "CONFIRMED"); setShowDetail(false) }}>Confirm PO</Button>
                 )}
                 {selectedPO.status === "CONFIRMED" && selectedPO.lcType !== "LOCAL" && (
@@ -590,8 +631,8 @@ export default function ProcurementPage() {
         )}
       </Modal>
 
-      {/* ── Create PO Modal ── */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Purchase Order" size="lg">
+      {/* ── Create / Edit PO Modal ── */}
+      <Modal isOpen={showCreate} onClose={() => { setShowCreate(false); setEditingPoId(null); setForm(emptyForm) }} title={editingPoId ? "Edit Purchase Order" : "Create Purchase Order"} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Select label="Product *" required value={form.productId} onChange={(e) => handleProductChange(e.target.value)}>
@@ -604,25 +645,29 @@ export default function ProcurementPage() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <Select label="LC Type" value={form.lcType} onChange={(e) => setForm({ ...form, lcType: e.target.value, usanceDays: "" })}>
+          <div className={`grid gap-4 ${isLocal ? "grid-cols-1" : "grid-cols-3"}`}>
+            <Select label="LC Type" value={form.lcType} onChange={(e) => setForm({ ...form, lcType: e.target.value, usanceDays: "", lcNumber: "", bankId: "" })}>
               <option value="TT">TT</option>
               <option value="SIGHT">Sight LC</option>
               <option value="USANCE">Usance LC</option>
               <option value="LOCAL">Local</option>
             </Select>
-            {form.lcType === "USANCE" ? (
-              <Input label="Usance Days *" type="number" placeholder="e.g. 90" value={form.usanceDays} onChange={(e) => setForm({ ...form, usanceDays: e.target.value })} />
-            ) : (
-              <Input label="LC Number" value={form.lcNumber} onChange={(e) => setForm({ ...form, lcNumber: e.target.value })} />
+            {!isLocal && (
+              <>
+                {form.lcType === "USANCE" ? (
+                  <Input label="Usance Days *" type="number" placeholder="e.g. 90" value={form.usanceDays} onChange={(e) => setForm({ ...form, usanceDays: e.target.value })} />
+                ) : (
+                  <Input label="LC Number" value={form.lcNumber} onChange={(e) => setForm({ ...form, lcNumber: e.target.value })} />
+                )}
+                <Select label="Bank" value={form.bankId} onChange={(e) => setForm({ ...form, bankId: e.target.value })}>
+                  <option value="">Select bank...</option>
+                  {banks?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </Select>
+              </>
             )}
-            <Select label="Bank" value={form.bankId} onChange={(e) => setForm({ ...form, bankId: e.target.value })}>
-              <option value="">Select bank...</option>
-              {banks?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
           </div>
 
-          {form.lcType === "USANCE" && (
+          {!isLocal && form.lcType === "USANCE" && (
             <Input label="LC Number" value={form.lcNumber} onChange={(e) => setForm({ ...form, lcNumber: e.target.value })} />
           )}
 
@@ -636,13 +681,15 @@ export default function ProcurementPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select label={isLocal ? "Exchange Rate (for USD equivalent)" : "Exchange Rate"} value={form.exchangeRateId} onChange={(e) => handleRateChange(e.target.value)}>
-              <option value="">Select rate...</option>
-              {rates?.map((r) => <option key={r.id} value={r.id}>{r.source} — Rs {r.rate}{r.notes ? ` (${r.notes})` : ""}</option>)}
-            </Select>
-            <Input label="Rate to Use (PKR/USD)" type="number" step="0.01" value={form.customRate} onChange={(e) => setForm({ ...form, customRate: e.target.value })} placeholder="Auto-filled from selection above" />
-          </div>
+          {!isLocal && (
+            <div className="grid grid-cols-2 gap-4">
+              <Select label="Exchange Rate" value={form.exchangeRateId} onChange={(e) => handleRateChange(e.target.value)}>
+                <option value="">Select rate...</option>
+                {rates?.map((r) => <option key={r.id} value={r.id}>{r.source} — Rs {r.rate}{r.notes ? ` (${r.notes})` : ""}</option>)}
+              </Select>
+              <Input label="Rate to Use (PKR/USD)" type="number" step="0.01" value={form.customRate} onChange={(e) => setForm({ ...form, customRate: e.target.value })} placeholder="Auto-filled from selection above" />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Select label="Destination Warehouse" value={form.warehouseId} onChange={(e) => setForm({ ...form, warehouseId: e.target.value })}>
@@ -706,8 +753,8 @@ export default function ProcurementPage() {
           )}
 
           <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate} loading={saving}>Create PO</Button>
+            <Button variant="secondary" onClick={() => { setShowCreate(false); setEditingPoId(null); setForm(emptyForm) }}>Cancel</Button>
+            <Button onClick={handleCreate} loading={saving}>{editingPoId ? "Save Changes" : "Create PO"}</Button>
           </div>
         </div>
       </Modal>
@@ -805,7 +852,7 @@ export default function ProcurementPage() {
               { key: "shippingDO",         label: "Shipping DO" },
               { key: "terminalHandling",   label: "Terminal (THC)" },
               { key: "clearingCharges",    label: "Misc Customs & Clearing" },
-              { key: "miscClearing",       label: "Miscellaneous Clearing" },
+              { key: "miscClearing",       label: "Administrative Cost" },
               { key: "containerTransport", label: "Transportation" },
               { key: "gstInputAmount",     label: "GST Paid at Import (part of cost)" },
             ].map(({ key, label }) => (
