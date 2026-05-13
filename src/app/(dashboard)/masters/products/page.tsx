@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
-import { LoadingPage } from "@/components/ui/Spinner"
+import { TableSkeleton } from "@/components/ui/Skeleton"
 import { Plus, Pencil, ChevronDown, ChevronRight } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
@@ -123,7 +123,7 @@ export default function ProductsPage() {
   }, {})
   const sortedBrands = Object.keys(brandGroups).sort()
 
-  if (loading) return <LoadingPage />
+  if (loading) return <TableSkeleton columns={5} rows={6} />
 
   return (
     <div className="space-y-6">

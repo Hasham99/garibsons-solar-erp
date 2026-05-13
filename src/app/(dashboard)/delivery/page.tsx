@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/Select"
 import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
-import { LoadingPage } from "@/components/ui/Spinner"
+import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatDate } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { useAuth } from "@/hooks/useAuth"
@@ -219,7 +219,7 @@ export default function DeliveryPage() {
     },
   ]
 
-  if (loading) return <LoadingPage />
+  if (loading) return <TableSkeleton columns={7} rows={10} />
 
   return (
     <div className="space-y-6">

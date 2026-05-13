@@ -11,7 +11,7 @@ import { Modal } from "@/components/ui/Modal"
 import { StatCard } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { Table } from "@/components/ui/Table"
-import { LoadingPage } from "@/components/ui/Spinner"
+import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, Package, DollarSign, AlertTriangle, SlidersHorizontal, Pencil } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -328,7 +328,7 @@ export default function StockPage() {
     }] : []),
   ]
 
-  if (loading) return <LoadingPage />
+  if (loading) return <TableSkeleton columns={7} rows={10} />
 
   return (
     <div className="space-y-6">

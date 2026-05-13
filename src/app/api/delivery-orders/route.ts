@@ -18,11 +18,15 @@ export async function GET() {
       include: {
         salesOrder: {
           include: {
-            customer: true,
-            lines: { include: { product: true } },
+            customer: { select: { id: true, name: true } },
+            lines: {
+              include: {
+                product: { select: { id: true, name: true, code: true, wattage: true } },
+              },
+            },
           },
         },
-        warehouse: true,
+        warehouse: { select: { id: true, name: true } },
         createdBy: { select: { name: true } },
         stockMovements: {
           select: { type: true, quantity: true, watts: true, stockEntryId: true },

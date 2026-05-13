@@ -3,7 +3,7 @@
 import { useFetch } from "@/hooks/useFetch"
 import { StatCard } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
-import { LoadingPage } from "@/components/ui/Spinner"
+import { DashboardSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Package, AlertCircle, ShoppingCart, Receipt } from "lucide-react"
 import {
@@ -46,7 +46,7 @@ interface DashboardData {
 export default function DashboardPage() {
   const { data, loading } = useFetch<DashboardData>("/api/dashboard")
 
-  if (loading) return <LoadingPage />
+  if (loading) return <DashboardSkeleton />
 
   const summary = data?.summary || {
     totalPanels: 0,

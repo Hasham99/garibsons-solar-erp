@@ -3,17 +3,62 @@ import { summarizeStockEntries, summarizeStockEntry } from "@/lib/stock"
 
 export async function GET() {
   try {
-    const stockEntries = await prisma.stockEntry.findMany({
-      include: {
-        movements: { select: { type: true, quantity: true } },
-        warehouse: true,
-        po: { select: { gstInputAmount: true, noOfPanels: true } },
-      },
-    })
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    // Run all independent queries in parallel
+    const [
+      stockEntries,
+      todayOrders,
+      invoiceTotals,
+      paymentTotals,
+      activePOs,
+      recentSOs,
+      openDeliveryOrders,
+    ] = await Promise.all([
+      prisma.stockEntry.findMany({
+        include: {
+          movements: { select: { type: true, quantity: true } },
+          warehouse: { select: { id: true, name: true } },
+          po: { select: { gstInputAmount: true, noOfPanels: true } },
+        },
+      }),
+      prisma.salesOrder.aggregate({
+        where: { createdAt: { gte: todayStart } },
+        _sum: { grandTotal: true },
+        _count: true,
+      }),
+      prisma.invoice.aggregate({
+        where: { status: { in: ["UNPAID", "PARTIAL"] } },
+        _sum: { grandTotal: true },
+      }),
+      prisma.payment.aggregate({
+        where: { invoice: { status: { in: ["UNPAID", "PARTIAL"] } } },
+        _sum: { amount: true },
+      }),
+      prisma.purchaseOrder.count({
+        where: { status: { in: ["DRAFT", "CONFIRMED", "SHIPPED", "CLEARED"] } },
+      }),
+      prisma.salesOrder.findMany({
+        take: 10,
+        select: {
+          id: true,
+          soNumber: true,
+          grandTotal: true,
+          status: true,
+          createdAt: true,
+          customer: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.deliveryOrder.findMany({
+        where: { status: { in: ["PENDING", "AUTHORIZED"] } },
+        select: { createdAt: true },
+      }),
+    ])
 
     const stockTotals = summarizeStockEntries(stockEntries)
 
-    // Total import GST locked in current stock
     const totalGstInStock = stockEntries.reduce((sum, entry) => {
       const summary = summarizeStockEntry(entry)
       const gstPerPanel =
@@ -23,43 +68,7 @@ export async function GET() {
       return sum + gstPerPanel * summary.currentQuantity
     }, 0)
 
-    // Today's sales
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-    const todayOrders = await prisma.salesOrder.aggregate({
-      where: { createdAt: { gte: todayStart } },
-      _sum: { grandTotal: true },
-      _count: true,
-    })
-
-    // Outstanding receivables
-    const unpaidInvoices = await prisma.invoice.findMany({
-      where: { status: { in: ["UNPAID", "PARTIAL"] } },
-      include: { payments: true },
-    })
-    const totalReceivables = unpaidInvoices.reduce((s, inv) => {
-      const paid = inv.payments.reduce((ps, p) => ps + p.amount, 0)
-      return s + (inv.grandTotal - paid)
-    }, 0)
-
-    // Active POs
-    const activePOs = await prisma.purchaseOrder.count({
-      where: { status: { in: ["DRAFT", "CONFIRMED", "SHIPPED", "CLEARED"] } },
-    })
-
-    // Recent sales orders
-    const recentSOs = await prisma.salesOrder.findMany({
-      take: 10,
-      include: { customer: true },
-      orderBy: { createdAt: "desc" },
-    })
-
-    const openDeliveryOrders = await prisma.deliveryOrder.findMany({
-      where: {
-        status: { in: ["PENDING", "AUTHORIZED"] },
-      },
-      select: { createdAt: true },
-    })
+    const totalReceivables = (invoiceTotals._sum.grandTotal ?? 0) - (paymentTotals._sum.amount ?? 0)
 
     const warehouseStock: Record<string, { name: string; availablePanels: number; reservedPanels: number; value: number }> = {}
     for (const entry of stockEntries) {

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
-import { LoadingPage } from "@/components/ui/Spinner"
+import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -255,7 +255,7 @@ export default function LedgerPage() {
                   </div>
                 </div>
                 {ledgerLoading ? (
-                  <LoadingPage />
+                  <TableSkeleton columns={5} rows={6} />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -405,7 +405,7 @@ export default function LedgerPage() {
               <h3 className="font-semibold text-gray-900">Purchase Orders</h3>
             </div>
             {posLoading ? (
-              <LoadingPage />
+              <TableSkeleton columns={5} rows={6} />
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
-import { LoadingPage } from "@/components/ui/Spinner"
+import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency } from "@/lib/utils"
 import { Plus, Pencil, Trash2, Receipt } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -163,7 +163,7 @@ export default function CustomersPage() {
     },
   ]
 
-  if (loading) return <LoadingPage />
+  if (loading) return <TableSkeleton columns={5} rows={6} />
 
   return (
     <div className="space-y-6">

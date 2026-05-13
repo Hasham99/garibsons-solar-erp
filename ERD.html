@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garibsons Solar ERP — Entity Relationship Diagram</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f8fafc; color: #1e293b; }
+    header { background: #1e293b; color: #fff; padding: 18px 32px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+    header span { font-size: 0.8rem; opacity: 0.6; background: rgba(255,255,255,0.1); padding: 3px 10px; border-radius: 20px; }
+    .controls { padding: 14px 32px; display: flex; gap: 10px; border-bottom: 1px solid #e2e8f0; background: #fff; }
+    button { padding: 6px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f1f5f9; cursor: pointer; font-size: 0.85rem; }
+    button:hover { background: #e2e8f0; }
+    .wrap { padding: 32px; overflow: auto; }
+    .mermaid { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px; min-height: 400px; }
+    .legend { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #64748b; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Garibsons Solar ERP</h1>
+  <span>Entity Relationship Diagram</span>
+  <span style="margin-left:auto; opacity:0.5; font-size:0.75rem;">Generated 13 May 2026</span>
+</header>
+<div class="controls">
+  <button onclick="document.querySelector('.mermaid').requestFullscreen()">⛶ Fullscreen</button>
+  <button onclick="window.print()">🖨 Print</button>
+</div>
+<div class="wrap">
+<div class="mermaid">
+erDiagram
+
+  User {
+    string id PK
+    string name
+    string email UK
+    string password
+    UserRole role
+    boolean active
+    datetime createdAt
+  }
+
+  ExchangeRate {
+    string id PK
+    datetime date
+    string source
+    float rate
+    datetime createdAt
+  }
+
+  TaxConfig {
+    string id PK
+    string name
+    float customsDuty
+    float additionalCD
+    float excise
+    float salesTax
+    float additionalST
+    float incomeTax
+    float handlingPerWatt
+    boolean isDefault
+  }
+
+  Product {
+    string id PK
+    string code UK
+    string name
+    string category
+    int wattage
+    string brand
+    string skuName
+    int panelsPerContainer
+    int palletsPerContainer
+    int lowStockThreshold
+    boolean active
+    string defaultSupplierId FK
+  }
+
+  Supplier {
+    string id PK
+    string name
+    string country
+    string contactPerson
+    string contactEmail
+    string paymentTerms
+    boolean active
+  }
+
+  Customer {
+    string id PK
+    string name
+    CustomerType type
+    string ntn
+    string strn
+    string address
+    PaymentTerms paymentTerms
+    float creditLimit
+    boolean active
+  }
+
+  CustomerContact {
+    string id PK
+    string customerId FK
+    string name
+    string whatsapp
+    boolean isPrimary
+  }
+
+  Warehouse {
+    string id PK
+    string name
+    string location
+    string godown
+    string manager
+    boolean active
+  }
+
+  WarehouseContact {
+    string id PK
+    string warehouseId FK
+    string name
+    string whatsapp
+    boolean isPrimary
+  }
+
+  Bank {
+    string id PK
+    string name
+    string branch
+    boolean active
+  }
+
+  CostingCalculation {
+    string id PK
+    string reference UK
+    string status
+    float fobPerWatt
+    float freightPerWatt
+    float landedCostPerWatt
+    float landedCostPerPanel
+    float totalShipmentValue
+    string exchangeRateId FK
+    string taxConfigId FK
+    int panelWattage
+    int totalPanels
+  }
+
+  PurchaseOrder {
+    string id PK
+    string poNumber UK
+    string productId FK
+    string supplierId FK
+    LCType lcType
+    string lcNumber
+    int usanceDays
+    string bankId FK
+    string warehouseId FK
+    int noOfContainers
+    int noOfPanels
+    int panelWattage
+    int totalWatts
+    float usdPerWatt
+    float totalValueUsd
+    float poAmountPkr
+    string exchangeRateId FK
+    string costingId FK
+    float gstInputAmount
+    float landedCostPerWatt
+    string status
+  }
+
+  PODocument {
+    string id PK
+    string poId FK
+    string docType
+    string fileName
+    string fileUrl
+    datetime uploadedAt
+  }
+
+  StockEntry {
+    string id PK
+    string productId FK
+    string warehouseId FK
+    string poId FK
+    string lcReference
+    int panelQuantity
+    int wattQuantity
+    float costPerPanel
+    float costPerWatt
+    float totalValue
+    datetime receivedAt
+  }
+
+  StockMovement {
+    string id PK
+    string stockEntryId FK
+    StockMovementType type
+    int quantity
+    int watts
+    string poId FK
+    string soId FK
+    string doId FK
+    string userId FK
+    string reason
+  }
+
+  Quotation {
+    string id PK
+    string qNumber UK
+    string customerId FK
+    datetime validUntil
+    string status
+  }
+
+  QuotationLine {
+    string id PK
+    string quotationId FK
+    string productId FK
+    int quantity
+    int watts
+    float ratePerWatt
+    float totalAmount
+  }
+
+  SalesOrder {
+    string id PK
+    string soNumber UK
+    string customerId FK
+    string quotationId FK
+    SalesOrderStatus status
+    float subTotal
+    float gstAmount
+    float grandTotal
+    string createdById FK
+    datetime createdAt
+  }
+
+  SalesOrderLine {
+    string id PK
+    string soId FK
+    string productId FK
+    int quantity
+    int watts
+    float ratePerWatt
+    float totalAmount
+  }
+
+  DeliveryOrder {
+    string id PK
+    string doNumber UK
+    string soId FK
+    string warehouseId FK
+    int quantity
+    int watts
+    string status
+    string authorizedBy
+    int validityDays
+    string createdById FK
+    datetime createdAt
+  }
+
+  DeliveryOrderLine {
+    string id PK
+    string doId FK
+    string soLineId FK
+    string productId FK
+    int quantity
+    int watts
+  }
+
+  Invoice {
+    string id PK
+    string invoiceNumber UK
+    string soId FK
+    string doId FK
+    string customerId
+    float subTotal
+    float gstAmount
+    float grandTotal
+    string status
+    datetime invoiceDate
+  }
+
+  Payment {
+    string id PK
+    string invoiceId FK
+    float amount
+    datetime paymentDate
+    string method
+    string reference
+  }
+
+  PartyLedger {
+    string id PK
+    string customerId FK
+    datetime date
+    string description
+    float debit
+    float credit
+    float balance
+    string invoiceId FK
+    string soId FK
+  }
+
+  Expense {
+    string id PK
+    datetime date
+    ExpenseCategory category
+    string description
+    float amount
+    string paidTo
+    string createdById FK
+  }
+
+  CustomerReceipt {
+    string id PK
+    string receiptNo UK
+    string customerId FK
+    string bankId FK
+    float amount
+    datetime valueDate
+    string createdById FK
+  }
+
+  AuditLog {
+    string id PK
+    string userId FK
+    string action
+    string entity
+    string entityId
+    string changes
+    datetime createdAt
+  }
+
+  ExpenseCategoryDef {
+    string id PK
+    string name UK
+    boolean isSystem
+    boolean active
+  }
+
+  %% Relationships
+  Product ||--o{ PurchaseOrder : "ordered via"
+  Product ||--o{ StockEntry : "stocked as"
+  Product ||--o{ SalesOrderLine : "sold in"
+  Product ||--o{ QuotationLine : "quoted in"
+  Product ||--o{ DeliveryOrderLine : "dispatched in"
+  Product }o--o| Supplier : "default supplier"
+
+  Supplier ||--o{ PurchaseOrder : "supplies"
+
+  Customer ||--o{ SalesOrder : "places"
+  Customer ||--o{ Quotation : "quoted to"
+  Customer ||--o{ PartyLedger : "ledger for"
+  Customer ||--o{ CustomerContact : "contacts"
+  Customer ||--o{ CustomerReceipt : "receipts"
+
+  Warehouse ||--o{ StockEntry : "holds"
+  Warehouse ||--o{ PurchaseOrder : "receives into"
+  Warehouse ||--o{ DeliveryOrder : "dispatches from"
+  Warehouse ||--o{ WarehouseContact : "contacts"
+
+  Bank ||--o{ PurchaseOrder : "finances"
+  Bank ||--o{ CustomerReceipt : "received at"
+
+  ExchangeRate ||--o{ PurchaseOrder : "rated by"
+  ExchangeRate ||--o{ CostingCalculation : "used in"
+
+  TaxConfig ||--o{ CostingCalculation : "applied in"
+
+  CostingCalculation ||--o{ PurchaseOrder : "costed by"
+
+  PurchaseOrder ||--o{ PODocument : "has docs"
+  PurchaseOrder ||--o{ StockEntry : "received as"
+  PurchaseOrder ||--o{ StockMovement : "moves"
+
+  StockEntry ||--o{ StockMovement : "tracks"
+
+  Quotation ||--o{ QuotationLine : "contains"
+  Quotation ||--o{ SalesOrder : "converts to"
+
+  SalesOrder ||--o{ SalesOrderLine : "contains"
+  SalesOrder ||--o{ DeliveryOrder : "fulfilled by"
+  SalesOrder ||--o{ StockMovement : "moves"
+  SalesOrder ||--o{ Invoice : "invoiced as"
+  SalesOrder ||--o{ PartyLedger : "recorded in"
+
+  SalesOrderLine ||--o{ DeliveryOrderLine : "dispatched via"
+
+  DeliveryOrder ||--o{ DeliveryOrderLine : "contains"
+  DeliveryOrder ||--o{ StockMovement : "reserves"
+  DeliveryOrder ||--o{ Invoice : "billed as"
+
+  Invoice ||--o{ Payment : "paid via"
+  Invoice ||--o{ PartyLedger : "recorded in"
+
+  User ||--o{ SalesOrder : "created by"
+  User ||--o{ DeliveryOrder : "created by"
+  User ||--o{ StockMovement : "performed by"
+  User ||--o{ Expense : "created by"
+  User ||--o{ CustomerReceipt : "created by"
+  User ||--o{ AuditLog : "audited by"
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Core entities</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Financial entities</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Movement/audit entities</div>
+  <div class="legend-item" style="margin-left:auto; color:#94a3b8">|| = one &nbsp; o{ = many &nbsp; o| = zero-or-one</div>
+</div>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', er: { diagramPadding: 30 } })
+</script>
+</body>
+</html>

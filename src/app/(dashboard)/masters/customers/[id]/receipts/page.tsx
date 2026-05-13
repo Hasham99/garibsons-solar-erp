@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
-import { LoadingPage } from "@/components/ui/Spinner"
+import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { ArrowLeft, Plus, Pencil, TrendingDown, TrendingUp, Wallet, Search } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -139,7 +139,7 @@ export default function CustomerReceiptsPage() {
     }
   }
 
-  if (loading && !receiptsData) return <LoadingPage />
+  if (loading && !receiptsData) return <TableSkeleton columns={5} rows={6} />
 
   const bal = balance?.balance ?? 0
   const totalCollected = balance?.totalCollected ?? 0

@@ -5,7 +5,7 @@ import { useFetch } from "@/hooks/useFetch"
 import { Header } from "@/components/layout/Header"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
-import { LoadingPage } from "@/components/ui/Spinner"
+import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Download } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -227,7 +227,7 @@ export default function ReportsPage() {
       {/* ── RECEIVABLES AGING ── */}
       {activeTab === "receivables" && (
         <div className="space-y-6">
-          {recLoading ? <LoadingPage /> : (
+          {recLoading ? <TableSkeleton columns={5} rows={6} /> : (
             <>
               {receivables && (
                 <div className="grid grid-cols-5 gap-3">
@@ -299,7 +299,7 @@ export default function ReportsPage() {
             </Button>
           </div>
 
-          {gstLoading ? <LoadingPage /> : (
+          {gstLoading ? <TableSkeleton columns={5} rows={6} /> : (
             <>
               {gstData && (
                 <div className="grid grid-cols-4 gap-4">
@@ -400,7 +400,7 @@ export default function ReportsPage() {
       {/* ── P&L BY SHIPMENT ── */}
       {activeTab === "pl" && (
         <div className="space-y-6">
-          {plLoading ? <LoadingPage /> : (
+          {plLoading ? <TableSkeleton columns={5} rows={6} /> : (
             <>
               {plData && (
                 <div className="grid grid-cols-4 gap-4">
@@ -488,7 +488,7 @@ export default function ReportsPage() {
       {/* ── PO STATUS ── */}
       {activeTab === "po-status" && (
         <div className="space-y-6">
-          {poStatusLoading ? <LoadingPage /> : (
+          {poStatusLoading ? <TableSkeleton columns={5} rows={6} /> : (
             <>
               {/* Status summary chips */}
               {poStatusData && (
@@ -543,7 +543,7 @@ export default function ReportsPage() {
       {/* ── STOCK REPORTS ── */}
       {activeTab === "stock" && (
         <div className="space-y-6">
-          {stockLoading ? <LoadingPage /> : (
+          {stockLoading ? <TableSkeleton columns={5} rows={6} /> : (
             <>
               {/* Totals */}
               {stockSummary && (
