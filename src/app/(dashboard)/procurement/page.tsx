@@ -352,7 +352,7 @@ export default function ProcurementPage() {
       header: "Actions",
       render: (row: PO) => (
         <div className="flex items-center gap-1 flex-wrap">
-          {(row.status === "DRAFT") && (
+          {["DRAFT", "CONFIRMED", "SHIPPED"].includes(row.status) && (
             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openEditPO(row) }}>
               <Pencil size={13} className="mr-1" />Edit
             </Button>
@@ -599,7 +599,7 @@ export default function ProcurementPage() {
             {/* ── Actions ── */}
             <div className="flex flex-wrap justify-between gap-3 border-t pt-4">
               <div className="flex gap-2">
-                {selectedPO.status === "DRAFT" && (
+                {["DRAFT", "CONFIRMED", "SHIPPED"].includes(selectedPO.status) && (
                   <Button variant="ghost" size="sm" onClick={() => openEditPO(selectedPO)}>
                     <Pencil size={13} className="mr-1" />Edit PO
                   </Button>
