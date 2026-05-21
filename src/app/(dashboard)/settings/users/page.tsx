@@ -94,6 +94,8 @@ export default function UsersPage() {
           <Input label={editId ? "New Password (leave blank to keep current)" : "Password"} type="password" required={!editId} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <Select label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             <option value="ADMIN">Admin</option>
+            <option value="OPERATIONS">Operations (All access, no master data)</option>
+            <option value="CUSTOMER_MANAGER">Customer Manager (All access, customers only in master data)</option>
             <option value="PROCUREMENT">Procurement</option>
             <option value="WAREHOUSE">Warehouse</option>
             <option value="SALES">Sales</option>

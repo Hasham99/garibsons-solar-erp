@@ -64,6 +64,7 @@ interface POOption {
   landedCostPerWatt: number | null
   poAmountPkr: number
   lcType: string
+  lcNumber: string | null
   status: string
 }
 
@@ -530,7 +531,7 @@ export default function StockPage() {
             value={receiveForm.poId}
             onChange={(e) => {
               const poId = e.target.value
-              const po = readyPOs.find((p) => p.id === poId)
+              const po = unreceivedPOs.find((p) => p.id === poId)
               if (!po) {
                 setReceiveForm((prev) => ({ ...prev, poId }))
                 return
@@ -556,7 +557,7 @@ export default function StockPage() {
             }}
           >
             <option value="">Select PO...</option>
-            {readyPOs.map((p) => {
+            {unreceivedPOs.map((p) => {
               const received = receivedPanelsByPO[p.poNumber] || 0
               const remaining = p.noOfPanels - received
               return (
@@ -566,6 +567,16 @@ export default function StockPage() {
               )
             })}
           </Select>
+
+          {receiveForm.poId && (() => {
+            const po = readyPOs.find((p) => p.id === receiveForm.poId)
+            if (!po?.lcNumber) return null
+            return (
+              <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-sm text-blue-800">
+                <span className="font-medium">LC No.: </span>{po.lcNumber}
+              </div>
+            )
+          })()}
 
           <Select
             label="Warehouse *"

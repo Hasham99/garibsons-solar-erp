@@ -14,6 +14,8 @@ enum UserRole {
   SALES
   ACCOUNTS
   VIEWER
+  OPERATIONS
+  CUSTOMER_MANAGER
 }
 
 enum LCType {
@@ -433,6 +435,7 @@ model SalesOrder {
   paymentVerifiedBy String?
 
   notes       String?
+  orderDate   DateTime @default(now())
   createdById String?
   createdBy   User?   @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())

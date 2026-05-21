@@ -25,6 +25,7 @@ interface SalesOrder {
   status: string
   paymentTerms: string
   createdAt: string
+  orderDate: string
   gstRate: number
   subTotal: number
   gstAmount: number
@@ -81,6 +82,7 @@ const emptyOrderForm = {
   gstInvoice: false,
   gstRate: "18",
   notes: "",
+  orderDate: new Date().toISOString().split("T")[0],
 }
 
 function getPanelsPerPallet(product?: ProductOption) {
@@ -227,6 +229,7 @@ export default function SalesPage() {
       gstInvoice: (order.gstRate || 0) > 0,
       gstRate: order.gstRate > 0 ? String(order.gstRate) : "18",
       notes: order.notes || "",
+      orderDate: (order.orderDate || order.createdAt || "").split("T")[0],
     })
     setCustomerQuery(customer?.name || order.customer?.name || "")
     setLines(
@@ -273,6 +276,7 @@ export default function SalesPage() {
     try {
       const payload = {
         ...form,
+        orderDate: form.orderDate || new Date().toISOString().split("T")[0],
         quotationId: quotationId || null,
         lines: computedLines.map((l) => ({
           productId: l.productId,
@@ -400,7 +404,7 @@ export default function SalesPage() {
     { key: "grandTotal", header: "Grand Total", render: (row: SalesOrder) => <span className="font-bold">{formatCurrency(row.grandTotal)}</span> },
     { key: "paymentTerms", header: "Terms", render: (row: SalesOrder) => row.paymentTerms.replace(/_/g, " ") },
     { key: "status", header: "Status", render: (row: SalesOrder) => <Badge status={row.status} /> },
-    { key: "createdAt", header: "Date", render: (row: SalesOrder) => formatDate(row.createdAt) },
+    { key: "orderDate", header: "Date", render: (row: SalesOrder) => formatDate(row.orderDate || row.createdAt) },
     {
       key: "actions",
       header: "Actions",
@@ -689,11 +693,19 @@ export default function SalesPage() {
               )}
             </div>
 
-            <Input
-              label="Notes"
-              value={form.notes}
-              onChange={(e) => setForm((cur) => ({ ...cur, notes: e.target.value }))}
-            />
+            <div className="space-y-3">
+              <Input
+                label="Order Date"
+                type="date"
+                value={form.orderDate}
+                onChange={(e) => setForm((cur) => ({ ...cur, orderDate: e.target.value }))}
+              />
+              <Input
+                label="Notes"
+                value={form.notes}
+                onChange={(e) => setForm((cur) => ({ ...cur, notes: e.target.value }))}
+              />
+            </div>
 
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
               <div className="mb-2 flex items-center justify-between text-xs text-blue-800">

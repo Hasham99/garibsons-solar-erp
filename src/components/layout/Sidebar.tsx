@@ -36,26 +36,28 @@ interface NavItem {
   roles?: string[]
 }
 
+const MASTER_DATA_ROLES = ["ADMIN", "PROCUREMENT", "WAREHOUSE", "SALES", "ACCOUNTS", "VIEWER"]
+
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: <LayoutDashboard size={18} /> },
   { label: "Costing Calculator", href: "/costing", icon: <Calculator size={18} /> },
-  { label: "Purchase Orders", href: "/procurement", icon: <ShoppingCart size={18} />, roles: ["ADMIN", "PROCUREMENT"] },
-  { label: "Stock Register", href: "/stock", icon: <Warehouse size={18} />, roles: ["ADMIN", "PROCUREMENT", "WAREHOUSE"] },
-  { label: "Quotations", href: "/quotations", icon: <FileText size={18} />, roles: ["ADMIN", "SALES"] },
-  { label: "Sales Orders", href: "/sales", icon: <TrendingUp size={18} />, roles: ["ADMIN", "SALES", "ACCOUNTS"] },
-  { label: "Delivery Orders", href: "/delivery", icon: <Truck size={18} />, roles: ["ADMIN", "WAREHOUSE", "SALES"] },
-  { label: "Invoices", href: "/invoices", icon: <Receipt size={18} />, roles: ["ADMIN", "ACCOUNTS"] },
-  { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, roles: ["ADMIN", "ACCOUNTS"] },
-  { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, roles: ["ADMIN", "ACCOUNTS"] },
+  { label: "Purchase Orders", href: "/procurement", icon: <ShoppingCart size={18} />, roles: ["ADMIN", "PROCUREMENT", "OPERATIONS", "CUSTOMER_MANAGER"] },
+  { label: "Stock Register", href: "/stock", icon: <Warehouse size={18} />, roles: ["ADMIN", "PROCUREMENT", "WAREHOUSE", "OPERATIONS", "CUSTOMER_MANAGER"] },
+  { label: "Quotations", href: "/quotations", icon: <FileText size={18} />, roles: ["ADMIN", "SALES", "OPERATIONS", "CUSTOMER_MANAGER"] },
+  { label: "Sales Orders", href: "/sales", icon: <TrendingUp size={18} />, roles: ["ADMIN", "SALES", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
+  { label: "Delivery Orders", href: "/delivery", icon: <Truck size={18} />, roles: ["ADMIN", "WAREHOUSE", "SALES", "OPERATIONS", "CUSTOMER_MANAGER"] },
+  { label: "Invoices", href: "/invoices", icon: <Receipt size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
+  { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
+  { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
   { label: "Reports", href: "/reports", icon: <BarChart3 size={18} /> },
   {
     label: "Master Data",
     icon: <Package size={18} />,
     children: [
-      { label: "Products", href: "/masters/products", icon: <Zap size={16} /> },
-      { label: "Suppliers", href: "/masters/suppliers", icon: <Building2 size={16} /> },
-      { label: "Customers", href: "/masters/customers", icon: <Users size={16} /> },
-      { label: "Warehouses", href: "/masters/warehouses", icon: <Warehouse size={16} /> },
+      { label: "Products", href: "/masters/products", icon: <Zap size={16} />, roles: MASTER_DATA_ROLES },
+      { label: "Suppliers", href: "/masters/suppliers", icon: <Building2 size={16} />, roles: MASTER_DATA_ROLES },
+      { label: "Customers", href: "/masters/customers", icon: <Users size={16} />, roles: [...MASTER_DATA_ROLES, "CUSTOMER_MANAGER"] },
+      { label: "Warehouses", href: "/masters/warehouses", icon: <Warehouse size={16} />, roles: MASTER_DATA_ROLES },
     ],
   },
   {
@@ -123,8 +125,11 @@ export function Sidebar({ user }: SidebarProps) {
           if (!canView(item)) return null
 
           if (item.children) {
+            const visibleChildren = item.children.filter((c) => canView(c))
+            if (visibleChildren.length === 0) return null
+
             const isExpanded = expandedGroups.includes(item.label)
-            const hasActiveChild = item.children.some((c) => c.href && isActive(c.href))
+            const hasActiveChild = visibleChildren.some((c) => c.href && isActive(c.href))
 
             return (
               <div key={item.label}>
@@ -145,7 +150,7 @@ export function Sidebar({ user }: SidebarProps) {
                 </button>
                 {isExpanded && (
                   <div className="mt-1 ml-3 space-y-1">
-                    {item.children.map((child) => (
+                    {visibleChildren.map((child) => (
                       <Link
                         key={child.href}
                         href={child.href!}

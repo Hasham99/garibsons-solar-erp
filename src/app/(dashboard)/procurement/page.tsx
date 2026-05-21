@@ -331,10 +331,10 @@ export default function ProcurementPage() {
     { key: "poNumber", header: "PO Number", sortable: true },
     { key: "product", header: "Product", render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-gray-400">{row.product?.code}</p></div> },
     { key: "supplier", header: "Supplier", render: (row: PO) => row.supplier?.name || "—" },
-    { key: "lcType", header: "LC Type", render: (row: PO) => (
-      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 whitespace-nowrap">
-        {row.lcType}{row.lcType === "USANCE" && row.usanceDays ? ` ${row.usanceDays}d` : ""}
-      </span>
+    { key: "lcNumber", header: "LC No.", render: (row: PO) => (
+      row.lcNumber
+        ? <span className="text-xs font-medium text-gray-800">{row.lcNumber}</span>
+        : <span className="text-gray-400 text-xs">—</span>
     )},
     { key: "noOfPanels", header: "Quantity", render: (row: PO) => `${row.noOfPanels.toLocaleString()} × ${row.panelWattage}W` },
     {
@@ -352,7 +352,7 @@ export default function ProcurementPage() {
       header: "Actions",
       render: (row: PO) => (
         <div className="flex items-center gap-1 flex-wrap">
-          {["DRAFT", "CONFIRMED", "SHIPPED"].includes(row.status) && (
+          {row.status !== "RECEIVED" && (
             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openEditPO(row) }}>
               <Pencil size={13} className="mr-1" />Edit
             </Button>
@@ -599,7 +599,7 @@ export default function ProcurementPage() {
             {/* ── Actions ── */}
             <div className="flex flex-wrap justify-between gap-3 border-t pt-4">
               <div className="flex gap-2">
-                {["DRAFT", "CONFIRMED", "SHIPPED"].includes(selectedPO.status) && (
+                {selectedPO.status !== "RECEIVED" && (
                   <Button variant="ghost" size="sm" onClick={() => openEditPO(selectedPO)}>
                     <Pencil size={13} className="mr-1" />Edit PO
                   </Button>

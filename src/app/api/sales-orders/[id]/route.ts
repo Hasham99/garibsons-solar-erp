@@ -52,6 +52,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           gstAmount,
           grandTotal,
           notes: data.notes,
+          ...(data.orderDate ? { orderDate: new Date(data.orderDate) } : {}),
           lines: {
             deleteMany: {},
             create: (data.lines || []).map((line: {

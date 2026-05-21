@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useFetch } from "@/hooks/useFetch"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { Plus, Pencil, ChevronDown, ChevronRight } from "lucide-react"
+import { Plus, Pencil, ChevronDown } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
 interface Product {
@@ -46,7 +46,25 @@ export default function ProductsPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [collapsedBrands, setCollapsedBrands] = useState<Set<string>>(new Set())
+  const [selectedBrand, setSelectedBrand] = useState<string>("")
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(false)
+
+  // Group products by brand
+  const brandGroups = (products || []).reduce<Record<string, Product[]>>((acc, p) => {
+    if (!acc[p.brand]) acc[p.brand] = []
+    acc[p.brand].push(p)
+    return acc
+  }, {})
+  const sortedBrands = Object.keys(brandGroups).sort()
+
+  // Auto-select first brand once data loads
+  useEffect(() => {
+    if (sortedBrands.length > 0 && !selectedBrand) {
+      setSelectedBrand(sortedBrands[0])
+    }
+  }, [sortedBrands.length])
+
+  const visibleProducts = selectedBrand ? (brandGroups[selectedBrand] || []) : []
 
   const handleSave = async () => {
     setSaving(true)
@@ -61,6 +79,8 @@ export default function ProductsPage() {
       if (res.ok) {
         toast.success(editId ? "Product updated" : "Product created")
         setShowModal(false)
+        // After creating, switch to the new product's brand so it's immediately visible
+        if (!editId && form.brand) setSelectedBrand(form.brand)
         refetch()
       } else {
         toast.error("Failed to save product")
@@ -89,7 +109,8 @@ export default function ProductsPage() {
 
   const handleNew = () => {
     setEditId(null)
-    setForm({ ...emptyForm })
+    // Pre-fill brand with currently selected brand
+    setForm({ ...emptyForm, brand: selectedBrand })
     setShowModal(true)
   }
 
@@ -99,29 +120,12 @@ export default function ProductsPage() {
     else toast.error("Failed")
   }
 
-  const toggleBrand = (brand: string) => {
-    setCollapsedBrands((prev) => {
-      const next = new Set(prev)
-      if (next.has(brand)) next.delete(brand)
-      else next.add(brand)
-      return next
-    })
-  }
-
   const panelsPerContainer = parseFloat(form.panelsPerContainer) || 0
   const palletsPerContainer = parseFloat(form.palletsPerContainer) || 0
   const wattage = parseFloat(form.wattage) || 0
   const panelsPerPallet = panelsPerContainer > 0 && palletsPerContainer > 0 ? panelsPerContainer / palletsPerContainer : 0
   const wattsPerPallet = panelsPerPallet * wattage
   const totalWattsPerContainer = panelsPerContainer * wattage
-
-  // Group products by brand
-  const brandGroups = (products || []).reduce<Record<string, Product[]>>((acc, p) => {
-    if (!acc[p.brand]) acc[p.brand] = []
-    acc[p.brand].push(p)
-    return acc
-  }, {})
-  const sortedBrands = Object.keys(brandGroups).sort()
 
   if (loading) return <TableSkeleton columns={5} rows={6} />
 
@@ -134,85 +138,119 @@ export default function ProductsPage() {
         actions={<Button onClick={handleNew}><Plus size={16} className="mr-2" />Add Product</Button>}
       />
 
-      {sortedBrands.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-400">
-          No products yet
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {sortedBrands.map((brand) => {
-            const brandProducts = brandGroups[brand]
-            const isCollapsed = collapsedBrands.has(brand)
-            return (
-              <div key={brand} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggleBrand(brand)}
-                  className="w-full flex items-center justify-between px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    {isCollapsed ? <ChevronRight size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-                    <span className="font-semibold text-gray-900">{brand}</span>
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{brandProducts.length} SKU{brandProducts.length !== 1 ? "s" : ""}</span>
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    {brandProducts.filter((p) => p.active).length} active
-                  </div>
-                </button>
+      {/* Brand selector */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">Brand</span>
+            {/* Custom styled dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setBrandDropdownOpen((v) => !v)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-900 hover:border-blue-400 hover:bg-blue-50 transition-colors min-w-[180px] justify-between"
+              >
+                <span>{selectedBrand || "Select brand..."}</span>
+                <ChevronDown size={14} className={`text-gray-400 transition-transform ${brandDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
 
-                {!isCollapsed && (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-100">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          {["Code", "Name / SKU", "Wattage", "Packing", "Category", "Supplier", "Status", ""].map((h) => (
-                            <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {brandProducts.map((product) => {
-                          const ppp = product.panelsPerContainer && product.palletsPerContainer
-                            ? product.panelsPerContainer / product.palletsPerContainer
-                            : null
-                          return (
-                            <tr key={product.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm font-mono text-gray-600">{product.code}</td>
-                              <td className="px-4 py-3 text-sm">
-                                <p className="font-medium text-gray-900">{product.name}</p>
-                                {product.skuName && <p className="text-xs text-gray-400">{product.skuName}</p>}
-                              </td>
-                              <td className="px-4 py-3 text-sm font-medium">{product.wattage}W</td>
-                              <td className="px-4 py-3 text-sm text-gray-500">
-                                {product.panelsPerContainer ? (
-                                  <span>{product.panelsPerContainer}/ctr{ppp ? ` · ${ppp.toFixed(0)}/pallet` : ""}</span>
-                                ) : "—"}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-500">{product.category}</td>
-                              <td className="px-4 py-3 text-sm text-gray-500">{product.defaultSupplier?.name || "—"}</td>
-                              <td className="px-4 py-3">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${product.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                  {product.active ? "Active" : "Inactive"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex gap-2">
-                                  <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}><Pencil size={14} /></Button>
-                                  {product.active && <Button size="sm" variant="danger" onClick={() => handleDeactivate(product.id)}>Deactivate</Button>}
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+              {brandDropdownOpen && (
+                <div className="absolute z-20 mt-1 w-full min-w-[200px] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  {sortedBrands.map((brand) => (
+                    <button
+                      key={brand}
+                      type="button"
+                      onClick={() => { setSelectedBrand(brand); setBrandDropdownOpen(false) }}
+                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left hover:bg-blue-50 transition-colors ${
+                        selectedBrand === brand ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-700"
+                      }`}
+                    >
+                      <span>{brand}</span>
+                      <span className="text-xs text-gray-400">{brandGroups[brand].length} SKU{brandGroups[brand].length !== 1 ? "s" : ""}</span>
+                    </button>
+                  ))}
+                  {sortedBrands.length === 0 && (
+                    <p className="px-4 py-3 text-sm text-gray-400">No brands yet</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {selectedBrand && (
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span className="bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">
+                  {visibleProducts.length} SKU{visibleProducts.length !== 1 ? "s" : ""}
+                </span>
+                <span className="text-gray-400">
+                  {visibleProducts.filter((p) => p.active).length} active
+                </span>
               </div>
-            )
-          })}
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Products table */}
+        {selectedBrand ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  {["Code", "Name / SKU", "Wattage", "Packing", "Category", "Supplier", "Status", ""].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {visibleProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                      No products under <span className="font-medium">{selectedBrand}</span>
+                    </td>
+                  </tr>
+                ) : (
+                  visibleProducts.map((product) => {
+                    const ppp = product.panelsPerContainer && product.palletsPerContainer
+                      ? product.panelsPerContainer / product.palletsPerContainer
+                      : null
+                    return (
+                      <tr key={product.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-mono text-gray-600">{product.code}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <p className="font-medium text-gray-900">{product.name}</p>
+                          {product.skuName && <p className="text-xs text-gray-400">{product.skuName}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium">{product.wattage}W</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {product.panelsPerContainer ? (
+                            <span>{product.panelsPerContainer}/ctr{ppp ? ` · ${ppp.toFixed(0)}/pallet` : ""}</span>
+                          ) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{product.category}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{product.defaultSupplier?.name || "—"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${product.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                            {product.active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}><Pencil size={14} /></Button>
+                            {product.active && <Button size="sm" variant="danger" onClick={() => handleDeactivate(product.id)}>Deactivate</Button>}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-12 text-center text-gray-400 text-sm">
+            No products yet. Add a product to get started.
+          </div>
+        )}
+      </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editId ? "Edit Product" : "Add Product"}>
         <div className="space-y-4">

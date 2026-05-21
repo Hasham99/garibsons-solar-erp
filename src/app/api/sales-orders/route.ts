@@ -72,6 +72,7 @@ export async function POST(request: Request) {
         gstAmount,
         grandTotal,
         notes: data.notes,
+        orderDate: data.orderDate ? new Date(data.orderDate) : new Date(),
         createdById: session.userId || null,
         lines: {
           create: (data.lines || []).map((line: {
