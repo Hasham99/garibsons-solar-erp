@@ -48,6 +48,7 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false)
   const [selectedBrand, setSelectedBrand] = useState<string>("")
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(false)
+  const [newBrandMode, setNewBrandMode] = useState(false)
 
   // Group products by brand
   const brandGroups = (products || []).reduce<Record<string, Product[]>>((acc, p) => {
@@ -92,6 +93,7 @@ export default function ProductsPage() {
 
   const handleEdit = (product: Product) => {
     setEditId(product.id)
+    setNewBrandMode(false)
     setForm({
       code: product.code,
       name: product.name,
@@ -109,6 +111,7 @@ export default function ProductsPage() {
 
   const handleNew = () => {
     setEditId(null)
+    setNewBrandMode(false)
     // Pre-fill brand with currently selected brand
     setForm({ ...emptyForm, brand: selectedBrand })
     setShowModal(true)
@@ -256,7 +259,36 @@ export default function ProductsPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label="Product Code" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-            <Input label="Brand" required value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+            <div>
+              <Select
+                label="Brand *"
+                value={newBrandMode ? "__new__" : form.brand}
+                onChange={(e) => {
+                  if (e.target.value === "__new__") {
+                    setNewBrandMode(true)
+                    setForm({ ...form, brand: "" })
+                  } else {
+                    setNewBrandMode(false)
+                    setForm({ ...form, brand: e.target.value })
+                  }
+                }}
+              >
+                <option value="">Select brand...</option>
+                {sortedBrands.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+                <option value="__new__">+ Add new brand</option>
+              </Select>
+              {newBrandMode && (
+                <Input
+                  label=""
+                  placeholder="Type new brand name..."
+                  value={form.brand}
+                  onChange={(e) => setForm({ ...form, brand: e.target.value })}
+                  className="mt-2"
+                />
+              )}
+            </div>
           </div>
           <Input label="Product Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input label="SKU / Model Name" value={form.skuName} onChange={(e) => setForm({ ...form, skuName: e.target.value })} />
