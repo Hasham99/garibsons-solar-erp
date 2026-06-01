@@ -37,6 +37,13 @@ interface PODocument {
 interface PO {
   id: string
   poNumber: string
+  // FK IDs for direct use in edit form
+  productId: string
+  supplierId: string
+  bankId: string | null
+  warehouseId: string | null
+  exchangeRateId: string | null
+  costingId: string | null
   product: { name: string; code: string; wattage: number; panelsPerContainer: number | null; palletsPerContainer: number | null }
   supplier: { name: string }
   bank: { name: string } | null
@@ -73,6 +80,7 @@ interface PO {
   totalLandedCost: number | null
   landedCostPerPanel: number | null
   landedCostPerWatt: number | null
+  clearingExchangeRate: number | null
   documents?: PODocument[]
 }
 
@@ -126,6 +134,7 @@ export default function ProcurementPage() {
     bankCharges: "", marineInsurance: "", exciseCharges: "",
     shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "",
     containerTransport: "", gstInputAmount: "",
+    clearingExchangeRate: "",
   })
   const [freightUsd, setFreightUsd] = useState("")
   const [freightExRate, setFreightExRate] = useState("")
@@ -166,20 +175,20 @@ export default function ProcurementPage() {
   const openEditPO = (po: PO) => {
     setEditingPoId(po.id)
     setForm({
-      productId: po.product ? (products?.find((p) => p.code === po.product.code)?.id ?? "") : "",
-      supplierId: suppliers?.find((s) => s.name === po.supplier?.name)?.id ?? "",
+      productId: po.productId,
+      supplierId: po.supplierId,
       lcType: po.lcType,
       lcNumber: po.lcNumber ?? "",
       usanceDays: po.usanceDays ? String(po.usanceDays) : "",
-      bankId: po.bank ? (banks?.find((b) => b.name === po.bank!.name)?.id ?? "") : "",
-      warehouseId: po.warehouse ? (warehouses?.find((w) => w.name === po.warehouse!.name)?.id ?? "") : "",
+      bankId: po.bankId ?? "",
+      warehouseId: po.warehouseId ?? "",
       noOfPanels: String(po.noOfPanels),
       panelWattage: String(po.panelWattage),
       usdPerWatt: String(po.usdPerWatt ?? ""),
       rsPerWatt: "",
-      exchangeRateId: po.exchangeRate ? (rates?.find((r) => r.rate === po.exchangeRate!.rate)?.id ?? "") : "",
+      exchangeRateId: po.exchangeRateId ?? "",
       customRate: po.exchangeRate ? String(po.exchangeRate.rate) : "",
-      costingId: po.costing ? (costings?.find((c) => c.reference === po.costing!.reference)?.id ?? "") : "",
+      costingId: po.costingId ?? "",
       notes: po.notes ?? "",
     })
     setShowCreate(true)
@@ -235,6 +244,8 @@ export default function ProcurementPage() {
     }
   }
 
+  const emptyClearForm = { lcValuePkr: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "", clearingExchangeRate: "" }
+
   const handleClear = async () => {
     if (!selectedPO) return
     setSaving(true)
@@ -251,7 +262,7 @@ export default function ProcurementPage() {
         setSelectedPO(null)
         setFreightUsd("")
         setFreightExRate("")
-        setClearForm({ lcValuePkr: "", importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
+        setClearForm(emptyClearForm)
         refetch()
       } else {
         toast.error("Failed to save costing")
@@ -285,11 +296,20 @@ export default function ProcurementPage() {
 
   const openCosting = (po: PO) => {
     setSelectedPO(po)
+    const alreadyCleared = po.totalLandedCost != null
     setClearForm({
-      lcValuePkr: String(po.poAmountPkr || ""),
-      importShippingFreight: "", bankCharges: "", marineInsurance: "",
-      exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "",
-      containerTransport: "", gstInputAmount: "",
+      lcValuePkr: alreadyCleared ? String(po.lcValuePkr ?? "") : String(po.poAmountPkr || ""),
+      importShippingFreight: String(po.importShippingFreight ?? ""),
+      bankCharges:           String(po.bankCharges ?? ""),
+      marineInsurance:       String(po.marineInsurance ?? ""),
+      exciseCharges:         String(po.exciseCharges ?? ""),
+      shippingDO:            String(po.shippingDO ?? ""),
+      terminalHandling:      String(po.terminalHandling ?? ""),
+      clearingCharges:       String(po.clearingCharges ?? ""),
+      miscClearing:          String(po.miscClearing ?? ""),
+      containerTransport:    String(po.containerTransport ?? ""),
+      gstInputAmount:        String(po.gstInputAmount ?? ""),
+      clearingExchangeRate:  String(po.clearingExchangeRate ?? (po.exchangeRate?.rate ?? "")),
     })
     setFreightUsd("")
     setFreightExRate("")
@@ -363,17 +383,9 @@ export default function ProcurementPage() {
           {row.status === "CONFIRMED" && row.lcType !== "LOCAL" && (
             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleStatusChange(row.id, "SHIPPED") }}>Mark Shipped</Button>
           )}
-          {row.status === "SHIPPED" && (
-            <Button size="sm" variant="ghost" onClick={(e) => {
-              e.stopPropagation()
-              setSelectedPO(row)
-              setClearForm({ lcValuePkr: String(row.poAmountPkr || ""), importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
-              setFreightUsd("")
-              setFreightExRate("")
-              setIncoterm("FOB")
-              setShowClear(true)
-            }}>
-              <FileCheck size={14} className="mr-1" />Clearing
+          {(row.status === "SHIPPED" || row.status === "READY_TO_RECEIVE") && (
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openCosting(row) }}>
+              <FileCheck size={14} className="mr-1" />{row.status === "READY_TO_RECEIVE" ? "Edit Clearing" : "Clearing"}
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openDocs(row) }}>
@@ -547,6 +559,31 @@ export default function ProcurementPage() {
             {selectedPO.totalLandedCost != null && (
               <div className="border-t pt-4">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Clearing Charges</p>
+
+                {/* Exchange rate comparison */}
+                {selectedPO.lcType !== "LOCAL" && (selectedPO.exchangeRate || selectedPO.clearingExchangeRate) && (
+                  <div className="grid grid-cols-3 gap-3 mb-3 p-3 bg-amber-50 rounded-lg border border-amber-100 text-sm">
+                    {selectedPO.totalValueUsd > 0 && (
+                      <div>
+                        <p className="text-xs text-amber-700">PO USD Value</p>
+                        <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                      </div>
+                    )}
+                    {selectedPO.exchangeRate && (
+                      <div>
+                        <p className="text-xs text-amber-700">Rate at Booking</p>
+                        <p className="font-semibold text-gray-900">Rs {selectedPO.exchangeRate.rate}</p>
+                      </div>
+                    )}
+                    {selectedPO.clearingExchangeRate && (
+                      <div>
+                        <p className="text-xs text-amber-700">Rate at Clearing</p>
+                        <p className="font-semibold text-gray-900">Rs {selectedPO.clearingExchangeRate}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                   {[
                     { label: "LC / Purchase Value",   value: selectedPO.lcValuePkr },
@@ -610,16 +647,9 @@ export default function ProcurementPage() {
                 {selectedPO.status === "CONFIRMED" && selectedPO.lcType !== "LOCAL" && (
                   <Button variant="secondary" size="sm" onClick={() => { handleStatusChange(selectedPO.id, "SHIPPED"); setShowDetail(false) }}>Mark Shipped</Button>
                 )}
-                {selectedPO.status === "SHIPPED" && (
-                  <Button variant="primary" size="sm" onClick={() => {
-                    setClearForm({ lcValuePkr: String(selectedPO.poAmountPkr || ""), importShippingFreight: "", bankCharges: "", marineInsurance: "", exciseCharges: "", shippingDO: "", terminalHandling: "", clearingCharges: "", miscClearing: "", containerTransport: "", gstInputAmount: "" })
-                    setFreightUsd("")
-                    setFreightExRate("")
-                    setIncoterm("FOB")
-                    setShowDetail(false)
-                    setShowClear(true)
-                  }}>
-                    <FileCheck size={14} className="mr-1" />Enter Clearing
+                {(selectedPO.status === "SHIPPED" || selectedPO.status === "READY_TO_RECEIVE") && (
+                  <Button variant="primary" size="sm" onClick={() => { openCosting(selectedPO); setShowDetail(false) }}>
+                    <FileCheck size={14} className="mr-1" />{selectedPO.status === "READY_TO_RECEIVE" ? "Edit Clearing" : "Enter Clearing"}
                   </Button>
                 )}
               </div>
@@ -768,6 +798,27 @@ export default function ProcurementPage() {
               : "Enter all charges as per vendor bills. All amounts in PKR unless noted."}
           </p>
 
+          {/* PO reference values */}
+          {selectedPO && selectedPO.lcType !== "LOCAL" && selectedPO.totalValueUsd > 0 && (
+            <div className="bg-gray-50 rounded-lg p-3 grid grid-cols-3 gap-3 text-sm border border-gray-200">
+              <div>
+                <p className="text-xs text-gray-500">PO USD Value</p>
+                <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Rate at PO Booking</p>
+                <p className="font-semibold text-gray-900">
+                  {selectedPO.exchangeRate ? `Rs ${selectedPO.exchangeRate.rate}` : "—"}
+                </p>
+                {selectedPO.exchangeRate?.source && <p className="text-xs text-gray-400">{selectedPO.exchangeRate.source}</p>}
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">PKR at Booking</p>
+                <p className="font-semibold text-gray-900">{formatCurrency(selectedPO.poAmountPkr)}</p>
+              </div>
+            </div>
+          )}
+
           {/* FOB / CNF toggle for non-local POs */}
           {selectedPO?.lcType !== "LOCAL" && (
             <div className="flex items-center gap-3">
@@ -793,6 +844,24 @@ export default function ProcurementPage() {
           )}
 
           <div className="grid grid-cols-2 gap-4">
+            {/* Clearing exchange rate + auto-compute LC value for non-local */}
+            {selectedPO?.lcType !== "LOCAL" && (
+              <Input
+                label="Exchange Rate at Clearing (PKR/USD)"
+                type="number" step="0.01"
+                value={clearForm.clearingExchangeRate}
+                onChange={(e) => {
+                  const rate = e.target.value
+                  setClearForm((prev) => {
+                    const pkr = selectedPO && parseFloat(rate) > 0
+                      ? (selectedPO.totalValueUsd * parseFloat(rate)).toFixed(2)
+                      : prev.lcValuePkr
+                    return { ...prev, clearingExchangeRate: rate, lcValuePkr: pkr }
+                  })
+                }}
+                placeholder={selectedPO?.exchangeRate ? String(selectedPO.exchangeRate.rate) : "e.g. 282.50"}
+              />
+            )}
             <Input
               label={selectedPO?.lcType === "LOCAL" ? "Local Purchase Value PKR *" : "Document LC Value PKR *"}
               type="number" step="0.01"
@@ -804,7 +873,7 @@ export default function ProcurementPage() {
             {selectedPO?.lcType !== "LOCAL" && incoterm === "FOB" ? (
               <div className="col-span-2 bg-gray-50 rounded-lg p-3 space-y-3 border border-gray-200">
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Import Shipping Freight (USD → PKR)</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <Input
                     label="Freight (USD $)"
                     type="number" step="0.01"
@@ -817,7 +886,7 @@ export default function ProcurementPage() {
                     placeholder="e.g. 15000"
                   />
                   <Input
-                    label="Exchange Rate (PKR/USD)"
+                    label="Freight Exchange Rate (PKR/USD)"
                     type="number" step="0.01"
                     value={freightExRate}
                     onChange={(e) => {
@@ -827,13 +896,15 @@ export default function ProcurementPage() {
                     }}
                     placeholder="e.g. 278.50"
                   />
-                  <Input
-                    label="Freight PKR (auto-computed)"
-                    type="number" step="0.01"
-                    value={clearForm.importShippingFreight}
-                    onChange={(e) => setClearForm({ ...clearForm, importShippingFreight: e.target.value })}
-                    placeholder={computedFreightPkr > 0 ? computedFreightPkr.toFixed(2) : "0"}
-                  />
+                  <div className="col-span-2">
+                    <Input
+                      label="Freight PKR (auto-computed — editable)"
+                      type="number" step="0.01"
+                      value={clearForm.importShippingFreight}
+                      onChange={(e) => setClearForm({ ...clearForm, importShippingFreight: e.target.value })}
+                      placeholder={computedFreightPkr > 0 ? computedFreightPkr.toFixed(2) : "0"}
+                    />
+                  </div>
                 </div>
               </div>
             ) : selectedPO?.lcType === "LOCAL" ? (
@@ -887,9 +958,9 @@ export default function ProcurementPage() {
           </div>
 
           <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setShowClear(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => { setShowClear(false); setClearForm(emptyClearForm); setFreightUsd(""); setFreightExRate("") }}>Cancel</Button>
             <Button onClick={handleClear} loading={saving}>
-              {selectedPO?.lcType === "LOCAL" ? "Save Costing & Mark Ready" : "Save Clearing Charges"}
+              {selectedPO?.lcType === "LOCAL" ? "Save Costing & Mark Ready" : (selectedPO?.totalLandedCost != null ? "Update Clearing" : "Save Clearing Charges")}
             </Button>
           </div>
         </div>

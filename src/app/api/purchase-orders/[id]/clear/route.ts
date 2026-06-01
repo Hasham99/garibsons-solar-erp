@@ -29,6 +29,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const landedCostPerPanel = po.noOfPanels > 0 ? totalLandedCost / po.noOfPanels : 0
     const landedCostPerWatt = po.totalWatts > 0 ? totalLandedCost / po.totalWatts : 0
 
+    // Only advance status from SHIPPED → READY_TO_RECEIVE on first clearing;
+    // re-editing an already-cleared PO keeps the current status.
+    const newStatus = po.status === "SHIPPED" ? "READY_TO_RECEIVE" : po.status
+
     const updated = await prisma.purchaseOrder.update({
       where: { id },
       data: {
@@ -44,10 +48,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         miscClearing:          parseFloat(data.miscClearing) || null,
         containerTransport:    parseFloat(data.containerTransport) || null,
         gstInputAmount:        parseFloat(data.gstInputAmount) || null,
+        clearingExchangeRate:  parseFloat(data.clearingExchangeRate) || null,
         totalLandedCost,
         landedCostPerPanel,
         landedCostPerWatt,
-        status: "READY_TO_RECEIVE",
+        status: newStatus,
       },
     })
 
