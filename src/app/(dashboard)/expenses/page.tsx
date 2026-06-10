@@ -267,7 +267,7 @@ export default function ExpensesPage() {
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={filtered} emptyMessage="No expenses recorded yet" />
+        <Table columns={columns} data={filtered} emptyMessage="No expenses recorded yet" searchPlaceholder="Search description, paid to, ref #…" />
       </div>
 
       {/* Add / Edit Modal */}

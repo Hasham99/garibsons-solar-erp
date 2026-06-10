@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
+import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { ArrowLeft, Plus, Pencil, TrendingDown, TrendingUp, Wallet, Search } from "lucide-react"
+import { ArrowLeft, Plus, Pencil, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
 interface Receipt {
@@ -63,7 +64,6 @@ export default function CustomerReceiptsPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [search, setSearch] = useState("")
 
   const { data: customer } = useFetch<Customer>(`/api/customers/${customerId}`)
   const { data: receiptsData, loading, refetch } = useFetch<ReceiptsResponse>(
@@ -75,15 +75,6 @@ export default function CustomerReceiptsPage() {
   const { data: banks } = useFetch<Bank[]>("/api/banks")
 
   const receipts = receiptsData?.receipts || []
-
-  const filteredReceipts = receipts.filter((r) => {
-    const q = search.toLowerCase()
-    return (
-      r.receiptNo.toLowerCase().includes(q) ||
-      r.bank.name.toLowerCase().includes(q) ||
-      (r.reference || "").toLowerCase().includes(q)
-    )
-  })
 
   const openAdd = () => {
     setEditId(null)
@@ -211,59 +202,33 @@ export default function CustomerReceiptsPage() {
         </div>
       </div>
 
-      {/* Search + Table */}
+      {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-4">
+        <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="font-semibold text-gray-900">All Receipts ({receiptsData?.total ?? 0})</h3>
-          <div className="relative w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search receipts..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-100">
-            <thead className="bg-gray-50">
-              <tr>
-                {["Receipt No.", "Bank Value Date", "Bank", "Amount", "Reference / Slip", "WhatsApp Date", "Notes", "Recorded By", "Actions"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {filteredReceipts.length > 0 ? filteredReceipts.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-blue-700">{r.receiptNo}</td>
-                  <td className="px-4 py-3 text-sm whitespace-nowrap">{formatDate(r.valueDate)}</td>
-                  <td className="px-4 py-3 text-sm">{r.bank.name}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-green-700">{formatCurrency(r.amount)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{r.reference || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                    {r.whatsappDate ? formatDate(r.whatsappDate) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{r.notes || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{r.createdBy?.name || "—"}</td>
-                  <td className="px-4 py-3">
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
-                      <Pencil size={13} className="mr-1" />Edit
-                    </Button>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
-                    {search ? "No receipts match your search" : "No receipts recorded yet"}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          data={receipts}
+          emptyMessage="No receipts recorded yet"
+          searchPlaceholder="Search receipt #, bank, reference…"
+          filters={[
+            { key: "bank", label: "Bank", value: (r: Receipt) => r.bank.name },
+            { key: "valueDate", label: "Value Date", type: "date", value: (r: Receipt) => r.valueDate },
+          ]}
+          columns={[
+            { key: "receiptNo", header: "Receipt No.", sortable: true, render: (r: Receipt) => <span className="font-medium text-blue-700">{r.receiptNo}</span> },
+            { key: "valueDate", header: "Bank Value Date", sortable: true, value: (r: Receipt) => r.valueDate, render: (r: Receipt) => <span className="whitespace-nowrap">{formatDate(r.valueDate)}</span> },
+            { key: "bank", header: "Bank", sortable: true, value: (r: Receipt) => r.bank.name, render: (r: Receipt) => r.bank.name },
+            { key: "amount", header: "Amount", sortable: true, value: (r: Receipt) => r.amount, render: (r: Receipt) => <span className="font-semibold text-green-700">{formatCurrency(r.amount)}</span> },
+            { key: "reference", header: "Reference / Slip", render: (r: Receipt) => <span className="text-gray-500">{r.reference || "—"}</span> },
+            { key: "whatsappDate", header: "WhatsApp Date", render: (r: Receipt) => <span className="text-gray-500 whitespace-nowrap">{r.whatsappDate ? formatDate(r.whatsappDate) : "—"}</span> },
+            { key: "notes", header: "Notes", render: (r: Receipt) => <span className="text-gray-500 max-w-xs truncate inline-block align-bottom">{r.notes || "—"}</span> },
+            { key: "createdBy", header: "Recorded By", value: (r: Receipt) => r.createdBy?.name || "—", render: (r: Receipt) => <span className="text-gray-400">{r.createdBy?.name || "—"}</span> },
+            { key: "actions", header: "Actions", render: (r: Receipt) => (
+              <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil size={13} className="mr-1" />Edit</Button>
+            ) },
+          ]}
+        />
       </div>
 
       {/* Add / Edit Modal */}

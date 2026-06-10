@@ -110,7 +110,16 @@ export default function ExchangeRatesPage() {
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Rate</Button>}
       />
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={(rates || [])} emptyMessage="No exchange rates yet" />
+        <Table
+          columns={columns}
+          data={(rates || [])}
+          emptyMessage="No exchange rates yet"
+          searchPlaceholder="Search source, notes…"
+          filters={[
+            { key: "source", label: "Source", value: (row: ExchangeRate) => row.source },
+            { key: "date", label: "Date", type: "date", value: (row: ExchangeRate) => row.date },
+          ]}
+        />
       </div>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? "Edit Exchange Rate" : "Add Exchange Rate"}>
         <div className="space-y-4">

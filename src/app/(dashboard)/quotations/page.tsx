@@ -78,7 +78,7 @@ export default function QuotationsPage() {
 
   const columns = [
     { key: "qNumber", header: "Quotation #", sortable: true },
-    { key: "customer", header: "Customer", render: (row: Quotation) => row.customer?.name },
+    { key: "customer", header: "Customer", sortable: true, value: (row: Quotation) => row.customer?.name, render: (row: Quotation) => row.customer?.name },
     {
       key: "lines",
       header: "Items",
@@ -131,6 +131,11 @@ export default function QuotationsPage() {
           columns={columns}
           data={(quotations || [])}
           emptyMessage="No quotations yet"
+          searchPlaceholder="Search quotation #, customer…"
+          filters={[
+            { key: "status", label: "Status", value: (row: Quotation) => row.status },
+            { key: "createdAt", label: "Date", type: "date", value: (row: Quotation) => row.createdAt },
+          ]}
         />
       </div>
 

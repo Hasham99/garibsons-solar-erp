@@ -380,7 +380,16 @@ export default function CostingPage() {
 
       {/* ── Past Costings ── */}
       <Card title="Past Costing Calculations">
-        <Table columns={columns} data={costings || []} emptyMessage="No costing calculations yet" />
+        <Table
+          columns={columns}
+          data={costings || []}
+          emptyMessage="No costing calculations yet"
+          searchPlaceholder="Search reference…"
+          filters={[
+            { key: "status", label: "Status", value: (row: CostingCalc) => row.status },
+            { key: "createdAt", label: "Date", type: "date", value: (row: CostingCalc) => row.createdAt },
+          ]}
+        />
       </Card>
     </div>
   )

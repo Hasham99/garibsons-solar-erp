@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/Select"
 import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
+import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
@@ -389,7 +390,7 @@ export default function SalesPage() {
 
   const columns = [
     { key: "soNumber", header: "SO #", sortable: true },
-    { key: "customer", header: "Customer", render: (row: SalesOrder) => row.customer?.name },
+    { key: "customer", header: "Customer", sortable: true, value: (row: SalesOrder) => row.customer?.name, render: (row: SalesOrder) => row.customer?.name },
     { key: "subTotal", header: "Sub Total", render: (row: SalesOrder) => formatCurrency(row.subTotal) },
     {
       key: "gstAmount",
@@ -466,15 +467,39 @@ export default function SalesPage() {
       <Header
         title="Sales Orders"
         actions={
-          <Button onClick={openCreateModal}>
-            <Plus size={16} className="mr-2" />
-            Quick Entry SO
-          </Button>
+          <div className="flex gap-2">
+            <CsvImport
+              endpoint="/api/import/sales-delivery"
+              title="Import Sales & Delivery"
+              sampleName="sales-delivery"
+              guide='Each row is one sales order. Remarks "DO issued" (or a DO #) marks it delivered → creates a delivery order and deducts stock. "SO" rows are pending orders. Load stock (incl. purchases) first.'
+              sampleColumns={["Remarks", "DO #", "Date", "Party Name", "Qty Pallets", "Qty Panels", "Qty Watts", "Rate Watts", "Value Sale", "Item", "Watt/P"]}
+              sampleRows={[
+                ["DO issued", "543", "1/May/26", "FD Solar", "1", "36", "23940", "38.75", "927675", "Aiko - 665 BF", "665"],
+                ["SO", "", "2/May/26", "Onyx Solar", "20", "720", "468000", "37.5", "17550000", "Longi Himo 10 - 650 MF", "650"],
+              ]}
+              onComplete={refetch}
+            />
+            <Button onClick={openCreateModal}>
+              <Plus size={16} className="mr-2" />
+              Quick Entry SO
+            </Button>
+          </div>
         }
       />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={orders || []} emptyMessage="No sales orders yet" />
+        <Table
+          columns={columns}
+          data={orders || []}
+          emptyMessage="No sales orders yet"
+          searchPlaceholder="Search SO #, customer…"
+          filters={[
+            { key: "status", label: "Status", value: (row: SalesOrder) => row.status.replace(/_/g, " ") },
+            { key: "paymentTerms", label: "Payment Terms", value: (row: SalesOrder) => row.paymentTerms.replace(/_/g, " ") },
+            { key: "orderDate", label: "Order Date", type: "date", value: (row: SalesOrder) => row.orderDate || row.createdAt },
+          ]}
+        />
       </div>
 
       {/* Proof viewer */}

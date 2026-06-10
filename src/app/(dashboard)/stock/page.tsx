@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal"
 import { StatCard } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { Table } from "@/components/ui/Table"
+import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, Package, DollarSign, AlertTriangle, SlidersHorizontal, Pencil } from "lucide-react"
@@ -236,7 +237,8 @@ export default function StockPage() {
 
   const columns = [
     {
-      key: "product", header: "Product",
+      key: "product", header: "Product", sortable: true,
+      value: (row: StockEntry) => row.product?.name,
       render: (row: StockEntry) => (
         <div className="min-w-0">
           <p className="font-medium leading-tight">{row.product?.name}</p>
@@ -245,11 +247,13 @@ export default function StockPage() {
       )
     },
     {
-      key: "warehouse", header: "Warehouse",
+      key: "warehouse", header: "Warehouse", sortable: true,
+      value: (row: StockEntry) => row.warehouse?.name,
       render: (row: StockEntry) => <span className="whitespace-nowrap">{row.warehouse?.name}</span>
     },
     {
       key: "po", header: "PO Ref",
+      value: (row: StockEntry) => row.po?.poNumber || "",
       render: (row: StockEntry) => <span className="whitespace-nowrap">{row.po?.poNumber || "—"}</span>
     },
     {
@@ -337,10 +341,24 @@ export default function StockPage() {
       <Header
         title="Stock Register"
         actions={
-          <Button onClick={() => setShowReceive(true)}>
-            <Plus size={16} className="mr-2" />
-            Receive Stock
-          </Button>
+          <div className="flex gap-2">
+            <CsvImport
+              endpoint="/api/import/stock"
+              title="Import Opening Stock"
+              sampleName="stock"
+              guide="Creates stock-in entries (uses your exact Qty Watts & Total Value). Product must already exist; warehouse defaults to the only warehouse. The sheet's 'Total' row is skipped automatically."
+              sampleColumns={["Item", "Panels", "Panel Wattage", "Qty Watts", "Rate per Watt (PKR)", "Total Value", "Warehouse", "Received Date"]}
+              sampleRows={[
+                ["Longi Himo 10 - 645", "2232", "645", "1439640", "37", "53266680", "", "2026-04-30"],
+                ["Aiko - 665 BF", "33732", "665", "22431780", "35.3", "791841834", "", "2026-04-30"],
+              ]}
+              onComplete={() => { refetch(); refetchDash() }}
+            />
+            <Button onClick={() => setShowReceive(true)}>
+              <Plus size={16} className="mr-2" />
+              Receive Stock
+            </Button>
+          </div>
         }
       />
 
@@ -519,7 +537,32 @@ export default function StockPage() {
             <p className="text-xs text-gray-400">Aging: green ≤30d, yellow ≤60d, orange ≤90d, red 90d+</p>
           </div>
         </div>
-        <Table columns={columns} data={(stock || [])} emptyMessage="No stock entries yet" compact />
+        <Table
+          columns={columns}
+          data={(stock || [])}
+          emptyMessage="No stock entries yet"
+          compact
+          searchPlaceholder="Search product, code, PO #…"
+          searchKeys={["product.code"]}
+          filters={[
+            { key: "warehouse", label: "Warehouse", value: (row: StockEntry) => row.warehouse?.name },
+            {
+              key: "availability",
+              label: "Availability",
+              value: (row: StockEntry) =>
+                row.availableQuantity <= 0
+                  ? "Out of stock"
+                  : row.availableQuantity <= row.product.lowStockThreshold
+                    ? "Low stock"
+                    : "In stock",
+              options: [
+                { value: "In stock", label: "In stock" },
+                { value: "Low stock", label: "Low stock" },
+                { value: "Out of stock", label: "Out of stock" },
+              ],
+            },
+          ]}
+        />
       </div>
 
       {/* Receive Stock Modal */}

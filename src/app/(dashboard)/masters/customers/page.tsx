@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
+import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency } from "@/lib/utils"
 import { Plus, Pencil, Trash2, Receipt } from "lucide-react"
@@ -171,10 +172,34 @@ export default function CustomersPage() {
       <Header
         title="Customers"
         breadcrumbs={[{ label: "Master Data" }, { label: "Customers" }]}
-        actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Customer</Button>}
+        actions={
+          <div className="flex gap-2">
+            <CsvImport
+              endpoint="/api/import/customers"
+              title="Import Customers"
+              sampleName="customers"
+              guide="New customers are added; rows matching an existing name (any case/spelling) are skipped."
+              sampleColumns={["Name", "Type", "NTN", "STRN", "Address", "Contact Person", "Phone", "Email", "Credit Limit", "Payment Terms"]}
+              sampleRows={[["Adnan Solar", "DIRECT", "", "", "Karachi", "Adnan", "03001234567", "", "", "FULL_PAYMENT"]]}
+              onComplete={refetch}
+            />
+            <Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Customer</Button>
+          </div>
+        }
       />
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={customers || []} emptyMessage="No customers yet" />
+        <Table
+          columns={columns}
+          data={customers || []}
+          emptyMessage="No customers yet"
+          searchPlaceholder="Search name, NTN, phone…"
+          searchKeys={["contactPhone", "contactPerson", "contactEmail"]}
+          filters={[
+            { key: "type", label: "Type", value: (row: Customer) => row.type.replace("_", " ") },
+            { key: "paymentTerms", label: "Payment Terms", value: (row: Customer) => row.paymentTerms.replace(/_/g, " ") },
+            { key: "active", label: "Status", value: (row: Customer) => (row.active ? "Active" : "Inactive") },
+          ]}
+        />
       </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editId ? "Edit Customer" : "Add Customer"} size="lg">

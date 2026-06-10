@@ -129,7 +129,17 @@ export default function WarehousesPage() {
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Warehouse</Button>}
       />
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={warehouses || []} emptyMessage="No warehouses yet" />
+        <Table
+          columns={columns}
+          data={warehouses || []}
+          emptyMessage="No warehouses yet"
+          searchPlaceholder="Search name, location, manager…"
+          searchKeys={["godown"]}
+          filters={[
+            { key: "location", label: "Location", value: (row: Warehouse) => row.location },
+            { key: "active", label: "Status", value: (row: Warehouse) => (row.active ? "Active" : "Inactive") },
+          ]}
+        />
       </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editId ? "Edit Warehouse" : "Add Warehouse"} size="lg">

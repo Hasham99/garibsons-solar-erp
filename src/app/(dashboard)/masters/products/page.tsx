@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
+import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { Plus, Pencil, ChevronDown } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -194,60 +195,55 @@ export default function ProductsPage() {
 
         {/* Products table */}
         {selectedBrand ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
-                <tr>
-                  {["Code", "Name / SKU", "Wattage", "Packing", "Category", "Supplier", "Status", ""].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {visibleProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
-                      No products under <span className="font-medium">{selectedBrand}</span>
-                    </td>
-                  </tr>
-                ) : (
-                  visibleProducts.map((product) => {
-                    const ppp = product.panelsPerContainer && product.palletsPerContainer
-                      ? product.panelsPerContainer / product.palletsPerContainer
-                      : null
-                    return (
-                      <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-mono text-gray-600">{product.code}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <p className="font-medium text-gray-900">{product.name}</p>
-                          {product.skuName && <p className="text-xs text-gray-400">{product.skuName}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium">{product.wattage}W</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {product.panelsPerContainer ? (
-                            <span>{product.panelsPerContainer}/ctr{ppp ? ` · ${ppp.toFixed(0)}/pallet` : ""}</span>
-                          ) : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{product.category}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{product.defaultSupplier?.name || "—"}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${product.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                            {product.active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}><Pencil size={14} /></Button>
-                            {product.active && <Button size="sm" variant="danger" onClick={() => handleDeactivate(product.id)}>Deactivate</Button>}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+          <Table
+            data={visibleProducts}
+            emptyMessage={`No products under ${selectedBrand}`}
+            searchPlaceholder="Search code, name, SKU…"
+            searchKeys={["skuName"]}
+            filters={[
+              { key: "category", label: "Category", value: (p: Product) => p.category },
+              { key: "active", label: "Status", value: (p: Product) => (p.active ? "Active" : "Inactive") },
+            ]}
+            columns={[
+              { key: "code", header: "Code", sortable: true, render: (p: Product) => <span className="font-mono text-gray-600">{p.code}</span> },
+              {
+                key: "name", header: "Name / SKU", sortable: true,
+                render: (p: Product) => (
+                  <div>
+                    <p className="font-medium text-gray-900">{p.name}</p>
+                    {p.skuName && <p className="text-xs text-gray-400">{p.skuName}</p>}
+                  </div>
+                ),
+              },
+              { key: "wattage", header: "Wattage", sortable: true, value: (p: Product) => p.wattage, render: (p: Product) => <span className="font-medium">{p.wattage}W</span> },
+              {
+                key: "packing", header: "Packing",
+                render: (p: Product) => {
+                  const ppp = p.panelsPerContainer && p.palletsPerContainer ? p.panelsPerContainer / p.palletsPerContainer : null
+                  return <span className="text-gray-500">{p.panelsPerContainer ? `${p.panelsPerContainer}/ctr${ppp ? ` · ${ppp.toFixed(0)}/pallet` : ""}` : "—"}</span>
+                },
+              },
+              { key: "category", header: "Category", render: (p: Product) => <span className="text-gray-500">{p.category}</span> },
+              { key: "supplier", header: "Supplier", value: (p: Product) => p.defaultSupplier?.name || "—", render: (p: Product) => <span className="text-gray-500">{p.defaultSupplier?.name || "—"}</span> },
+              {
+                key: "active", header: "Status",
+                render: (p: Product) => (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                    {p.active ? "Active" : "Inactive"}
+                  </span>
+                ),
+              },
+              {
+                key: "actions", header: "",
+                render: (p: Product) => (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => handleEdit(p)}><Pencil size={14} /></Button>
+                    {p.active && <Button size="sm" variant="danger" onClick={() => handleDeactivate(p.id)}>Deactivate</Button>}
+                  </div>
+                ),
+              },
+            ]}
+          />
         ) : (
           <div className="p-12 text-center text-gray-400 text-sm">
             No products yet. Add a product to get started.

@@ -139,7 +139,7 @@ export default function TaxConfigsPage() {
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Tax Config</Button>}
       />
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={(configs || [])} emptyMessage="No tax configs yet" />
+        <Table columns={columns} data={(configs || [])} emptyMessage="No tax configs yet" searchPlaceholder="Search name…" />
       </div>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? "Edit Tax Configuration" : "Add Tax Configuration"} size="lg">
         <div className="space-y-4">

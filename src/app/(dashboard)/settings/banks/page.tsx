@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
+import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2 } from "lucide-react"
@@ -112,10 +113,29 @@ export default function BanksPage() {
     <div className="space-y-6">
       <Toaster position="top-right" />
       <Header title="Banks" breadcrumbs={[{ label: "Settings" }, { label: "Banks" }]}
-        actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Bank</Button>}
+        actions={
+          <div className="flex gap-2">
+            <CsvImport
+              endpoint="/api/import/banks"
+              title="Import Banks"
+              sampleName="banks"
+              guide="Add the bank/account names used in your collections (e.g. THAL, KB UBL, BAHL, Cash Deposit)."
+              sampleColumns={["Name", "Branch"]}
+              sampleRows={[["THAL", ""], ["Cash Deposit", "GS HO"], ["KB UBL", ""]]}
+              onComplete={refetch}
+            />
+            <Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Bank</Button>
+          </div>
+        }
       />
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={(banks || [])} emptyMessage="No banks yet" />
+        <Table
+          columns={columns}
+          data={(banks || [])}
+          emptyMessage="No banks yet"
+          searchPlaceholder="Search bank, branch…"
+          filters={[{ key: "active", label: "Status", value: (row: Bank) => (row.active ? "Active" : "Inactive") }]}
+        />
       </div>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? "Edit Bank" : "Add Bank"}>
         <div className="space-y-4">

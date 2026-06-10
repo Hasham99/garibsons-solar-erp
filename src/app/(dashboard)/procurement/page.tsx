@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/Select"
 import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
+import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, FileCheck, Upload, Paperclip, Trash2, ExternalLink, Pencil } from "lucide-react"
@@ -349,8 +350,8 @@ export default function ProcurementPage() {
 
   const columns = [
     { key: "poNumber", header: "PO Number", sortable: true },
-    { key: "product", header: "Product", render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-gray-400">{row.product?.code}</p></div> },
-    { key: "supplier", header: "Supplier", render: (row: PO) => row.supplier?.name || "—" },
+    { key: "product", header: "Product", sortable: true, value: (row: PO) => row.product?.name, render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-gray-400">{row.product?.code}</p></div> },
+    { key: "supplier", header: "Supplier", sortable: true, value: (row: PO) => row.supplier?.name || "—", render: (row: PO) => row.supplier?.name || "—" },
     { key: "lcNumber", header: "LC No.", render: (row: PO) => (
       row.lcNumber
         ? <span className="text-xs font-medium text-gray-800">{row.lcNumber}</span>
@@ -405,7 +406,23 @@ export default function ProcurementPage() {
 
       <Header
         title="Purchase Orders"
-        actions={<Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-2" />New PO</Button>}
+        actions={
+          <div className="flex gap-2">
+            <CsvImport
+              endpoint="/api/import/purchase-orders"
+              title="Import Purchase Orders"
+              sampleName="purchase-orders"
+              guide='Creates purchase orders (status RECEIVED). Products must already exist; new suppliers are created automatically. "Local Purchase" in LC Ref marks it a local PO. Stock is handled separately.'
+              sampleColumns={["Supplier", "Date", "LC Ref", "Product", "Qty Panels", "Qty Containers", "Rate per Watt (PKR)", "Panel Wattage", "Qty Watts", "PKR Value"]}
+              sampleRows={[
+                ["Import", "2026-05-08", "LC-84350", "Aiko - 665 BF", "3600", "5", "35.62", "665", "2394000", "85274280"],
+                ["GO Power", "2026-05-15", "Local Purchase", "Longi Himo 10 - 645 Mono", "720", "1", "38.6", "645", "464400", "17925840"],
+              ]}
+              onComplete={refetch}
+            />
+            <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-2" />New PO</Button>
+          </div>
+        }
       />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -414,6 +431,14 @@ export default function ProcurementPage() {
           data={pos || []}
           emptyMessage="No purchase orders yet"
           onRowClick={openDetail}
+          searchPlaceholder="Search PO #, product, supplier, LC #…"
+          searchKeys={["product.code", "lcNumber"]}
+          filters={[
+            { key: "status", label: "Status", value: (row: PO) => row.status },
+            { key: "supplier", label: "Supplier", value: (row: PO) => row.supplier?.name || "—" },
+            { key: "lcType", label: "LC Type", value: (row: PO) => row.lcType },
+            { key: "createdAt", label: "Date", type: "date", value: (row: PO) => row.createdAt },
+          ]}
         />
       </div>
 

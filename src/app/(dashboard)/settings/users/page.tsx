@@ -85,7 +85,16 @@ export default function UsersPage() {
         actions={<Button onClick={() => { setEditId(null); setForm(emptyForm); setShowModal(true) }}><Plus size={16} className="mr-2" />Add User</Button>}
       />
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={(users || [])} emptyMessage="No users found" />
+        <Table
+          columns={columns}
+          data={(users || [])}
+          emptyMessage="No users found"
+          searchPlaceholder="Search name, email…"
+          filters={[
+            { key: "role", label: "Role", value: (row: User) => row.role },
+            { key: "active", label: "Status", value: (row: User) => (row.active ? "Active" : "Inactive") },
+          ]}
+        />
       </div>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editId ? "Edit User" : "Add User"}>
         <div className="space-y-4">

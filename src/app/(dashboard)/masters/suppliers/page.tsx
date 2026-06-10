@@ -84,7 +84,17 @@ export default function SuppliersPage() {
         actions={<Button onClick={() => { setEditId(null); setForm(emptyForm); setShowModal(true) }}><Plus size={16} className="mr-2" />Add Supplier</Button>}
       />
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={(suppliers || [])} emptyMessage="No suppliers yet" />
+        <Table
+          columns={columns}
+          data={(suppliers || [])}
+          emptyMessage="No suppliers yet"
+          searchPlaceholder="Search name, contact, email…"
+          searchKeys={["contactPerson", "contactEmail", "contactPhone"]}
+          filters={[
+            { key: "country", label: "Country", value: (row: Supplier) => row.country || "—" },
+            { key: "active", label: "Status", value: (row: Supplier) => (row.active ? "Active" : "Inactive") },
+          ]}
+        />
       </div>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editId ? "Edit Supplier" : "Add Supplier"} size="lg">
         <div className="space-y-4">

@@ -174,7 +174,8 @@ export default function DeliveryPage() {
   const columns = [
     { key: "doNumber", header: "DO Number", sortable: true },
     {
-      key: "salesOrder", header: "Sales Order",
+      key: "salesOrder", header: "Sales Order", sortable: true,
+      value: (row: DeliveryOrder) => row.salesOrder.soNumber,
       render: (row: DeliveryOrder) => (
         <div>
           <p className="font-medium">{row.salesOrder.soNumber}</p>
@@ -231,7 +232,18 @@ export default function DeliveryPage() {
       />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={dos || []} emptyMessage="No delivery orders yet" />
+        <Table
+          columns={columns}
+          data={dos || []}
+          emptyMessage="No delivery orders yet"
+          searchPlaceholder="Search DO #, SO #, customer…"
+          searchKeys={["salesOrder.soNumber", "salesOrder.customer.name", "warehouse.name"]}
+          filters={[
+            { key: "status", label: "Status", value: (row: DeliveryOrder) => row.status },
+            { key: "warehouse", label: "Warehouse", value: (row: DeliveryOrder) => row.warehouse.name },
+            { key: "createdAt", label: "Date", type: "date", value: (row: DeliveryOrder) => row.createdAt },
+          ]}
+        />
       </div>
 
       {/* ── Create DO Modal ── */}

@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
+import { Table } from "@/components/ui/Table"
+import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react"
@@ -153,10 +155,26 @@ export default function LedgerPage() {
       <Header
         title="Party Ledger"
         actions={
-          tab === "customer" && customerId ? (
-            <Button onClick={() => setShowReceipt(true)}>
-              <Plus size={16} className="mr-2" />Record Collection
-            </Button>
+          tab === "customer" ? (
+            <div className="flex gap-2">
+              <CsvImport
+                endpoint="/api/import/collections"
+                title="Import Collections"
+                sampleName="collections"
+                guide="Each payment becomes a collection receipt linked to the party. Bank codes (HBL, UBL, THAL, GS HO …) are auto-mapped; blank party rows go to Bilal Riaz; S.NO is kept in notes."
+                sampleColumns={["S.NO", "Date", "Party Name", "Bank", "Bank Ref", "Amount"]}
+                sampleRows={[
+                  ["12785", "2026-05-01", "Fd Solar", "THAL", "626169", "1000000"],
+                  ["12786", "2026-05-01", "Onyx Solar", "THAL", "217152-1", "3890000"],
+                ]}
+                onComplete={() => customerId && refetchLedger()}
+              />
+              {customerId && (
+                <Button onClick={() => setShowReceipt(true)}>
+                  <Plus size={16} className="mr-2" />Record Collection
+                </Button>
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -257,60 +275,44 @@ export default function LedgerPage() {
                 {ledgerLoading ? (
                   <TableSkeleton columns={5} rows={6} />
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          {["Date", "Type", "Reference", "Description", "Total Qty", "Delivered", "Remaining", "Debit", "Credit", "Balance"].map((h) => (
-                            <th key={h} className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-100">
-                        {rows.length > 0 ? rows.map((row) => (
-                          <tr key={row.id} className={`${TYPE_STYLES[row.type]} hover:opacity-90`}>
-                            <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</td>
-                            <td className="px-3 py-2.5">
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${TYPE_BADGE[row.type]}`}>
-                                {row.type === "SO" ? "Sales Order"
-                                  : row.type === "DO" ? `DO (${row.soNumber})`
-                                  : row.type === "PARTIAL" ? "Partial"
-                                  : "Collection"}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5 text-xs font-medium text-gray-800 whitespace-nowrap">{row.reference}</td>
-                            <td className="px-3 py-2.5 text-xs text-gray-600 max-w-xs">{row.description}</td>
-                            <td className="px-3 py-2.5 text-xs text-center text-gray-700">
-                              {row.qtyTotal > 0 ? row.qtyTotal.toLocaleString() : "—"}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-center text-green-700 font-medium">
-                              {row.qtyDelivered > 0 ? row.qtyDelivered.toLocaleString() : "—"}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-center">
-                              {row.qtyRemaining > 0
-                                ? <span className="text-amber-700 font-medium">{row.qtyRemaining.toLocaleString()}</span>
-                                : "—"}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-red-600 font-medium whitespace-nowrap">
-                              {row.debit > 0 ? formatCurrency(row.debit) : "—"}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-green-600 font-medium whitespace-nowrap">
-                              {row.credit > 0 ? formatCurrency(row.credit) : "—"}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs font-bold whitespace-nowrap">
-                              <span className={row.runningBalance <= 0 ? "text-green-700" : "text-gray-900"}>
-                                {formatCurrency(row.runningBalance)}
-                              </span>
-                            </td>
-                          </tr>
-                        )) : (
-                          <tr>
-                            <td colSpan={10} className="px-4 py-12 text-center text-gray-400">No ledger entries for this customer</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table
+                    data={rows}
+                    emptyMessage="No ledger entries for this customer"
+                    rowClassName={(row: LedgerRow) => TYPE_STYLES[row.type]}
+                    searchPlaceholder="Search reference, description…"
+                    filters={[
+                      {
+                        key: "type",
+                        label: "Entry Type",
+                        value: (row: LedgerRow) => row.type,
+                        options: [
+                          { value: "SO", label: "Sales Order" },
+                          { value: "DO", label: "Delivery Order" },
+                          { value: "PARTIAL", label: "Partial" },
+                          { value: "RECEIPT", label: "Collection" },
+                        ],
+                      },
+                    ]}
+                    columns={[
+                      { key: "date", header: "Date", sortable: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</span> },
+                      {
+                        key: "type", header: "Type",
+                        render: (row: LedgerRow) => (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${TYPE_BADGE[row.type]}`}>
+                            {row.type === "SO" ? "Sales Order" : row.type === "DO" ? `DO (${row.soNumber})` : row.type === "PARTIAL" ? "Partial" : "Collection"}
+                          </span>
+                        ),
+                      },
+                      { key: "reference", header: "Reference", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-gray-800 whitespace-nowrap">{row.reference}</span> },
+                      { key: "description", header: "Description", render: (row: LedgerRow) => <span className="text-xs text-gray-600">{row.description}</span> },
+                      { key: "qtyTotal", header: "Total Qty", render: (row: LedgerRow) => <span className="text-xs text-gray-700">{row.qtyTotal > 0 ? row.qtyTotal.toLocaleString() : "—"}</span> },
+                      { key: "qtyDelivered", header: "Delivered", render: (row: LedgerRow) => <span className="text-xs text-green-700 font-medium">{row.qtyDelivered > 0 ? row.qtyDelivered.toLocaleString() : "—"}</span> },
+                      { key: "qtyRemaining", header: "Remaining", render: (row: LedgerRow) => row.qtyRemaining > 0 ? <span className="text-xs text-amber-700 font-medium">{row.qtyRemaining.toLocaleString()}</span> : <span className="text-xs">—</span> },
+                      { key: "debit", header: "Debit", sortable: true, render: (row: LedgerRow) => <span className="text-xs text-red-600 font-medium whitespace-nowrap">{row.debit > 0 ? formatCurrency(row.debit) : "—"}</span> },
+                      { key: "credit", header: "Credit", sortable: true, render: (row: LedgerRow) => <span className="text-xs text-green-600 font-medium whitespace-nowrap">{row.credit > 0 ? formatCurrency(row.credit) : "—"}</span> },
+                      { key: "runningBalance", header: "Balance", render: (row: LedgerRow) => <span className={`text-xs font-bold whitespace-nowrap ${row.runningBalance <= 0 ? "text-green-700" : "text-gray-900"}`}>{formatCurrency(row.runningBalance)}</span> },
+                    ]}
+                  />
                 )}
               </div>
             </>
@@ -407,37 +409,25 @@ export default function LedgerPage() {
             {posLoading ? (
               <TableSkeleton columns={5} rows={6} />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {["Date", "PO Number", "Supplier", "Panels", "USD Value", "PKR Amount", "Landed Cost", "Status"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredPOs.length > 0 ? filteredPOs.map((po) => (
-                      <tr key={po.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm">{formatDate(po.createdAt)}</td>
-                        <td className="px-4 py-3 text-sm font-medium">{po.poNumber}</td>
-                        <td className="px-4 py-3 text-sm">{po.supplier?.name || "—"}</td>
-                        <td className="px-4 py-3 text-sm">{po.noOfPanels.toLocaleString()} × {po.panelWattage}W</td>
-                        <td className="px-4 py-3 text-sm">${po.totalValueUsd.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-red-600">{formatCurrency(po.poAmountPkr)}</td>
-                        <td className="px-4 py-3 text-sm text-blue-700">
-                          {po.totalLandedCost ? formatCurrency(po.totalLandedCost) : <span className="text-gray-400">—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-sm"><Badge status={po.status} /></td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan={8} className="px-4 py-12 text-center text-gray-400">No purchase orders found</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <Table
+                data={filteredPOs}
+                emptyMessage="No purchase orders found"
+                searchPlaceholder="Search PO #, supplier…"
+                filters={[
+                  { key: "status", label: "Status", value: (po: PO) => po.status },
+                  { key: "createdAt", label: "Date", type: "date", value: (po: PO) => po.createdAt },
+                ]}
+                columns={[
+                  { key: "createdAt", header: "Date", sortable: true, value: (po: PO) => po.createdAt, render: (po: PO) => formatDate(po.createdAt) },
+                  { key: "poNumber", header: "PO Number", sortable: true, render: (po: PO) => <span className="font-medium">{po.poNumber}</span> },
+                  { key: "supplier", header: "Supplier", sortable: true, value: (po: PO) => po.supplier?.name || "—", render: (po: PO) => po.supplier?.name || "—" },
+                  { key: "noOfPanels", header: "Panels", sortable: true, value: (po: PO) => po.noOfPanels, render: (po: PO) => `${po.noOfPanels.toLocaleString()} × ${po.panelWattage}W` },
+                  { key: "totalValueUsd", header: "USD Value", sortable: true, render: (po: PO) => `$${po.totalValueUsd.toLocaleString()}` },
+                  { key: "poAmountPkr", header: "PKR Amount", sortable: true, render: (po: PO) => <span className="font-medium text-red-600">{formatCurrency(po.poAmountPkr)}</span> },
+                  { key: "totalLandedCost", header: "Landed Cost", render: (po: PO) => po.totalLandedCost ? <span className="text-blue-700">{formatCurrency(po.totalLandedCost)}</span> : <span className="text-gray-400">—</span> },
+                  { key: "status", header: "Status", render: (po: PO) => <Badge status={po.status} /> },
+                ]}
+              />
             )}
           </div>
         </>

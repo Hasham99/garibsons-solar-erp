@@ -93,7 +93,7 @@ export default function InvoicesPage() {
 
   const columns = [
     { key: "invoiceNumber", header: "Invoice #", sortable: true },
-    { key: "salesOrder", header: "Customer", render: (row: Invoice) => (
+    { key: "salesOrder", header: "Customer", sortable: true, value: (row: Invoice) => row.salesOrder?.customer?.name, render: (row: Invoice) => (
       <div>
         <p className="font-medium">{row.salesOrder?.customer?.name}</p>
         <p className="text-xs text-gray-500">{row.salesOrder?.soNumber}</p>
@@ -153,6 +153,12 @@ export default function InvoicesPage() {
           columns={columns}
           data={(invoices || [])}
           emptyMessage="No invoices yet"
+          searchPlaceholder="Search invoice #, customer, SO #…"
+          searchKeys={["salesOrder.soNumber"]}
+          filters={[
+            { key: "status", label: "Status", value: (row: Invoice) => row.status },
+            { key: "invoiceDate", label: "Invoice Date", type: "date", value: (row: Invoice) => row.invoiceDate },
+          ]}
         />
       </div>
 
