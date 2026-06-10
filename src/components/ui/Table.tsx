@@ -387,7 +387,7 @@ export function Table<T extends Record<string, any>>({
             ) : (
               pageData.map((row, idx) => (
                 <tr
-                  key={String(row[keyField]) || idx}
+                  key={row[keyField] != null ? String(row[keyField]) : idx}
                   className={`hover:bg-gray-50 transition-colors ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || ""}`}
                   onClick={() => onRowClick?.(row)}
                 >
