@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useFetch } from "@/hooks/useFetch"
 import { Header } from "@/components/layout/Header"
 import { Select } from "@/components/ui/Select"
@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { downloadPdf } from "@/lib/pdf"
+import { FileDown, Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
 interface LedgerRow {
@@ -84,6 +86,8 @@ const TYPE_BADGE: Record<string, string> = {
 export default function LedgerPage() {
   const [tab, setTab] = useState<"customer" | "supplier">("customer")
   const [customerId, setCustomerId] = useState("")
+  const filteredLedgerRef = useRef<LedgerRow[]>([])
+  const filteredPOsRef = useRef<PO[]>([])
   const [supplierId, setSupplierId] = useState("")
   const [showReceipt, setShowReceipt] = useState(false)
   const [savingReceipt, setSavingReceipt] = useState(false)
@@ -142,9 +146,92 @@ export default function LedgerPage() {
     }
   }
 
+  const exportLedgerPdf = () => {
+    const customer = customers?.find((c) => c.id === customerId)
+    const exportRows = filteredLedgerRef.current.length ? filteredLedgerRef.current : rows
+    if (!customer || exportRows.length === 0) return toast.error("Nothing to export")
+    const isFiltered = exportRows.length !== rows.length
+    const times = exportRows.map((r) => new Date(r.date).getTime())
+    const from = new Date(Math.min(...times)).toISOString()
+    const to = new Date(Math.max(...times)).toISOString()
+    const debits = exportRows.reduce((s, r) => s + r.debit, 0)
+    const credits = exportRows.reduce((s, r) => s + r.credit, 0)
+    const n = (v: number) => Math.round(v).toLocaleString("en-PK")
+    downloadPdf({
+      title: "Party Ledger Statement",
+      subtitle: `Party: ${customer.name}`,
+      metaLines: [
+        `Period: ${formatDate(from)} – ${formatDate(to)}${isFiltered ? "  (filtered view)" : ""}`,
+        `Entries: ${exportRows.length}`,
+      ],
+      kpis: [
+        { label: "Total Sales (Charges)", value: formatCurrency(debits) },
+        { label: "Total Payments", value: formatCurrency(credits) },
+        { label: debits - credits >= 0 ? "Balance Owed" : "Advance Held", value: formatCurrency(Math.abs(debits - credits)) },
+      ],
+      columns: [
+        { header: "Date" },
+        { header: "Type" },
+        { header: "Reference" },
+        { header: "Description" },
+        { header: "Charges (Rs)", align: "right" },
+        { header: "Payments (Rs)", align: "right" },
+        { header: "Balance (Rs)", align: "right" },
+      ],
+      rows: exportRows.map((r) => [
+        formatDate(r.date),
+        r.type === "SO" ? "Sales Order" : r.type === "DO" ? "Delivery" : r.type === "PARTIAL" ? "Partial" : "Payment",
+        r.reference,
+        r.description,
+        r.debit > 0 ? n(r.debit) : "—",
+        r.credit > 0 ? n(r.credit) : "—",
+        n(r.runningBalance),
+      ]),
+      totalsRow: ["", "", "", "TOTAL", n(debits), n(credits), n(debits - credits)],
+      fileName: `party-ledger-${customer.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+      orientation: "landscape",
+    })
+  }
+
   const filteredPOs = supplierId
     ? (pos || []).filter((p) => p.supplier && (suppliers?.find((s) => s.id === supplierId)?.name === p.supplier.name))
     : (pos || [])
+
+  const exportSupplierPdf = () => {
+    const exportRows = filteredPOsRef.current.length ? filteredPOsRef.current : filteredPOs
+    if (exportRows.length === 0) return toast.error("Nothing to export")
+    const supplierName = supplierId ? suppliers?.find((s) => s.id === supplierId)?.name : "All Suppliers"
+    const n = (v: number) => Math.round(v).toLocaleString("en-PK")
+    const totalPkr = exportRows.reduce((s, p) => s + p.poAmountPkr, 0)
+    const totalLanded = exportRows.reduce((s, p) => s + (p.totalLandedCost || 0), 0)
+    downloadPdf({
+      title: "Supplier Ledger — Purchase Orders",
+      subtitle: `Supplier: ${supplierName || "All Suppliers"}`,
+      metaLines: [`Purchase orders: ${exportRows.length}`],
+      kpis: [
+        { label: "Total PO Value", value: formatCurrency(totalPkr) },
+        { label: "Total Landed Cost", value: formatCurrency(totalLanded) },
+        { label: "Active POs", value: String(exportRows.filter((p) => !["RECEIVED", "CANCELLED"].includes(p.status)).length) },
+      ],
+      columns: [
+        { header: "Date" },
+        { header: "PO #" },
+        { header: "Supplier" },
+        { header: "Panels", align: "right" },
+        { header: "PKR Value", align: "right" },
+        { header: "Landed Cost", align: "right" },
+        { header: "Status" },
+      ],
+      rows: exportRows.map((p) => [
+        formatDate(p.createdAt), p.poNumber, p.supplier?.name || "—",
+        `${p.noOfPanels.toLocaleString()} × ${p.panelWattage}W`,
+        n(p.poAmountPkr), p.totalLandedCost ? n(p.totalLandedCost) : "—", p.status,
+      ]),
+      totalsRow: ["", "", "", "TOTAL", n(totalPkr), n(totalLanded), ""],
+      fileName: `supplier-ledger-${(supplierName || "all").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+      orientation: "landscape",
+    })
+  }
 
   const supplierTotalPkr = filteredPOs.reduce((s, p) => s + p.poAmountPkr, 0)
   const supplierTotalLanded = filteredPOs.reduce((s, p) => s + (p.totalLandedCost || 0), 0)
@@ -161,11 +248,13 @@ export default function LedgerPage() {
                 endpoint="/api/import/collections"
                 title="Import Collections"
                 sampleName="collections"
-                guide="Each payment becomes a collection receipt linked to the party. Bank codes (HBL, UBL, THAL, GS HO …) are auto-mapped; blank party rows go to Bilal Riaz; S.NO is kept in notes."
+                guide="Date format: DD-MM-YYYY (e.g. 09-06-2026 = 9 June). Each payment becomes a collection receipt linked to the party. Bank codes (HBL, UBL, MBL, THAL, GS HO …) are auto-mapped; S.NO is kept in notes. Amounts: plain numbers, no commas."
                 sampleColumns={["S.NO", "Date", "Party Name", "Bank", "Bank Ref", "Amount"]}
                 sampleRows={[
-                  ["12785", "2026-05-01", "Fd Solar", "THAL", "626169", "1000000"],
-                  ["12786", "2026-05-01", "Onyx Solar", "THAL", "217152-1", "3890000"],
+                  ["FORMAT → number", "DD-MM-YYYY (09-06-2026 = 9 June)", "Exact party name as in system", "Bank code: MBL / UBL / THAL / HBL …", "Text or number", "Number only — no commas"],
+                  ["15111", "09-06-2026", "GS Islamabad", "MBL", "6766", "478800"],
+                  ["15112", "09-06-2026", "Onyx Solar", "UBL", "6698613167", "864000"],
+                  ["15113", "10-06-2026", "Saif Maan", "THAL", "126401", "3300000"],
                 ]}
                 onComplete={() => customerId && refetchLedger()}
               />
@@ -200,11 +289,14 @@ export default function LedgerPage() {
         <>
           <Card>
             <div className="flex items-end gap-4">
-              <div className="w-72">
-                <Select label="Select Customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-                  <option value="">— Select a customer —</option>
-                  {customers?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </Select>
+              <div className="w-80">
+                <SearchableSelect
+                  label="Select Party"
+                  placeholder="Type party name to search…"
+                  options={(customers || []).map((c) => ({ value: c.id, label: c.name }))}
+                  value={customerId}
+                  onChange={setCustomerId}
+                />
               </div>
             </div>
           </Card>
@@ -259,8 +351,13 @@ export default function LedgerPage() {
               </div>
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900">Ledger Entries</h3>
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-semibold text-gray-900">Ledger Entries</h3>
+                    <Button size="sm" variant="secondary" onClick={exportLedgerPdf}>
+                      <FileDown size={14} className="mr-1" />Export PDF
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     {[
                       { color: "bg-blue-100 text-blue-700",   label: "Sales Order" },
@@ -279,8 +376,17 @@ export default function LedgerPage() {
                     data={rows}
                     emptyMessage="No ledger entries for this customer"
                     rowClassName={(row: LedgerRow) => TYPE_STYLES[row.type]}
+                    onFilteredChange={(r: LedgerRow[]) => { filteredLedgerRef.current = r }}
+                    defaultSortKey="date"
+                    defaultSortDir="desc"
                     searchPlaceholder="Search reference, description…"
                     filters={[
+                      {
+                        key: "date",
+                        label: "Date Range",
+                        type: "date",
+                        value: (row: LedgerRow) => row.date,
+                      },
                       {
                         key: "type",
                         label: "Entry Type",
@@ -376,11 +482,14 @@ export default function LedgerPage() {
         <>
           <Card>
             <div className="flex items-end gap-4">
-              <div className="w-72">
-                <Select label="Select Supplier" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-                  <option value="">All Suppliers</option>
-                  {suppliers?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </Select>
+              <div className="w-80">
+                <SearchableSelect
+                  label="Select Supplier"
+                  placeholder="All suppliers — type to search…"
+                  options={(suppliers || []).map((s) => ({ value: s.id, label: s.name }))}
+                  value={supplierId}
+                  onChange={setSupplierId}
+                />
               </div>
             </div>
           </Card>
@@ -403,8 +512,11 @@ export default function LedgerPage() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
               <h3 className="font-semibold text-gray-900">Purchase Orders</h3>
+              <Button size="sm" variant="secondary" onClick={exportSupplierPdf}>
+                <FileDown size={14} className="mr-1" />Export PDF
+              </Button>
             </div>
             {posLoading ? (
               <TableSkeleton columns={5} rows={6} />
@@ -413,6 +525,9 @@ export default function LedgerPage() {
                 data={filteredPOs}
                 emptyMessage="No purchase orders found"
                 searchPlaceholder="Search PO #, supplier…"
+                onFilteredChange={(r: PO[]) => { filteredPOsRef.current = r }}
+                defaultSortKey="createdAt"
+                defaultSortDir="desc"
                 filters={[
                   { key: "status", label: "Status", value: (po: PO) => po.status },
                   { key: "createdAt", label: "Date", type: "date", value: (po: PO) => po.createdAt },

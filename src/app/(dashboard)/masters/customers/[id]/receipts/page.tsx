@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { ArrowLeft, Plus, Pencil, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { ArrowLeft, ArrowRightLeft, Plus, Pencil, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
 interface Receipt {
@@ -64,8 +65,12 @@ export default function CustomerReceiptsPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [transferReceipt, setTransferReceipt] = useState<Receipt | null>(null)
+  const [transferTo, setTransferTo] = useState("")
+  const [transferring, setTransferring] = useState(false)
 
   const { data: customer } = useFetch<Customer>(`/api/customers/${customerId}`)
+  const { data: allCustomers } = useFetch<Customer[]>("/api/customers")
   const { data: receiptsData, loading, refetch } = useFetch<ReceiptsResponse>(
     `/api/customers/${customerId}/receipts?limit=200`
   )
@@ -80,6 +85,31 @@ export default function CustomerReceiptsPage() {
     setEditId(null)
     setForm(emptyForm)
     setShowModal(true)
+  }
+
+  const handleTransfer = async () => {
+    if (!transferReceipt || !transferTo) return toast.error("Select the party to transfer to")
+    setTransferring(true)
+    try {
+      const res = await fetch(`/api/customers/${customerId}/receipts/${transferReceipt.id}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toCustomerId: transferTo }),
+      })
+      if (res.ok) {
+        const target = allCustomers?.find((c) => c.id === transferTo)
+        toast.success(`Collection transferred to ${target?.name || "party"}`)
+        setTransferReceipt(null)
+        setTransferTo("")
+        refetch()
+        refetchBalance()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to transfer collection")
+      }
+    } finally {
+      setTransferring(false)
+    }
   }
 
   const openEdit = (r: Receipt) => {
@@ -211,6 +241,8 @@ export default function CustomerReceiptsPage() {
           data={receipts}
           emptyMessage="No receipts recorded yet"
           searchPlaceholder="Search receipt #, bank, reference…"
+          defaultSortKey="valueDate"
+          defaultSortDir="desc"
           filters={[
             { key: "bank", label: "Bank", value: (r: Receipt) => r.bank.name },
             { key: "valueDate", label: "Value Date", type: "date", value: (r: Receipt) => r.valueDate },
@@ -225,11 +257,45 @@ export default function CustomerReceiptsPage() {
             { key: "notes", header: "Notes", render: (r: Receipt) => <span className="text-gray-500 max-w-xs truncate inline-block align-bottom">{r.notes || "—"}</span> },
             { key: "createdBy", header: "Recorded By", value: (r: Receipt) => r.createdBy?.name || "—", render: (r: Receipt) => <span className="text-gray-400">{r.createdBy?.name || "—"}</span> },
             { key: "actions", header: "Actions", render: (r: Receipt) => (
-              <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil size={13} className="mr-1" />Edit</Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil size={13} className="mr-1" />Edit</Button>
+                <Button size="sm" variant="ghost" title="Transfer to another party" onClick={() => { setTransferReceipt(r); setTransferTo("") }}>
+                  <ArrowRightLeft size={13} className="mr-1" />Transfer
+                </Button>
+              </div>
             ) },
           ]}
         />
       </div>
+
+      {/* Transfer Modal */}
+      <Modal isOpen={Boolean(transferReceipt)} onClose={() => setTransferReceipt(null)} title={`Transfer Collection — ${transferReceipt?.receiptNo}`} size="md">
+        {transferReceipt && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-gray-50 p-3 text-sm">
+              <p className="font-medium text-gray-900">{formatCurrency(transferReceipt.amount)} · {transferReceipt.bank.name}</p>
+              <p className="text-gray-500 mt-0.5">
+                {formatDate(transferReceipt.valueDate)}{transferReceipt.reference ? ` · Ref: ${transferReceipt.reference}` : ""} — currently under <span className="font-medium">{customer?.name}</span>
+              </p>
+            </div>
+            <SearchableSelect
+              label="Transfer to Party"
+              required
+              placeholder="Type party name to search…"
+              options={(allCustomers || []).filter((c) => c.id !== customerId).map((c) => ({ value: c.id, label: c.name }))}
+              value={transferTo}
+              onChange={setTransferTo}
+            />
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+              This moves the payment to the selected party&apos;s ledger. Both parties&apos; balances update immediately.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setTransferReceipt(null)}>Cancel</Button>
+              <Button onClick={handleTransfer} loading={transferring} disabled={!transferTo}>Transfer Collection</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Add / Edit Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editId ? "Edit Receipt" : "Record Receipt"} size="md">

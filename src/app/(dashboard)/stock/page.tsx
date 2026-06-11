@@ -346,11 +346,12 @@ export default function StockPage() {
               endpoint="/api/import/stock"
               title="Import Opening Stock"
               sampleName="stock"
-              guide="Creates stock-in entries (uses your exact Qty Watts & Total Value). Product must already exist; warehouse defaults to the only warehouse. The sheet's 'Total' row is skipped automatically."
+              guide="Date format: DD-MM-YYYY (e.g. 30-04-2026 = 30 April). Creates stock-in entries (uses your exact Qty Watts & Total Value). Product must already exist; warehouse defaults to the only warehouse. The sheet's 'Total' row is skipped automatically."
               sampleColumns={["Item", "Panels", "Panel Wattage", "Qty Watts", "Rate per Watt (PKR)", "Total Value", "Warehouse", "Received Date"]}
               sampleRows={[
-                ["Longi Himo 10 - 645", "2232", "645", "1439640", "37", "53266680", "", "2026-04-30"],
-                ["Aiko - 665 BF", "33732", "665", "22431780", "35.3", "791841834", "", "2026-04-30"],
+                ["FORMAT → exact product name as in system", "Number", "Number (e.g. 645)", "Number", "Number (e.g. 37)", "Number only — no commas", "Blank = main warehouse", "DD-MM-YYYY (30-04-2026 = 30 April)"],
+                ["Longi Himo 10 - 645", "2232", "645", "1439640", "37", "53266680", "", "30-04-2026"],
+                ["Aiko - 665 BF", "33732", "665", "22431780", "35.3", "791841834", "", "30-04-2026"],
               ]}
               onComplete={() => { refetch(); refetchDash() }}
             />

@@ -88,7 +88,11 @@ export function CsvImport({
     setResult(null)
     try {
       const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { type: "array", cellDates: true })
+      // raw:true + cellDates:false — keep CSV date text as-is (e.g. "09-06-26" stays
+      // a string) so the server parses dates DAY-FIRST (DD-MM-YY). Letting SheetJS
+      // parse them would silently apply US month-first order. .xlsx date cells
+      // arrive as Excel serial numbers, which the server also handles.
+      const wb = XLSX.read(buf, { type: "array", raw: true, cellDates: false })
       const ws = wb.Sheets[wb.SheetNames[0]]
       const parsed = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: true })
       // normalise Date cells to ISO strings for JSON transport
@@ -97,7 +101,11 @@ export function CsvImport({
         for (const [k, v] of Object.entries(r)) out[k] = v instanceof Date ? v.toISOString() : v
         return out
       })
-      setRows(normalised)
+      // Drop the template's format-hint row (first cell starts with "FORMAT") if present.
+      const dataRows = normalised.filter(
+        (r) => !String(Object.values(r)[0] ?? "").trim().toLowerCase().startsWith("format")
+      )
+      setRows(dataRows)
       setFileName(file.name)
     } catch {
       setError("Could not read this file. Please upload a .csv or .xlsx file.")

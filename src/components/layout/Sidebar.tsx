@@ -108,15 +108,9 @@ export function Sidebar({ user }: SidebarProps) {
     <div className="flex flex-col h-full" style={{ backgroundColor: "#1e2533" }}>
       {/* Logo */}
       <div className="px-6 py-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Zap size={18} className="text-gray-900" />
-          </div>
-          <div>
-            <p className="text-white font-bold text-sm leading-tight">Garibsons</p>
-            <p className="text-blue-300 text-xs">Solar ERP</p>
-          </div>
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/gbs-logo-inverted.png" alt="Garibsons (Pvt) Ltd" className="h-5 w-auto object-contain" />
+        <p className="text-blue-300 text-xs mt-2">Solar ERP</p>
       </div>
 
       {/* Navigation */}

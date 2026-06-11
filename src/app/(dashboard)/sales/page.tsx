@@ -472,11 +472,13 @@ export default function SalesPage() {
               endpoint="/api/import/sales-delivery"
               title="Import Sales & Delivery"
               sampleName="sales-delivery"
-              guide='Each row is one sales order. Remarks "DO issued" (or a DO #) marks it delivered → creates a delivery order and deducts stock. "SO" rows are pending orders. Load stock (incl. purchases) first.'
+              guide='Date format: DD-MM-YYYY (e.g. 09-06-2026 = 9 June). Each row is one sales order. Remarks "DO issued" (or a DO #) marks it delivered → creates a delivery order and deducts stock; "SO" rows with blank DO # are pending orders. Load stock (incl. purchases) first.'
               sampleColumns={["Remarks", "DO #", "Date", "Party Name", "Qty Pallets", "Qty Panels", "Qty Watts", "Rate Watts", "Value Sale", "Item", "Watt/P"]}
               sampleRows={[
-                ["DO issued", "543", "1/May/26", "FD Solar", "1", "36", "23940", "38.75", "927675", "Aiko - 665 BF", "665"],
-                ["SO", "", "2/May/26", "Onyx Solar", "20", "720", "468000", "37.5", "17550000", "Longi Himo 10 - 650 MF", "650"],
+                ["FORMAT → \"DO issued\" or \"SO\"", "Number — blank if pending SO", "DD-MM-YYYY (01-05-2026 = 1 May)", "Exact party name as in system", "Number", "Number", "Number", "Number (e.g. 38.75)", "Number only — no commas", "Exact product name as in system", "Number (e.g. 665)"],
+                ["DO issued", "543", "01-05-2026", "FD Solar", "1", "36", "23940", "38.75", "927675", "Aiko - 665 BF", "665"],
+                ["DO issued", "544", "02-05-2026", "GS Islamabad", "8", "288", "191520", "38", "7277760", "Aiko - 665 BF", "665"],
+                ["SO", "", "09-06-2026", "Onyx Solar", "20", "720", "468000", "37.5", "17550000", "Longi Himo 10 - 650 MF", "650"],
               ]}
               onComplete={refetch}
             />

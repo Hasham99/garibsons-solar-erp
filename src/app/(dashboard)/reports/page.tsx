@@ -9,8 +9,9 @@ import { StatCard } from "@/components/ui/Card"
 import { Table, type Column } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { downloadPdf, type PdfOptions } from "@/lib/pdf"
 import {
-  Download, TrendingUp, Wallet, Banknote, LineChart as LineIcon, Package, Clock, ClipboardList, ShoppingCart,
+  Download, FileDown, TrendingUp, Wallet, Banknote, LineChart as LineIcon, Package, Clock, ClipboardList, ShoppingCart, Boxes,
 } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import toast, { Toaster } from "react-hot-toast"
@@ -56,13 +57,24 @@ type POStatus = {
   rows: { id: string; poNumber: string; product: string; supplier: string; noOfPanels: number; panelWattage: number; poAmountPkr: number; landedCostPerPanel: number | null; status: string; lcType: string; receivedPanels: number; pendingPanels: number; createdAt: string }[]
   byStatus: Record<string, number>
 }
+type StockPositionRow = {
+  productId: string; item: string; wattage: number; packing: number | null; panelsPerContainer: number | null
+  receivedLocal: number; receivedImport: number; so: number; availableForSale: number
+  doIssued: number; lifted: number; unlifted: number; warehouseStock: number; balanceSO: number
+  stockWatts: number; fifoRatePerWatt: number; stockValue: number
+}
+type StockPosition = {
+  rows: StockPositionRow[]
+  totals: { receivedLocal: number; receivedImport: number; so: number; availableForSale: number; doIssued: number; lifted: number; unlifted: number; warehouseStock: number; balanceSO: number; stockWatts: number; stockValue: number }
+  asOf: string
+}
 
 const GROUPS: { group: string; items: { key: string; label: string; icon: ReactNode; dated?: boolean }[] }[] = [
   { group: "Sales", items: [{ key: "sales", label: "Sales Analysis", icon: <TrendingUp size={16} />, dated: true }] },
   { group: "Receivables", items: [{ key: "outstanding", label: "Outstanding & Aging", icon: <Wallet size={16} /> }] },
   { group: "Collections", items: [{ key: "collections", label: "Collections", icon: <Banknote size={16} />, dated: true }] },
   { group: "Profitability", items: [{ key: "profit", label: "Gross Profit", icon: <LineIcon size={16} />, dated: true }] },
-  { group: "Inventory", items: [{ key: "stock", label: "Stock Summary", icon: <Package size={16} /> }, { key: "stockAging", label: "Stock Aging", icon: <Clock size={16} /> }] },
+  { group: "Inventory", items: [{ key: "stockPosition", label: "Stock Position", icon: <Boxes size={16} /> }, { key: "stock", label: "Stock Summary", icon: <Package size={16} /> }, { key: "stockAging", label: "Stock Aging", icon: <Clock size={16} /> }] },
   { group: "Procurement", items: [{ key: "poStatus", label: "PO Status", icon: <ClipboardList size={16} /> }, { key: "purchases", label: "Purchases", icon: <ShoppingCart size={16} />, dated: true }] },
 ]
 const ALL_ITEMS = GROUPS.flatMap((g) => g.items)
@@ -158,23 +170,103 @@ export default function ReportsPage() {
   const stockAging = useFetch<StockAging>(url("stockAging", "inventory-aging"), [active])
   const stock = useFetch<StockSummary>(url("stock", "stock-summary"), [active])
   const poStatus = useFetch<POStatus>(url("poStatus", "po-status"), [active])
+  const stockPosition = useFetch<StockPosition>(url("stockPosition", "stock-position"), [active])
 
-  const loading = [sales, outstanding, collections, profit, purchases, stockAging, stock, poStatus].some((q) => q.loading)
+  const loading = [sales, outstanding, collections, profit, purchases, stockAging, stock, poStatus, stockPosition].some((q) => q.loading)
   const exportRows = useMemo<Record<string, unknown>[]>(() => {
     const m: Record<string, unknown[]> = {
       sales: sales.data?.rows || [], collections: collections.data?.rows || [], profit: profit.data?.rows || [],
       purchases: purchases.data?.rows || [], stockAging: stockAging.data?.rows || [], stock: stock.data?.rows || [], poStatus: poStatus.data?.rows || [],
       outstanding: outstanding.data?.rows.map((r) => ({ customer: r.customer, sales: r.soTotal, collected: r.collected, outstanding: r.outstanding })) || [],
+      stockPosition: stockPosition.data?.rows.map((r) => ({
+        item: r.item, receivedLocal: r.receivedLocal, receivedImport: r.receivedImport, so: r.so, doIssued: r.doIssued,
+        lifted: r.lifted, unlifted: r.unlifted, warehouseStock: r.warehouseStock, balanceSO: r.balanceSO,
+        availableForSale: r.availableForSale, fifoRatePerWatt: r.fifoRatePerWatt, stockValue: r.stockValue,
+      })) || [],
     }
     return (m[active] as Record<string, unknown>[]) || []
-  }, [active, sales.data, outstanding.data, collections.data, profit.data, purchases.data, stockAging.data, stock.data, poStatus.data])
+  }, [active, sales.data, outstanding.data, collections.data, profit.data, purchases.data, stockAging.data, stock.data, poStatus.data, stockPosition.data])
+
+  const n = (v: number) => Math.round(v).toLocaleString("en-PK")
+  const exportPdf = () => {
+    const base = { fileName: `report-${active}`, orientation: "landscape" as const, metaLines: item.dated ? [`Period: ${formatDate(from)} – ${formatDate(to)}`] : [`As of: ${formatDate(today)}`] }
+    let o: PdfOptions | null = null
+    if (active === "sales" && sales.data) {
+      const d = sales.data
+      o = { ...base, title: "Sales Analysis",
+        kpis: [{ label: "Sales Value", value: formatCurrency(d.summary.value) }, { label: "Orders", value: String(d.summary.orders) }, { label: "Panels", value: n(d.summary.panels) }, { label: "Delivered / Pending", value: `${d.summary.delivered} / ${d.summary.pending}` }],
+        columns: [{ header: "SO #" }, { header: "Date" }, { header: "Customer" }, { header: "Status" }, { header: "Panels", align: "right" }, { header: "Value (Rs)", align: "right" }],
+        rows: d.rows.map((r) => [r.soNumber, formatDate(r.date), r.customer, r.status, n(r.panels), n(r.value)]),
+        totalsRow: ["", "", "", "TOTAL", n(d.summary.panels), n(d.summary.value)] }
+    } else if (active === "outstanding" && outstanding.data) {
+      const d = outstanding.data
+      o = { ...base, title: "Customer Outstanding & Aging",
+        kpis: [{ label: "Total Outstanding", value: formatCurrency(d.totalOutstanding) }, { label: "Advance / Credit", value: formatCurrency(d.totalAdvance) }, { label: "Net Receivable", value: formatCurrency(d.totalOutstanding - d.totalAdvance) }],
+        columns: [{ header: "Party" }, { header: "Sales (Rs)", align: "right" }, { header: "Collected (Rs)", align: "right" }, { header: "Outstanding (Rs)", align: "right" }, { header: "90+ days (Rs)", align: "right" }, { header: "Oldest Unpaid" }],
+        rows: d.rows.map((r) => [r.customer, n(r.soTotal), n(r.collected), n(r.outstanding), r.buckets.over90 ? n(r.buckets.over90) : "—", r.oldestUnpaid ? formatDate(r.oldestUnpaid) : "—"]),
+        totalsRow: ["TOTAL", "", "", n(d.totalOutstanding - d.totalAdvance), n(d.summary.over90 || 0), ""] }
+    } else if (active === "collections" && collections.data) {
+      const d = collections.data
+      o = { ...base, title: "Collections Report",
+        kpis: [{ label: "Total Collected", value: formatCurrency(d.summary.total) }, { label: "Receipts", value: String(d.summary.count) }, { label: "Banks Used", value: String(d.byBank.length) }],
+        columns: [{ header: "Receipt #" }, { header: "Date" }, { header: "Party" }, { header: "Bank" }, { header: "Reference" }, { header: "Amount (Rs)", align: "right" }],
+        rows: d.rows.map((r) => [r.receiptNo, formatDate(r.date), r.customer, r.bank, r.reference || "—", n(r.amount)]),
+        totalsRow: ["", "", "", "", "TOTAL", n(d.summary.total)] }
+    } else if (active === "profit" && profit.data) {
+      const d = profit.data
+      o = { ...base, title: "Gross Profit (FIFO)",
+        kpis: [{ label: "Revenue", value: formatCurrency(d.summary.revenue) }, { label: "Cost (FIFO)", value: formatCurrency(d.summary.cogs) }, { label: "Gross Profit", value: formatCurrency(d.summary.grossProfit) }, { label: "Margin", value: `${d.summary.marginPct.toFixed(1)}%` }],
+        columns: [{ header: "Product" }, { header: "Brand" }, { header: "Panels", align: "right" }, { header: "Revenue (Rs)", align: "right" }, { header: "Cost (Rs)", align: "right" }, { header: "Gross Profit (Rs)", align: "right" }, { header: "Margin", align: "right" }],
+        rows: d.rows.map((r) => [r.product, r.brand, n(r.panels), n(r.revenue), n(r.cogs), n(r.grossProfit), `${r.marginPct.toFixed(1)}%`]),
+        totalsRow: ["TOTAL", "", "", n(d.summary.revenue), n(d.summary.cogs), n(d.summary.grossProfit), `${d.summary.marginPct.toFixed(1)}%`] }
+    } else if (active === "purchases" && purchases.data) {
+      const d = purchases.data
+      o = { ...base, title: "Purchases Report",
+        kpis: [{ label: "Purchase Orders", value: String(d.summary.orders) }, { label: "Panels", value: n(d.summary.panels) }, { label: "Value", value: formatCurrency(d.summary.value) }],
+        columns: [{ header: "PO #" }, { header: "Date" }, { header: "Supplier" }, { header: "Product" }, { header: "Type" }, { header: "Panels", align: "right" }, { header: "Value (Rs)", align: "right" }],
+        rows: d.rows.map((r) => [r.poNumber, formatDate(r.date), r.supplier, r.product, r.lcType, n(r.panels), n(r.value)]),
+        totalsRow: ["", "", "", "", "TOTAL", n(d.summary.panels), n(d.summary.value)] }
+    } else if (active === "stockAging" && stockAging.data) {
+      const d = stockAging.data
+      o = { ...base, title: "Stock Aging",
+        kpis: ["0to30", "31to60", "61to90", "over90"].map((k) => ({ label: { "0to30": "0–30 days", "31to60": "31–60 days", "61to90": "61–90 days", over90: "90+ days" }[k]!, value: `${n(d.summary[k]?.panels || 0)} pnl` })),
+        columns: [{ header: "Product" }, { header: "Warehouse" }, { header: "Panels", align: "right" }, { header: "Age (days)", align: "right" }, { header: "Value (Rs)", align: "right" }, { header: "Received" }],
+        rows: d.rows.map((r) => [r.product, r.warehouse, n(r.availablePanels), String(r.ageDays), n(r.value), formatDate(r.receivedAt)]) }
+    } else if (active === "stock" && stock.data) {
+      const d = stock.data
+      o = { ...base, title: "Stock Summary",
+        kpis: [{ label: "Current", value: `${n(d.totals.currentPanels)} pnl` }, { label: "Available", value: `${n(d.totals.availablePanels)} pnl` }, { label: "Reserved", value: `${n(d.totals.reservedPanels)} pnl` }, { label: "Stock Value", value: formatCurrency(d.totals.totalValue) }],
+        columns: [{ header: "Product" }, { header: "Warehouse" }, { header: "Current", align: "right" }, { header: "Reserved", align: "right" }, { header: "Available", align: "right" }, { header: "Avail. Value (Rs)", align: "right" }],
+        rows: d.rows.map((r) => [r.product, r.warehouse, n(r.currentPanels), n(r.reservedPanels), n(r.availablePanels), n(r.availableValue)]),
+        totalsRow: ["TOTAL", "", n(d.totals.currentPanels), n(d.totals.reservedPanels), n(d.totals.availablePanels), n(d.totals.availableValue)] }
+    } else if (active === "poStatus" && poStatus.data) {
+      const d = poStatus.data
+      o = { ...base, title: "Purchase Order Status",
+        columns: [{ header: "PO #" }, { header: "Supplier" }, { header: "Product" }, { header: "Ordered", align: "right" }, { header: "Received", align: "right" }, { header: "Value (Rs)", align: "right" }, { header: "Status" }],
+        rows: d.rows.map((r) => [r.poNumber, r.supplier, r.product, n(r.noOfPanels), n(r.receivedPanels), n(r.poAmountPkr), r.status]) }
+    } else if (active === "stockPosition" && stockPosition.data) {
+      const d = stockPosition.data
+      o = { ...base, title: "Stock Position",
+        kpis: [{ label: "Warehouse Stock", value: `${n(d.totals.warehouseStock)} pnl` }, { label: "Available for Sale", value: `${n(d.totals.availableForSale)} pnl` }, { label: "Unlifted DO", value: `${n(d.totals.unlifted)} pnl` }, { label: "Stock Value (FIFO)", value: formatCurrency(d.totals.stockValue) }],
+        columns: [{ header: "Item" }, { header: "Recv Local", align: "right" }, { header: "Recv Import", align: "right" }, { header: "SO", align: "right" }, { header: "DO Issued", align: "right" }, { header: "Lifted", align: "right" }, { header: "Unlifted", align: "right" }, { header: "WH Stock", align: "right" }, { header: "Bal. SO", align: "right" }, { header: "Available", align: "right" }, { header: "Value (Rs)", align: "right" }],
+        rows: d.rows.map((r) => [r.item, n(r.receivedLocal), n(r.receivedImport), n(r.so), n(r.doIssued), n(r.lifted), n(r.unlifted), n(r.warehouseStock), n(r.balanceSO), n(r.availableForSale), n(r.stockValue)]),
+        totalsRow: ["TOTAL", n(d.totals.receivedLocal), n(d.totals.receivedImport), n(d.totals.so), n(d.totals.doIssued), n(d.totals.lifted), n(d.totals.unlifted), n(d.totals.warehouseStock), n(d.totals.balanceSO), n(d.totals.availableForSale), n(d.totals.stockValue)] }
+    }
+    if (!o || o.rows.length === 0) return toast.error("Nothing to export")
+    downloadPdf(o)
+  }
 
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
       <Header
         title="Reports & Analytics"
-        actions={<Button variant="secondary" onClick={() => exportRows.length ? downloadCsv(`report-${active}`, exportRows) : toast.error("Nothing to export")}><Download size={15} className="mr-2" />Export CSV</Button>}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={exportPdf}><FileDown size={15} className="mr-2" />Export PDF</Button>
+            <Button variant="secondary" onClick={() => exportRows.length ? downloadCsv(`report-${active}`, exportRows) : toast.error("Nothing to export")}><Download size={15} className="mr-2" />Export CSV</Button>
+          </div>
+        }
       />
 
       <div className="grid grid-cols-12 gap-6">
@@ -227,6 +319,7 @@ export default function ReportsPage() {
               {active === "stockAging" && stockAging.data && <StockAgingView d={stockAging.data} />}
               {active === "stock" && stock.data && <StockView d={stock.data} />}
               {active === "poStatus" && poStatus.data && <POStatusView d={poStatus.data} />}
+              {active === "stockPosition" && stockPosition.data && <StockPositionView d={stockPosition.data} />}
             </>
           )}
         </main>
@@ -409,6 +502,86 @@ function StockView({ d }: { d: StockSummary }) {
           { key: "availablePanels", header: "Available", sortable: true, className: "text-right", render: (r) => <span className="font-semibold text-green-700">{r.availablePanels.toLocaleString()}</span> },
           moneyCol("availableValue", "Avail. Value", true),
         ]} emptyMessage="No stock" />
+      </SectionCard>
+    </>
+  )
+}
+
+function StockPositionView({ d }: { d: StockPosition }) {
+  const [unit, setUnit] = useState<"panels" | "containers" | "value">("panels")
+  const inCtr = (panels: number, r: StockPositionRow) =>
+    r.panelsPerContainer && r.panelsPerContainer > 0 ? (panels / r.panelsPerContainer).toLocaleString(undefined, { maximumFractionDigits: 1 }) : "—"
+  const num = (v: number) => v.toLocaleString()
+  const availWatts = (r: StockPositionRow) => r.availableForSale * r.wattage
+  const availValue = (r: StockPositionRow) => Math.round(availWatts(r) * r.fifoRatePerWatt)
+  const totalAvailValue = d.rows.reduce((s, r) => s + availValue(r), 0)
+
+  return (
+    <>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Warehouse Stock" value={num(d.totals.warehouseStock)} subtitle="panels physically present" icon={<Package size={20} />} color="blue" />
+        <StatCard title="Available for Sale" value={num(d.totals.availableForSale)} subtitle="uncommitted panels" icon={<Boxes size={20} />} color="green" />
+        <StatCard title="Unlifted DO + Balance SO" value={num(d.totals.unlifted + d.totals.balanceSO)} subtitle="committed, not dispatched" icon={<Clock size={20} />} color="yellow" />
+        <StatCard title="Stock Value (FIFO)" value={formatCurrency(d.totals.stockValue)} subtitle="warehouse stock at cost" icon={<Wallet size={20} />} color="purple" />
+      </div>
+
+      <SectionCard
+        title="Stock Position"
+        subtitle={`As of ${formatDate(d.asOf)} — received → sold → delivered → available, like the manual stock sheet`}
+      >
+        <div className="px-5 pt-4 flex gap-1 bg-white">
+          {([["panels", "Panels"], ["containers", "Containers"], ["value", "PKR Value"]] as const).map(([k, l]) => (
+            <button key={k} onClick={() => setUnit(k)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${unit === k ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {unit === "panels" && (
+          <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={[
+            { key: "item", header: "Item", sortable: true, render: (r: StockPositionRow) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
+            { key: "packing", header: "Packing", className: "text-right", render: (r: StockPositionRow) => r.packing ?? "—" },
+            { key: "receivedLocal", header: "Recv Local", sortable: true, className: "text-right", render: (r: StockPositionRow) => num(r.receivedLocal) },
+            { key: "receivedImport", header: "Recv Import", sortable: true, className: "text-right", render: (r: StockPositionRow) => num(r.receivedImport) },
+            { key: "so", header: "SO", sortable: true, className: "text-right", render: (r: StockPositionRow) => num(r.so) },
+            { key: "doIssued", header: "DO Issued", sortable: true, className: "text-right", render: (r: StockPositionRow) => num(r.doIssued) },
+            { key: "lifted", header: "Lifted DO", sortable: true, className: "text-right", render: (r: StockPositionRow) => num(r.lifted) },
+            { key: "unlifted", header: "Unlifted DO", sortable: true, className: "text-right", render: (r: StockPositionRow) => r.unlifted ? <span className="text-amber-700">{num(r.unlifted)}</span> : "—" },
+            { key: "warehouseStock", header: "WH Stock", sortable: true, className: "text-right", render: (r: StockPositionRow) => <span className="font-semibold">{num(r.warehouseStock)}</span> },
+            { key: "balanceSO", header: "Bal. SO", sortable: true, className: "text-right", render: (r: StockPositionRow) => r.balanceSO ? <span className="text-orange-700">{num(r.balanceSO)}</span> : "—" },
+            { key: "availableForSale", header: "Available", sortable: true, className: "text-right", render: (r: StockPositionRow) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600" : "text-green-700"}`}>{num(r.availableForSale)}</span> },
+          ]} emptyMessage="No stock data" />
+        )}
+
+        {unit === "containers" && (
+          <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={[
+            { key: "item", header: "Item", sortable: true, render: (r: StockPositionRow) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
+            { key: "receivedLocal", header: "Ctr Recv Local", className: "text-right", render: (r: StockPositionRow) => inCtr(r.receivedLocal, r) },
+            { key: "receivedImport", header: "Ctr Recv Import", className: "text-right", render: (r: StockPositionRow) => inCtr(r.receivedImport, r) },
+            { key: "doIssued", header: "Sales (DO Issued)", className: "text-right", render: (r: StockPositionRow) => inCtr(r.doIssued, r) },
+            { key: "warehouseStock", header: "WH Stock", className: "text-right", render: (r: StockPositionRow) => <span className="font-semibold">{inCtr(r.warehouseStock, r)}</span> },
+            { key: "balanceSO", header: "Sales Deals (Bal. SO)", className: "text-right", render: (r: StockPositionRow) => inCtr(r.balanceSO, r) },
+            { key: "availableForSale", header: "Ctr Available", className: "text-right", render: (r: StockPositionRow) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600" : "text-green-700"}`}>{inCtr(r.availableForSale, r)}</span> },
+          ]} emptyMessage="No stock data" />
+        )}
+
+        {unit === "value" && (
+          <>
+            <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={[
+              { key: "item", header: "Item", sortable: true, render: (r: StockPositionRow) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
+              { key: "packing", header: "Packing", className: "text-right", render: (r: StockPositionRow) => r.packing ?? "—" },
+              { key: "availableForSale", header: "Panels Available", sortable: true, className: "text-right", render: (r: StockPositionRow) => <span className={r.availableForSale < 0 ? "text-red-600 font-semibold" : ""}>{num(r.availableForSale)}</span> },
+              { key: "fifoRatePerWatt", header: "Cost Rate/Watt (FIFO)", sortable: true, className: "text-right", render: (r: StockPositionRow) => r.fifoRatePerWatt ? `Rs ${r.fifoRatePerWatt.toFixed(2)}` : "—" },
+              { key: "availWatts", header: "Stock in Watts", className: "text-right", value: (r: StockPositionRow) => availWatts(r), render: (r: StockPositionRow) => num(availWatts(r)) },
+              { key: "availValue", header: "Stock Value (Rs)", sortable: true, className: "text-right", value: (r: StockPositionRow) => availValue(r), render: (r: StockPositionRow) => <span className={`font-semibold ${availValue(r) < 0 ? "text-red-600" : "text-gray-900"}`}>{formatCurrency(availValue(r))}</span> },
+            ]} emptyMessage="No stock data" />
+            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-sm">
+              <span className="font-medium text-gray-600">Total — Available for Sale valuation (FIFO base)</span>
+              <span className="font-bold text-gray-900">{formatCurrency(totalAvailValue)}</span>
+            </div>
+          </>
+        )}
       </SectionCard>
     </>
   )

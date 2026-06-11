@@ -412,11 +412,12 @@ export default function ProcurementPage() {
               endpoint="/api/import/purchase-orders"
               title="Import Purchase Orders"
               sampleName="purchase-orders"
-              guide='Creates purchase orders (status RECEIVED). Products must already exist; new suppliers are created automatically. "Local Purchase" in LC Ref marks it a local PO. Stock is handled separately.'
+              guide='Date format: DD-MM-YYYY (e.g. 08-05-2026 = 8 May). Creates purchase orders (status RECEIVED). Products must already exist; new suppliers are created automatically. "Local Purchase" in LC Ref marks a local PO. Stock is received separately.'
               sampleColumns={["Supplier", "Date", "LC Ref", "Product", "Qty Panels", "Qty Containers", "Rate per Watt (PKR)", "Panel Wattage", "Qty Watts", "PKR Value"]}
               sampleRows={[
-                ["Import", "2026-05-08", "LC-84350", "Aiko - 665 BF", "3600", "5", "35.62", "665", "2394000", "85274280"],
-                ["GO Power", "2026-05-15", "Local Purchase", "Longi Himo 10 - 645 Mono", "720", "1", "38.6", "645", "464400", "17925840"],
+                ["FORMAT → supplier name (new ones auto-created)", "DD-MM-YYYY (08-05-2026 = 8 May)", "LC-XXXX or \"Local Purchase\"", "Exact product name as in system", "Number", "Number", "Number (e.g. 35.62)", "Number (e.g. 665)", "Number", "Number only — no commas"],
+                ["Import", "08-05-2026", "LC-84350", "Aiko - 665 BF", "3600", "5", "35.62", "665", "2394000", "85274280"],
+                ["GO Power", "15-05-2026", "Local Purchase", "Longi Himo 10 - 645 Mono", "720", "1", "38.6", "645", "464400", "17925840"],
               ]}
               onComplete={refetch}
             />

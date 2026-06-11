@@ -119,9 +119,14 @@ export default function BanksPage() {
               endpoint="/api/import/banks"
               title="Import Banks"
               sampleName="banks"
-              guide="Add the bank/account names used in your collections (e.g. THAL, KB UBL, BAHL, Cash Deposit)."
+              guide="Only Name is required; Branch is optional. Use the exact bank/account names you write in your collection sheets (e.g. THAL, MBL, KB UBL, BAHL, Cash Deposit). Existing names are skipped."
               sampleColumns={["Name", "Branch"]}
-              sampleRows={[["THAL", ""], ["Cash Deposit", "GS HO"], ["KB UBL", ""]]}
+              sampleRows={[
+                ["FORMAT → bank/account name (required)", "Branch — optional, leave blank if none"],
+                ["THAL", ""],
+                ["Cash Deposit", "GS HO"],
+                ["KB UBL", ""],
+              ]}
               onComplete={refetch}
             />
             <Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Bank</Button>

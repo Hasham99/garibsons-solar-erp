@@ -66,6 +66,12 @@ export async function POST(request: Request) {
         errors.push({ row: line, message: "Invalid or missing date" })
         return
       }
+      // Collections are received payments — a future date means the date format
+      // is wrong (e.g. month/day swapped). Reject instead of silently storing.
+      if (valueDate.getTime() > Date.now() + 86_400_000) {
+        errors.push({ row: line, message: `Date "${cleanStr(pick(row, "Date"))}" is in the future — use DD-MM-YYYY (e.g. 09-06-2026 = 9 June)` })
+        return
+      }
       const ref = cleanStr(pick(row, "Bank Ref #", "Bank Ref", "Reference", "Ref"))
       const sno = cleanStr(pick(row, "S.NO", "SNO", "Serial No", "Serial"))
       valid.push({

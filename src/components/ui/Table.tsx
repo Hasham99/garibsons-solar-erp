@@ -54,6 +54,12 @@ interface TableProps<T = any> {
   pageSize?: number
   /** Show the page-size selector. Default: true when data exceeds the smallest option. */
   pageSizeOptions?: number[]
+  /** Reports the rows currently visible after search + filters + sort (all pages).
+   *  Lets pages export exactly what the user is looking at. */
+  onFilteredChange?: (rows: T[]) => void
+  /** Initial sort column (use with defaultSortDir, e.g. newest dates first). */
+  defaultSortKey?: string
+  defaultSortDir?: "asc" | "desc"
 }
 
 function getPath(obj: unknown, path: string): unknown {
@@ -75,9 +81,12 @@ export function Table<T extends Record<string, any>>({
   filters = [],
   pageSize: initialPageSize = 20,
   pageSizeOptions = [20, 50, 100],
+  onFilteredChange,
+  defaultSortKey,
+  defaultSortDir = "desc",
 }: TableProps<T>) {
-  const [sortKey, setSortKey] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [sortKey, setSortKey] = useState<string | null>(defaultSortKey ?? null)
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortKey ? defaultSortDir : "asc")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(initialPageSize)
   const [query, setQuery] = useState("")
@@ -213,6 +222,12 @@ export function Table<T extends Record<string, any>>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, sortKey, sortDir])
 
+  // Report the filtered+sorted view to the parent (for filter-aware exports).
+  useEffect(() => {
+    onFilteredChange?.(sortedData)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedData])
+
   // Reset to first page whenever the result set shrinks below the current page
   const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize))
   useEffect(() => {
@@ -298,30 +313,35 @@ export function Table<T extends Record<string, any>>({
                       <div key={f.key}>
                         <label className="mb-1 block text-xs font-medium text-gray-600">{f.label}</label>
                         {f.type === "date" ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="date"
-                              value={(filterState[f.key] as { from?: string })?.from || ""}
-                              onChange={(e) =>
-                                setFilterState((s) => ({
-                                  ...s,
-                                  [f.key]: { ...(s[f.key] as object), from: e.target.value },
-                                }))
-                              }
-                              className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <span className="text-xs text-gray-400">to</span>
-                            <input
-                              type="date"
-                              value={(filterState[f.key] as { to?: string })?.to || ""}
-                              onChange={(e) =>
-                                setFilterState((s) => ({
-                                  ...s,
-                                  [f.key]: { ...(s[f.key] as object), to: e.target.value },
-                                }))
-                              }
-                              className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-10 shrink-0 text-xs text-gray-400">From</span>
+                              <input
+                                type="date"
+                                value={(filterState[f.key] as { from?: string })?.from || ""}
+                                onChange={(e) =>
+                                  setFilterState((s) => ({
+                                    ...s,
+                                    [f.key]: { ...(s[f.key] as object), from: e.target.value },
+                                  }))
+                                }
+                                className="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-10 shrink-0 text-xs text-gray-400">To</span>
+                              <input
+                                type="date"
+                                value={(filterState[f.key] as { to?: string })?.to || ""}
+                                onChange={(e) =>
+                                  setFilterState((s) => ({
+                                    ...s,
+                                    [f.key]: { ...(s[f.key] as object), to: e.target.value },
+                                  }))
+                                }
+                                className="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
                           </div>
                         ) : (
                           <select

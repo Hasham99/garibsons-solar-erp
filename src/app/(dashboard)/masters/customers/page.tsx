@@ -115,6 +115,18 @@ export default function CustomersPage() {
     setShowModal(true)
   }
 
+  const handleDelete = async (c: Customer) => {
+    if (!confirm(`Delete customer "${c.name}"?\n\nThis is only possible if the party has no sales orders, collections or quotations.`)) return
+    const res = await fetch(`/api/customers/${c.id}`, { method: "DELETE" })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      toast.success(`"${c.name}" deleted`)
+      refetch()
+    } else {
+      toast.error(data.error || "Failed to delete customer")
+    }
+  }
+
   const columns = [
     { key: "name", header: "Name", sortable: true },
     { key: "type", header: "Type", render: (row: Customer) => row.type.replace("_", " ") },
@@ -159,6 +171,9 @@ export default function CustomersPage() {
           >
             <Receipt size={14} className="mr-1" />Receipts
           </Button>
+          <Button size="sm" variant="ghost" title="Delete customer" onClick={() => handleDelete(row)}>
+            <Trash2 size={14} className="text-red-500" />
+          </Button>
         </div>
       ),
     },
@@ -178,9 +193,13 @@ export default function CustomersPage() {
               endpoint="/api/import/customers"
               title="Import Customers"
               sampleName="customers"
-              guide="New customers are added; rows matching an existing name (any case/spelling) are skipped."
+              guide="Only Name is required — leave other columns blank if unknown. Type: DIRECT, DISTRIBUTOR or INSTALLER. Payment Terms: FULL_PAYMENT, DEPOSIT_BALANCE or CREDIT. Rows matching an existing name (any case/spelling) are skipped."
               sampleColumns={["Name", "Type", "NTN", "STRN", "Address", "Contact Person", "Phone", "Email", "Credit Limit", "Payment Terms"]}
-              sampleRows={[["Adnan Solar", "DIRECT", "", "", "Karachi", "Adnan", "03001234567", "", "", "FULL_PAYMENT"]]}
+              sampleRows={[
+                ["FORMAT → party name (required)", "DIRECT / DISTRIBUTOR / INSTALLER", "Text", "Text", "Text", "Text", "03XXXXXXXXX", "name@email.com", "Number — no commas", "FULL_PAYMENT / DEPOSIT_BALANCE / CREDIT"],
+                ["Adnan Solar", "DIRECT", "1234567-8", "", "Shahrah-e-Faisal, Karachi", "Adnan Khan", "03001234567", "adnan@example.com", "5000000", "FULL_PAYMENT"],
+                ["Madina Solar", "DISTRIBUTOR", "", "", "Lahore", "", "03219876543", "", "", "CREDIT"],
+              ]}
               onComplete={refetch}
             />
             <Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Customer</Button>

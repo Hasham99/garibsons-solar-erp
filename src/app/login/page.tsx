@@ -2,7 +2,6 @@
 
 import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Zap } from "lucide-react"
 
 function IdleNotice() {
   const searchParams = useSearchParams()
@@ -53,11 +52,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4">
-            <Zap size={32} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Garibsons Solar ERP</h1>
-          <p className="text-gray-500 mt-1">Sign in to your account</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/garibsons-logo.png" alt="Garibsons (Pvt) Ltd" className="inline-block w-16 h-16 mb-4 object-contain" />
+          <h1 className="text-2xl font-bold text-gray-900">Garibsons (Pvt) Ltd</h1>
+          <p className="text-gray-500 mt-1">Solar ERP — sign in to your account</p>
         </div>
 
         <Suspense fallback={null}>
