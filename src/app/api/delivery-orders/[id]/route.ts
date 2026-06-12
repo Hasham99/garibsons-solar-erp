@@ -42,7 +42,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
             },
           },
         },
-        warehouse: true,
+        warehouse: {
+          include: { contacts: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] } },
+        },
         stockMovements: {
           include: {
             stockEntry: {

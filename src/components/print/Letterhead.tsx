@@ -10,14 +10,15 @@ export const COMPANY = {
 }
 
 /**
- * Faint brand watermark behind printable documents. Fixed positioning makes
- * the browser repeat it on every printed page.
+ * Faint brand watermark behind printable documents. Absolutely positioned, so
+ * the report container that renders the Letterhead must be `relative` — the
+ * watermark then stays centered on the report itself instead of the viewport.
  */
 export function Watermark() {
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center">
+    <div aria-hidden data-watermark="true" className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/garibsons-logo.png" alt="" className="w-[420px] max-w-[70vw] opacity-[0.05] -rotate-12 select-none" />
+      <img src="/garibsons-logo.png" alt="" className="w-[420px] max-w-[80%] opacity-[0.05] -rotate-12 select-none" />
     </div>
   )
 }

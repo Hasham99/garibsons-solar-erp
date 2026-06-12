@@ -1,6 +1,7 @@
 "use client"
 
 import { ReactNode, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 
 interface ModalProps {
@@ -32,7 +33,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
     return () => window.removeEventListener("keydown", onKey)
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === "undefined") return null
 
   const sizes = {
     sm: "max-w-md",
@@ -41,7 +42,9 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
     xl: "max-w-4xl",
   }
 
-  return (
+  // Portal to <body> — ancestors with transforms (e.g. animate-fade-in-up pages)
+  // would otherwise become the containing block for position:fixed and clip the dialog.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
@@ -59,6 +62,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
         </div>
         <div className="overflow-y-auto flex-1 p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

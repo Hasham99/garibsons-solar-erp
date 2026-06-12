@@ -179,12 +179,13 @@ export default function WarehousesPage() {
                 <Plus size={14} className="mr-1" />Add Contact
               </Button>
             </div>
+            <p className="text-xs text-gray-400 mb-2">The first contact is the primary — its name prints as ATTN on Delivery Orders.</p>
             <div className="space-y-2">
               {contacts.map((contact, idx) => (
                 <div key={idx} className="flex items-end gap-2 p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <Input
-                      label={idx === 0 ? "Name *" : "Name"}
+                      label={idx === 0 ? "Name * (Primary / ATTN)" : "Name"}
                       value={contact.name}
                       onChange={(e) => updateContact(idx, "name", e.target.value)}
                       placeholder="Contact name"
