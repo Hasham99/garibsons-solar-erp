@@ -66,8 +66,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const deliveryOrder = await prisma.deliveryOrder.update({
       where: { id },
       data: {
-        status: data.status,
-        notes: data.notes,
+        ...(data.status !== undefined ? { status: data.status } : {}),
+        ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        ...(data.referenceNo !== undefined ? { referenceNo: data.referenceNo?.trim() || null } : {}),
       },
     })
     return Response.json(deliveryOrder)

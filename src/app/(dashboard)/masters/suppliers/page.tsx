@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Plus, Pencil } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
@@ -30,6 +32,7 @@ export default function SuppliersPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [detailRow, setDetailRow] = useState<Supplier | null>(null)
 
   const handleSave = async () => {
     setSaving(true)
@@ -71,7 +74,9 @@ export default function SuppliersPage() {
       </span>
     )},
     { key: "actions", header: "Actions", render: (row: Supplier) => (
-      <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}><Pencil size={14} /></Button>
+      <RowActionsMenu actions={[
+        { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+      ]} />
     )},
   ]
 
@@ -80,6 +85,21 @@ export default function SuppliersPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Supplier — ${detailRow?.name || ""}`}
+        fields={detailRow ? [
+          { label: "Country", value: detailRow.country || "—" },
+          { label: "Status", value: detailRow.active ? "Active" : "Inactive" },
+          { label: "Contact Person", value: detailRow.contactPerson || "—" },
+          { label: "Phone", value: detailRow.contactPhone || "—" },
+          { label: "Email", value: detailRow.contactEmail || "—" },
+          { label: "Payment Terms", value: detailRow.paymentTerms || "—" },
+        ] : []}
+      />
       <Header title="Suppliers" breadcrumbs={[{ label: "Master Data" }, { label: "Suppliers" }]}
         actions={<Button onClick={() => { setEditId(null); setForm(emptyForm); setShowModal(true) }}><Plus size={16} className="mr-2" />Add Supplier</Button>}
       />
@@ -88,6 +108,7 @@ export default function SuppliersPage() {
           columns={columns}
           data={(suppliers || [])}
           emptyMessage="No suppliers yet"
+          onRowClick={(row: Supplier) => setDetailRow(row)}
           searchPlaceholder="Search name, contact, email…"
           searchKeys={["contactPerson", "contactEmail", "contactPhone"]}
           filters={[

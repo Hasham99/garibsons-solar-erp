@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { Letterhead } from "@/components/print/Letterhead"
 
 interface Invoice {
   id: string
@@ -65,17 +66,7 @@ export default function InvoicePrintPage() {
         </div>
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">GARIBSONS PRIVATE LIMITED</h1>
-            <p className="text-sm text-gray-500 mt-1">Solar Division</p>
-          </div>
-          <div className="text-right">
-            <div className="text-blue-700 font-bold text-lg">GST INVOICE</div>
-            <p className="text-sm font-medium mt-1">{invoice.invoiceNumber}</p>
-            <p className="text-xs text-gray-500">{formatDate(invoice.invoiceDate)}</p>
-          </div>
-        </div>
+        <Letterhead docTitle="GST INVOICE" docNumber={invoice.invoiceNumber} docDate={formatDate(invoice.invoiceDate)} />
 
         {/* Bill To */}
         <div className="grid grid-cols-2 gap-8 mb-8">

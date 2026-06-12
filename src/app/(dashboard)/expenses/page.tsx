@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2, Settings2 } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -70,6 +72,7 @@ export default function ExpensesPage() {
   const [savingCat, setSavingCat] = useState(false)
   const [filterCategory, setFilterCategory] = useState("")
   const [filterMonth, setFilterMonth] = useState("")
+  const [detailRow, setDetailRow] = useState<Expense | null>(null)
 
   // Map category name → color (stable by index)
   const catColorMap = useMemo(() => {
@@ -205,12 +208,12 @@ export default function ExpensesPage() {
     { key: "amount", header: "Amount", render: (row: Expense) => <span className="font-semibold text-red-700">{formatCurrency(row.amount)}</span> },
     { key: "createdBy", header: "Entered By", render: (row: Expense) => row.createdBy?.name || "-" },
     {
-      key: "actions", header: "",
+      key: "actions", header: "Actions",
       render: (row: Expense) => (
-        <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}><Pencil size={13} /></Button>
-          <Button size="sm" variant="danger" onClick={() => handleDelete(row.id)}><Trash2 size={13} /></Button>
-        </div>
+        <RowActionsMenu actions={[
+          { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+          { label: "Delete Expense", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(row.id) },
+        ]} />
       ),
     },
   ]
@@ -220,6 +223,23 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title="Expense Details"
+        fields={detailRow ? [
+          { label: "Date", value: formatDate(detailRow.date) },
+          { label: "Category", value: detailRow.categoryName || detailRow.category },
+          { label: "Amount", value: <span className="font-bold text-red-700">{formatCurrency(detailRow.amount)}</span> },
+          { label: "Paid To", value: detailRow.paidTo || "—" },
+          { label: "Reference", value: detailRow.reference || "—" },
+          { label: "Entered By", value: detailRow.createdBy?.name || "—" },
+          { label: "Description", value: detailRow.description, wide: true },
+          ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
+        ] : []}
+      />
       <Header
         title="Expense Management"
         breadcrumbs={[{ label: "Expenses" }]}
@@ -252,8 +272,8 @@ export default function ExpensesPage() {
       {/* Summary Cards */}
       {byCategory.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {byCategory.map((c) => (
-            <div key={c.name} className="bg-white rounded-xl border border-gray-200 p-4">
+          {byCategory.map((c, i) => (
+            <div key={`${c.name}-${i}`} className="bg-white rounded-xl border border-gray-200 p-4">
               <p className="text-xs text-gray-500">{c.name}</p>
               <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(c.total)}</p>
             </div>
@@ -267,7 +287,7 @@ export default function ExpensesPage() {
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={filtered} emptyMessage="No expenses recorded yet" searchPlaceholder="Search description, paid to, ref #…" />
+        <Table columns={columns} data={filtered} emptyMessage="No expenses recorded yet" searchPlaceholder="Search description, paid to, ref #…" onRowClick={(row: Expense) => setDetailRow(row)} />
       </div>
 
       {/* Add / Edit Modal */}

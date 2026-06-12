@@ -12,7 +12,11 @@ import { Table } from "@/components/ui/Table"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { ArrowLeft, ArrowRightLeft, Plus, Pencil, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { useAuth } from "@/hooks/useAuth"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
+import { ArrowLeft, ArrowRightLeft, CheckSquare, Plus, Pencil, Trash2, TrendingDown, TrendingUp, Wallet, X } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
 interface Receipt {
@@ -60,6 +64,8 @@ const emptyForm = {
 export default function CustomerReceiptsPage() {
   const { id: customerId } = useParams<{ id: string }>()
   const router = useRouter()
+  const { user } = useAuth()
+  const canDelete = ["ADMIN", "ACCOUNTS"].includes(user?.role || "")
 
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -68,6 +74,11 @@ export default function CustomerReceiptsPage() {
   const [transferReceipt, setTransferReceipt] = useState<Receipt | null>(null)
   const [transferTo, setTransferTo] = useState("")
   const [transferring, setTransferring] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Record<string, boolean>>({})
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<{ kind: "single"; receipt: Receipt } | { kind: "bulk" } | null>(null)
+  const [detailRow, setDetailRow] = useState<Receipt | null>(null)
 
   const { data: customer } = useFetch<Customer>(`/api/customers/${customerId}`)
   const { data: allCustomers } = useFetch<Customer[]>("/api/customers")
@@ -109,6 +120,46 @@ export default function CustomerReceiptsPage() {
       }
     } finally {
       setTransferring(false)
+    }
+  }
+
+  const selectedIds = Object.keys(selected).filter((id) => selected[id])
+
+  const performDelete = async () => {
+    if (!confirmDelete) return
+    setDeleting(true)
+    try {
+      if (confirmDelete.kind === "single") {
+        const res = await fetch(`/api/customers/${customerId}/receipts/${confirmDelete.receipt.id}`, { method: "DELETE" })
+        if (res.ok) {
+          toast.success("Collection deleted")
+          refetch()
+          refetchBalance()
+        } else {
+          const data = await res.json()
+          toast.error(data.error || "Failed to delete collection")
+        }
+      } else {
+        const res = await fetch("/api/receipts/bulk-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: selectedIds }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          toast.success(`Deleted ${data.deleted} collection(s)`)
+          setSelected({})
+          setSelectMode(false)
+          refetch()
+          refetchBalance()
+        } else {
+          const data = await res.json()
+          toast.error(data.error || "Failed to delete collections")
+        }
+      }
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(null)
     }
   }
 
@@ -232,14 +283,37 @@ export default function CustomerReceiptsPage() {
         </div>
       </div>
 
+      {/* Selection toolbar */}
+      {selectMode && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
+          <p className="text-sm font-medium text-blue-800">Selection mode — {selectedIds.length} collection(s) selected</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setSelected(Object.fromEntries(receipts.map((r) => [r.id, true])))}>Select all</Button>
+            <Button size="sm" variant="secondary" onClick={() => setSelected({})} disabled={selectedIds.length === 0}>Deselect all</Button>
+            <Button size="sm" variant="danger" onClick={() => setConfirmDelete({ kind: "bulk" })} disabled={selectedIds.length === 0}>
+              <Trash2 size={14} className="mr-1" />Delete Selected
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setSelectMode(false); setSelected({}) }}>
+              <X size={14} className="mr-1" />Done
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900">All Receipts ({receiptsData?.total ?? 0})</h3>
+          {canDelete && receipts.length > 0 && !selectMode && (
+            <Button size="sm" variant="ghost" onClick={() => setSelectMode(true)}>
+              <CheckSquare size={14} className="mr-1" />Select
+            </Button>
+          )}
         </div>
         <Table
           data={receipts}
           emptyMessage="No receipts recorded yet"
+          onRowClick={(r: Receipt) => setDetailRow(r)}
           searchPlaceholder="Search receipt #, bank, reference…"
           defaultSortKey="valueDate"
           defaultSortDir="desc"
@@ -248,6 +322,21 @@ export default function CustomerReceiptsPage() {
             { key: "valueDate", label: "Value Date", type: "date", value: (r: Receipt) => r.valueDate },
           ]}
           columns={[
+            ...(canDelete && selectMode ? [{
+              key: "select",
+              header: "",
+              className: "w-8",
+              render: (r: Receipt) => (
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded accent-blue-600 cursor-pointer"
+                  checked={Boolean(selected[r.id])}
+                  onChange={(e) => setSelected((s) => ({ ...s, [r.id]: e.target.checked }))}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Select collection"
+                />
+              ),
+            }] : []),
             { key: "receiptNo", header: "Receipt No.", sortable: true, render: (r: Receipt) => <span className="font-medium text-blue-700">{r.receiptNo}</span> },
             { key: "valueDate", header: "Bank Value Date", sortable: true, value: (r: Receipt) => r.valueDate, render: (r: Receipt) => <span className="whitespace-nowrap">{formatDate(r.valueDate)}</span> },
             { key: "bank", header: "Bank", sortable: true, value: (r: Receipt) => r.bank.name, render: (r: Receipt) => r.bank.name },
@@ -257,16 +346,57 @@ export default function CustomerReceiptsPage() {
             { key: "notes", header: "Notes", render: (r: Receipt) => <span className="text-gray-500 max-w-xs truncate inline-block align-bottom">{r.notes || "—"}</span> },
             { key: "createdBy", header: "Recorded By", value: (r: Receipt) => r.createdBy?.name || "—", render: (r: Receipt) => <span className="text-gray-400">{r.createdBy?.name || "—"}</span> },
             { key: "actions", header: "Actions", render: (r: Receipt) => (
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil size={13} className="mr-1" />Edit</Button>
-                <Button size="sm" variant="ghost" title="Transfer to another party" onClick={() => { setTransferReceipt(r); setTransferTo("") }}>
-                  <ArrowRightLeft size={13} className="mr-1" />Transfer
-                </Button>
-              </div>
+              <RowActionsMenu actions={[
+                { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEdit(r) },
+                { label: "Transfer to Another Party", icon: <ArrowRightLeft size={15} />, onClick: () => { setTransferReceipt(r); setTransferTo("") } },
+                ...(canDelete ? [{ label: "Delete Collection", icon: <Trash2 size={15} />, danger: true, onClick: () => setConfirmDelete({ kind: "single", receipt: r }) }] : []),
+              ]} />
             ) },
           ]}
         />
       </div>
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Collection — ${detailRow?.receiptNo || ""}`}
+        fields={detailRow ? [
+          { label: "Party", value: customer?.name },
+          { label: "Amount", value: <span className="font-bold text-green-700">{formatCurrency(detailRow.amount)}</span> },
+          { label: "Bank", value: detailRow.bank.name },
+          { label: "Bank Value Date", value: formatDate(detailRow.valueDate) },
+          { label: "Reference / Slip", value: detailRow.reference || "—" },
+          { label: "WhatsApp Confirmation", value: detailRow.whatsappDate ? formatDate(detailRow.whatsappDate) : "—" },
+          { label: "Recorded By", value: detailRow.createdBy?.name || "—" },
+          ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
+        ] : []}
+        footer={detailRow ? <Button onClick={() => { const r = detailRow; setDetailRow(null); openEdit(r) }}><Pencil size={14} className="mr-1" />Edit</Button> : undefined}
+      />
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={performDelete}
+        loading={deleting}
+        title={confirmDelete?.kind === "bulk" ? "Delete Selected Collections" : "Delete Collection"}
+        confirmLabel={confirmDelete?.kind === "bulk" ? `Delete ${selectedIds.length} Collection(s)` : "Delete Collection"}
+        message={
+          confirmDelete?.kind === "single" ? (
+            <span>
+              Delete collection <strong>{confirmDelete.receipt.receiptNo}</strong> of{" "}
+              <strong>{formatCurrency(confirmDelete.receipt.amount)}</strong>?
+              <br />This cannot be undone — the party&apos;s balance will update immediately.
+            </span>
+          ) : (
+            <span>
+              Delete <strong>{selectedIds.length}</strong> selected collection(s)?
+              <br />This cannot be undone — the party&apos;s balance will update immediately.
+            </span>
+          )
+        }
+      />
 
       {/* Transfer Modal */}
       <Modal isOpen={Boolean(transferReceipt)} onClose={() => setTransferReceipt(null)} title={`Transfer Collection — ${transferReceipt?.receiptNo}`} size="md">

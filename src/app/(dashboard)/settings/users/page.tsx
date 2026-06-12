@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -30,6 +32,7 @@ export default function UsersPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<typeof emptyForm & { active: boolean }>(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [detailRow, setDetailRow] = useState<User | null>(null)
 
   const handleSave = async () => {
     setSaving(true)
@@ -72,7 +75,9 @@ export default function UsersPage() {
     )},
     { key: "createdAt", header: "Created", render: (row: User) => formatDate(row.createdAt) },
     { key: "actions", header: "Actions", render: (row: User) => (
-      <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}><Pencil size={14} /></Button>
+      <RowActionsMenu actions={[
+        { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+      ]} />
     )},
   ]
 
@@ -81,6 +86,19 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`User — ${detailRow?.name || ""}`}
+        fields={detailRow ? [
+          { label: "Email", value: detailRow.email },
+          { label: "Role", value: detailRow.role },
+          { label: "Status", value: detailRow.active ? "Active" : "Inactive" },
+          { label: "Created", value: formatDate(detailRow.createdAt) },
+        ] : []}
+      />
       <Header title="Users" breadcrumbs={[{ label: "Settings" }, { label: "Users" }]}
         actions={<Button onClick={() => { setEditId(null); setForm(emptyForm); setShowModal(true) }}><Plus size={16} className="mr-2" />Add User</Button>}
       />
@@ -89,6 +107,7 @@ export default function UsersPage() {
           columns={columns}
           data={(users || [])}
           emptyMessage="No users found"
+          onRowClick={(row: User) => setDetailRow(row)}
           searchPlaceholder="Search name, email…"
           filters={[
             { key: "role", label: "Role", value: (row: User) => row.role },

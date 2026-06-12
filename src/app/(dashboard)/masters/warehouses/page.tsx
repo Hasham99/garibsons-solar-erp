@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
@@ -38,6 +40,7 @@ export default function WarehousesPage() {
   const [form, setForm] = useState(emptyForm)
   const [contacts, setContacts] = useState<WarehouseContact[]>([{ ...emptyContact }])
   const [saving, setSaving] = useState(false)
+  const [detailRow, setDetailRow] = useState<Warehouse | null>(null)
 
   const addContact = () => setContacts((prev) => [...prev, { ...emptyContact }])
   const removeContact = (idx: number) => setContacts((prev) => prev.filter((_, i) => i !== idx))
@@ -113,7 +116,9 @@ export default function WarehousesPage() {
     },
     {
       key: "actions", header: "Actions", render: (row: Warehouse) => (
-        <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}><Pencil size={14} /></Button>
+        <RowActionsMenu actions={[
+          { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+        ]} />
       ),
     },
   ]
@@ -123,6 +128,20 @@ export default function WarehousesPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Warehouse — ${detailRow?.name || ""}`}
+        fields={detailRow ? [
+          { label: "Location", value: detailRow.location },
+          { label: "Status", value: detailRow.active ? "Active" : "Inactive" },
+          { label: "Godown", value: detailRow.godown || "—" },
+          { label: "Manager", value: detailRow.manager || "—" },
+          { label: "Contacts", value: detailRow.contacts?.length ? detailRow.contacts.map((c) => `${c.name} (${c.whatsapp})`).join(", ") : "—", wide: true },
+        ] : []}
+      />
       <Header
         title="Warehouses"
         breadcrumbs={[{ label: "Master Data" }, { label: "Warehouses" }]}
@@ -133,6 +152,7 @@ export default function WarehousesPage() {
           columns={columns}
           data={warehouses || []}
           emptyMessage="No warehouses yet"
+          onRowClick={(row: Warehouse) => setDetailRow(row)}
           searchPlaceholder="Search name, location, manager…"
           searchKeys={["godown"]}
           filters={[

@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
 import {
   LayoutDashboard,
   Calculator,
@@ -25,6 +25,11 @@ import {
   Wallet,
   CreditCard,
   Globe,
+  Banknote,
+  LineChart,
+  Boxes,
+  Clock,
+  ClipboardList,
 } from "lucide-react"
 import { clsx } from "clsx"
 
@@ -49,7 +54,35 @@ const navItems: NavItem[] = [
   { label: "Invoices", href: "/invoices", icon: <Receipt size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
   { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
   { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
-  { label: "Reports", href: "/reports", icon: <BarChart3 size={18} /> },
+  {
+    label: "Reports",
+    icon: <BarChart3 size={18} />,
+    children: [
+      // Single-report modules link straight to their page…
+      { label: "Sales", href: "/reports?view=sales", icon: <TrendingUp size={16} /> },
+      { label: "Receivables", href: "/reports?view=outstanding", icon: <Wallet size={16} /> },
+      { label: "Collections", href: "/reports?view=collections", icon: <Banknote size={16} /> },
+      { label: "Profitability", href: "/reports?view=profit", icon: <LineChart size={16} /> },
+      // …multi-report modules expand into a nested submenu.
+      {
+        label: "Stock",
+        icon: <Boxes size={16} />,
+        children: [
+          { label: "Stock Position", href: "/reports?view=stockPosition", icon: <Warehouse size={15} /> },
+          { label: "Stock Summary", href: "/reports?view=stock", icon: <Package size={15} /> },
+          { label: "Stock Aging", href: "/reports?view=stockAging", icon: <Clock size={15} /> },
+        ],
+      },
+      {
+        label: "Procurement",
+        icon: <ShoppingCart size={16} />,
+        children: [
+          { label: "PO Status", href: "/reports?view=poStatus", icon: <ClipboardList size={15} /> },
+          { label: "Purchases", href: "/reports?view=purchases", icon: <Receipt size={15} /> },
+        ],
+      },
+    ],
+  },
   {
     label: "Master Data",
     icon: <Package size={18} />,
@@ -77,10 +110,14 @@ interface SidebarProps {
   user: { name: string; email: string; role: string } | null
 }
 
+const DEFAULT_REPORT_VIEW = "outstanding"
+
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(["Master Data", "Settings"])
+  const searchParams = useSearchParams()
+  const currentView = searchParams.get("view")
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["Reports", "Master Data", "Settings"])
 
   const toggleGroup = (label: string) => {
     setExpandedGroups((prev) =>
@@ -96,12 +133,96 @@ export function Sidebar({ user }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/"
+    // Report links share the /reports path — match on the ?view= param instead
+    if (href.startsWith("/reports?")) {
+      if (pathname !== "/reports") return false
+      const view = new URLSearchParams(href.split("?")[1]).get("view")
+      return (currentView || DEFAULT_REPORT_VIEW) === view
+    }
     return pathname.startsWith(href)
   }
+
+  // A group is "active" when any descendant leaf (at any depth) is active
+  const descendantActive = (item: NavItem): boolean =>
+    item.href ? isActive(item.href) : (item.children || []).some(descendantActive)
+
+  // Auto-expand every ancestor group along the path to the active route
+  useEffect(() => {
+    const toExpand: string[] = []
+    const walk = (items: NavItem[], ancestors: string[]) => {
+      for (const it of items) {
+        if (it.children) walk(it.children, [...ancestors, it.label])
+        else if (it.href && isActive(it.href)) toExpand.push(...ancestors)
+      }
+    }
+    walk(navItems, [])
+    if (toExpand.length) {
+      setExpandedGroups((prev) => {
+        const next = [...prev]
+        for (const l of toExpand) if (!next.includes(l)) next.push(l)
+        return next
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, currentView])
 
   const canView = (item: NavItem) => {
     if (!item.roles || !user) return true
     return item.roles.includes(user.role)
+  }
+
+  // Recursive nav renderer — supports leaf links and nested expandable groups
+  const renderItem = (item: NavItem, depth: number): React.ReactNode => {
+    if (!canView(item)) return null
+
+    if (item.children) {
+      const visibleChildren = item.children.filter(canView)
+      if (visibleChildren.length === 0) return null
+
+      const isExpanded = expandedGroups.includes(item.label)
+      const hasActiveChild = visibleChildren.some(descendantActive)
+
+      return (
+        <div key={item.label}>
+          <button
+            onClick={() => toggleGroup(item.label)}
+            className={clsx(
+              "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors",
+              depth === 0 ? "text-sm font-medium" : "text-[13px]",
+              hasActiveChild ? "text-white bg-white/10" : "text-gray-400 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <div className="flex items-center gap-3">
+              {item.icon}
+              {item.label}
+            </div>
+            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+          {isExpanded && (
+            <div className="mt-1 ml-3 space-y-1 border-l border-white/10 pl-2">
+              {visibleChildren.map((child) => renderItem(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href!}
+        className={clsx(
+          "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+          depth === 0 ? "text-sm font-medium" : "text-[13px]",
+          isActive(item.href!)
+            ? "bg-blue-600 text-white font-medium"
+            : "text-gray-400 hover:text-white hover:bg-white/5"
+        )}
+      >
+        {item.icon}
+        {item.label}
+      </Link>
+    )
   }
 
   return (
@@ -115,72 +236,7 @@ export function Sidebar({ user }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="sidebar-scroll flex-1 px-3 py-4 overflow-y-auto space-y-1">
-        {navItems.map((item) => {
-          if (!canView(item)) return null
-
-          if (item.children) {
-            const visibleChildren = item.children.filter((c) => canView(c))
-            if (visibleChildren.length === 0) return null
-
-            const isExpanded = expandedGroups.includes(item.label)
-            const hasActiveChild = visibleChildren.some((c) => c.href && isActive(c.href))
-
-            return (
-              <div key={item.label}>
-                <button
-                  onClick={() => toggleGroup(item.label)}
-                  className={clsx(
-                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    hasActiveChild
-                      ? "text-white bg-white/10"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    {item.icon}
-                    {item.label}
-                  </div>
-                  {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
-                {isExpanded && (
-                  <div className="mt-1 ml-3 space-y-1">
-                    {visibleChildren.map((child) => (
-                      <Link
-                        key={child.href}
-                        href={child.href!}
-                        className={clsx(
-                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                          isActive(child.href!)
-                            ? "bg-blue-600 text-white font-medium"
-                            : "text-gray-400 hover:text-white hover:bg-white/5"
-                        )}
-                      >
-                        {child.icon}
-                        {child.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          }
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href!}
-              className={clsx(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                isActive(item.href!)
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
-              )}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          )
-        })}
+        {navItems.map((item) => renderItem(item, 0))}
       </nav>
 
       {/* User info and logout */}

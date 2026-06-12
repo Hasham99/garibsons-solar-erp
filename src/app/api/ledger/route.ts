@@ -5,15 +5,15 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const customerId = searchParams.get("customerId")
+    const from = searchParams.get("from")
+    const to = searchParams.get("to")
 
-    if (!customerId) {
-      return Response.json([])
-    }
-
-    // Fetch SOs with their lines and DOs in one query
+    // Fetch SOs with their lines and DOs in one query.
+    // Without a customerId this becomes the overall (all-parties) ledger.
     const salesOrders = await prisma.salesOrder.findMany({
-      where: { customerId, status: { not: "CANCELLED" } },
+      where: { ...(customerId ? { customerId } : {}), status: { not: "CANCELLED" } },
       include: {
+        customer: { select: { id: true, name: true } },
         lines: { include: { product: { select: { name: true } } } },
         deliveryOrders: {
           where: { status: { not: "CANCELLED" } },
@@ -26,8 +26,8 @@ export async function GET(request: Request) {
 
     // Fetch advance collections (CustomerReceipt)
     const receipts = await prisma.customerReceipt.findMany({
-      where: { customerId },
-      include: { bank: { select: { name: true } } },
+      where: customerId ? { customerId } : {},
+      include: { customer: { select: { id: true, name: true } }, bank: { select: { name: true } } },
       orderBy: { valueDate: "asc" },
     })
 
@@ -44,6 +44,21 @@ export async function GET(request: Request) {
       qtyRemaining: number
       debit: number
       credit: number
+      customerId: string
+      customerName: string
+      soId?: string
+      doId?: string
+      receipt?: {
+        id: string
+        receiptNo: string
+        bankId: string
+        bankName: string
+        amount: number
+        reference: string | null
+        valueDate: string
+        whatsappDate: string | null
+        notes: string | null
+      }
     }
 
     const rows: LedgerRow[] = []
@@ -69,6 +84,8 @@ export async function GET(request: Request) {
           .map((l) => lineDesc(l.product.name, l.quantity, (l.soLineId ? rateBySoLine.get(l.soLineId) : undefined) ?? fallbackRate))
           .join(" · ") || `${doItem.quantity} panels`
 
+      const party = { customerId: so.customer.id, customerName: so.customer.name }
+
       if (doQty === 0) {
         // No DOs — show SO row
         rows.push({
@@ -83,6 +100,8 @@ export async function GET(request: Request) {
           qtyRemaining: soQty,
           debit: so.grandTotal,
           credit: 0,
+          ...party,
+          soId: so.id,
         })
       } else if (remaining > 0) {
         // Partial — show each DO + a remaining row
@@ -100,6 +119,9 @@ export async function GET(request: Request) {
             qtyRemaining: 0,
             debit: 0,
             credit: 0,
+            ...party,
+            soId: so.id,
+            doId: doItem.id,
           })
         }
         // Partial remaining row carries the financial debit
@@ -115,6 +137,8 @@ export async function GET(request: Request) {
           qtyRemaining: remaining,
           debit: so.grandTotal,
           credit: 0,
+          ...party,
+          soId: so.id,
         })
       } else {
         // All DOs complete — show each DO, debit on first only
@@ -132,6 +156,9 @@ export async function GET(request: Request) {
             qtyRemaining: 0,
             debit: idx === 0 ? so.grandTotal : 0,
             credit: 0,
+            ...party,
+            soId: so.id,
+            doId: doItem.id,
           })
         })
       }
@@ -150,22 +177,46 @@ export async function GET(request: Request) {
         qtyRemaining: 0,
         debit: 0,
         credit: r.amount,
+        customerId: r.customer.id,
+        customerName: r.customer.name,
+        receipt: {
+          id: r.id,
+          receiptNo: r.receiptNo,
+          bankId: r.bankId,
+          bankName: r.bank.name,
+          amount: r.amount,
+          reference: r.reference,
+          valueDate: r.valueDate.toISOString(),
+          whatsappDate: r.whatsappDate ? r.whatsappDate.toISOString() : null,
+          notes: r.notes,
+        },
       })
     }
 
     // Sort all rows by date ascending
     rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-    // Compute running balance
+    // Compute running balance over the full history (before any date filter,
+    // so a filtered view still shows true balances)
     let runningBalance = 0
-    const ledger = rows.map((row) => {
+    let ledger = rows.map((row) => {
       runningBalance += row.debit - row.credit
       return { ...row, runningBalance }
     })
 
-    // Summary
-    const totalDebits = rows.reduce((s, r) => s + r.debit, 0)
-    const totalCredits = rows.reduce((s, r) => s + r.credit, 0)
+    // Optional date range (inclusive, end-of-day on "to")
+    if (from || to) {
+      const fromT = from ? new Date(from).getTime() : -Infinity
+      const toT = to ? new Date(to).getTime() + 86_399_999 : Infinity
+      ledger = ledger.filter((r) => {
+        const t = new Date(r.date).getTime()
+        return t >= fromT && t <= toT
+      })
+    }
+
+    // Summary (over the returned rows)
+    const totalDebits = ledger.reduce((s, r) => s + r.debit, 0)
+    const totalCredits = ledger.reduce((s, r) => s + r.credit, 0)
 
     return Response.json({ rows: ledger, totalDebits, totalCredits, balance: totalDebits - totalCredits })
   } catch (error) {

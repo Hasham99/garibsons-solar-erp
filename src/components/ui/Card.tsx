@@ -22,15 +22,15 @@ export function StatCard({ title, value, subtitle, icon, color = "blue" }: StatC
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900 leading-tight wrap-break-word">{value}</p>
-          {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-500 truncate" title={title}>{title}</p>
+          <p className="mt-2 text-xl xl:text-2xl font-bold text-gray-900 leading-tight wrap-break-word">{value}</p>
+          {subtitle && <p className="mt-1 text-sm text-gray-500 truncate" title={subtitle}>{subtitle}</p>}
         </div>
         {icon && (
-          <div className={clsx("p-3 rounded-xl", colorClasses[color])}>
+          <div className={clsx("p-3 rounded-xl shrink-0", colorClasses[color])}>
             {icon}
           </div>
         )}

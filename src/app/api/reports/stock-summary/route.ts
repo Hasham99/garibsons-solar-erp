@@ -1,9 +1,19 @@
 import { prisma } from "@/lib/prisma"
 import { getOutstandingReservations } from "@/lib/stock"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const sp = new URL(request.url).searchParams
+    const warehouseId = sp.get("warehouseId")
+    const asOfParam = sp.get("asOf")
+    const asOf = asOfParam ? new Date(asOfParam) : null
+    if (asOf) asOf.setHours(23, 59, 59, 999)
+
     const stockEntries = await prisma.stockEntry.findMany({
+      where: {
+        ...(warehouseId ? { warehouseId } : {}),
+        ...(asOf ? { receivedAt: { lte: asOf } } : {}),
+      },
       include: {
         product: {
           select: {
@@ -18,13 +28,31 @@ export async function GET() {
         warehouse: { select: { id: true, name: true } },
         po: { select: { poNumber: true } },
         movements: {
-          select: { type: true, quantity: true, watts: true, stockEntryId: true, soId: true, doId: true },
+          select: {
+            type: true, quantity: true, watts: true, stockEntryId: true, soId: true, doId: true,
+            createdAt: true,
+            deliveryOrder: { select: { dispatchedAt: true, createdAt: true } },
+          },
         },
       },
       orderBy: { receivedAt: "asc" },
     })
 
-    const rows = stockEntries.map((entry) => {
+    // asOf rewind: bulk-imported movements carry the import timestamp, so date
+    // them by their business event — STOCK_IN by the entry's receivedAt
+    // (already filtered above), STOCK_OUT by the DO's dispatch/creation date.
+    type Movement = (typeof stockEntries)[number]["movements"][number]
+    const happenedByAsOf = (m: Movement) => {
+      if (!asOf) return true
+      if (m.type === "STOCK_IN") return true
+      const eff = m.type === "STOCK_OUT"
+        ? m.deliveryOrder?.dispatchedAt ?? m.deliveryOrder?.createdAt ?? m.createdAt
+        : m.createdAt
+      return eff <= asOf
+    }
+
+    const rows = stockEntries.map((rawEntry) => {
+      const entry = { ...rawEntry, movements: rawEntry.movements.filter(happenedByAsOf) }
       const stockIn = entry.movements
         .filter((m) => m.type === "STOCK_IN")
         .reduce((s, m) => s + m.quantity, 0)

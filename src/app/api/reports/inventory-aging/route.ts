@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { summarizeStockEntry } from "@/lib/stock"
-import { parseFilters } from "@/lib/report-filters"
+import { parseFilters, dateRange } from "@/lib/report-filters"
 
 type AgeBucket = "0to30" | "31to60" | "61to90" | "over90"
 const ageBucket = (d: number): AgeBucket => (d <= 30 ? "0to30" : d <= 60 ? "31to60" : d <= 90 ? "61to90" : "over90")
@@ -13,6 +13,7 @@ export async function GET(request: Request) {
       where: {
         ...(f.warehouseId ? { warehouseId: f.warehouseId } : {}),
         ...(f.brand ? { product: { brand: f.brand } } : {}),
+        ...(dateRange(f) ? { receivedAt: dateRange(f) } : {}),
       },
       include: {
         product: { select: { name: true, code: true, brand: true } },

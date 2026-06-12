@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { Letterhead } from "@/components/print/Letterhead"
 
 interface Quotation {
   id: string
@@ -59,17 +60,7 @@ export default function QuotationPrintPage() {
           <button onClick={() => window.close()} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">Close</button>
         </div>
 
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">GARIBSONS PRIVATE LIMITED</h1>
-            <p className="text-sm text-gray-500 mt-1">Solar Division</p>
-          </div>
-          <div className="text-right">
-            <div className="text-blue-700 font-bold text-lg">QUOTATION</div>
-            <p className="text-sm font-medium mt-1">{quotation.qNumber}</p>
-            <p className="text-xs text-gray-500">{formatDate(quotation.createdAt)}</p>
-          </div>
-        </div>
+        <Letterhead docTitle="QUOTATION" docNumber={quotation.qNumber} docDate={formatDate(quotation.createdAt)} />
 
         <div className="grid grid-cols-2 gap-8 mb-8">
           <div>

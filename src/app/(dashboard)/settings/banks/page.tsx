@@ -9,6 +9,8 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -30,6 +32,7 @@ export default function BanksPage() {
   const [form, setForm] = useState<typeof emptyForm>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [detailRow, setDetailRow] = useState<Bank | null>(null)
 
   const openAdd = () => { setEditingId(null); setForm(emptyForm); setShowModal(true) }
   const openEdit = (row: Bank) => {
@@ -93,16 +96,12 @@ export default function BanksPage() {
     },
     { key: "createdAt", header: "Added", render: (row: Bank) => formatDate(row.createdAt) },
     {
-      key: "actions", header: "",
+      key: "actions", header: "Actions",
       render: (row: Bank) => (
-        <div className="flex gap-2 justify-end">
-          <button onClick={() => openEdit(row)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
-            <Pencil size={15} />
-          </button>
-          <button onClick={() => handleDelete(row.id)} disabled={deleting === row.id} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
-            <Trash2 size={15} />
-          </button>
-        </div>
+        <RowActionsMenu actions={[
+          { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEdit(row) },
+          { label: "Delete Bank", icon: <Trash2 size={15} />, danger: true, disabled: deleting === row.id, onClick: () => handleDelete(row.id) },
+        ]} />
       ),
     },
   ]
@@ -112,6 +111,18 @@ export default function BanksPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Bank — ${detailRow?.name || ""}`}
+        fields={detailRow ? [
+          { label: "Branch", value: detailRow.branch || "—" },
+          { label: "Status", value: detailRow.active ? "Active" : "Inactive" },
+          { label: "Added", value: formatDate(detailRow.createdAt) },
+        ] : []}
+      />
       <Header title="Banks" breadcrumbs={[{ label: "Settings" }, { label: "Banks" }]}
         actions={
           <div className="flex gap-2">
@@ -138,6 +149,7 @@ export default function BanksPage() {
           columns={columns}
           data={(banks || [])}
           emptyMessage="No banks yet"
+          onRowClick={(row: Bank) => setDetailRow(row)}
           searchPlaceholder="Search bank, branch…"
           filters={[{ key: "active", label: "Status", value: (row: Bank) => (row.active ? "Active" : "Inactive") }]}
         />

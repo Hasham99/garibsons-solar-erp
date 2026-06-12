@@ -17,34 +17,60 @@ import { getSession } from "@/lib/auth"
  *   balanceSO             so − doIssued (deals not yet on DO)
  *   availableForSale      warehouseStock − unlifted − balanceSO
  *   value (FIFO)          Σ per-batch remaining panels × batch cost
+ *
+ * Optional ?asOf=YYYY-MM-DD rewinds the whole sheet to end of that day:
+ * only stock entries received, movements made, and SOs/DOs created on or
+ * before it are counted.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getSession()
     if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
+
+    const asOfParam = new URL(request.url).searchParams.get("asOf")
+    const asOf = asOfParam ? new Date(asOfParam) : null
+    if (asOf) asOf.setHours(23, 59, 59, 999)
 
     const [products, entries, soLines, doLines] = await Promise.all([
       prisma.product.findMany({
         select: { id: true, name: true, wattage: true, panelsPerContainer: true, palletsPerContainer: true },
       }),
       prisma.stockEntry.findMany({
+        where: asOf ? { receivedAt: { lte: asOf } } : undefined,
         select: {
           productId: true,
           panelQuantity: true,
           costPerWatt: true,
           wattQuantity: true,
           po: { select: { lcType: true } },
-          movements: { select: { type: true, quantity: true } },
+          movements: {
+            select: {
+              type: true,
+              quantity: true,
+              createdAt: true,
+              deliveryOrder: { select: { dispatchedAt: true, createdAt: true } },
+            },
+          },
         },
       }),
       prisma.salesOrderLine.groupBy({
         by: ["productId"],
-        where: { salesOrder: { status: { not: "CANCELLED" } } },
+        where: {
+          salesOrder: {
+            status: { not: "CANCELLED" },
+            ...(asOf ? { orderDate: { lte: asOf } } : {}),
+          },
+        },
         _sum: { quantity: true },
       }),
       prisma.deliveryOrderLine.groupBy({
         by: ["productId"],
-        where: { deliveryOrder: { status: { not: "CANCELLED" } } },
+        where: {
+          deliveryOrder: {
+            status: { not: "CANCELLED" },
+            ...(asOf ? { createdAt: { lte: asOf } } : {}),
+          },
+        },
         _sum: { quantity: true },
       }),
     ])
@@ -60,12 +86,27 @@ export async function GET() {
       remainingValue: number
       remainingWatts: number
     }
+    // For the asOf rewind, each movement counts only if it happened by then.
+    // Bulk-imported movements carry the import timestamp, so we date them by
+    // their business event instead: STOCK_IN by the entry's receivedAt (already
+    // filtered above), STOCK_OUT by the DO's dispatch/creation date.
+    type Movement = (typeof entries)[number]["movements"][number]
+    const happenedByAsOf = (m: Movement) => {
+      if (!asOf) return true
+      if (m.type === "STOCK_IN") return true
+      const eff = m.type === "STOCK_OUT"
+        ? m.deliveryOrder?.dispatchedAt ?? m.deliveryOrder?.createdAt ?? m.createdAt
+        : m.createdAt
+      return eff <= asOf
+    }
+
     const acc = new Map<string, Acc>()
     for (const e of entries) {
       const a = acc.get(e.productId) ?? { receivedLocal: 0, receivedImport: 0, lifted: 0, adjustments: 0, remainingValue: 0, remainingWatts: 0 }
-      const stockIn = e.movements.filter((m) => m.type === "STOCK_IN").reduce((s, m) => s + m.quantity, 0)
-      const stockOut = e.movements.filter((m) => m.type === "STOCK_OUT").reduce((s, m) => s + m.quantity, 0)
-      const adj = e.movements.filter((m) => m.type === "ADJUSTMENT").reduce((s, m) => s + m.quantity, 0)
+      const movements = e.movements.filter(happenedByAsOf)
+      const stockIn = movements.filter((m) => m.type === "STOCK_IN").reduce((s, m) => s + m.quantity, 0)
+      const stockOut = movements.filter((m) => m.type === "STOCK_OUT").reduce((s, m) => s + m.quantity, 0)
+      const adj = movements.filter((m) => m.type === "ADJUSTMENT").reduce((s, m) => s + m.quantity, 0)
       if (e.po?.lcType === "LOCAL") a.receivedLocal += stockIn
       else a.receivedImport += stockIn
       a.lifted += stockOut
@@ -133,7 +174,7 @@ export async function GET() {
       { receivedLocal: 0, receivedImport: 0, so: 0, availableForSale: 0, doIssued: 0, lifted: 0, unlifted: 0, warehouseStock: 0, balanceSO: 0, stockWatts: 0, stockValue: 0 }
     )
 
-    return Response.json({ rows, totals, asOf: new Date().toISOString() })
+    return Response.json({ rows, totals, asOf: (asOf ?? new Date()).toISOString() })
   } catch (error) {
     console.error(error)
     return Response.json({ error: "Failed to build stock position report" }, { status: 500 })

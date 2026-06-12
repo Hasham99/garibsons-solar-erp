@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
+import { formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
 import { Plus, DollarSign } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
@@ -28,6 +30,7 @@ interface Invoice {
 }
 
 export default function InvoicesPage() {
+  const [detailRow, setDetailRow] = useState<Invoice | null>(null)
   const { data: invoices, loading, refetch } = useFetch<Invoice[]>("/api/invoices")
   const { data: orders } = useFetch<{ id: string; soNumber: string; customer: { name: string }; subTotal: number; gstRate: number; status: string }[]>("/api/sales-orders")
   const { data: dos } = useFetch<{ id: string; doNumber: string }[]>("/api/delivery-orders")
@@ -124,11 +127,10 @@ export default function InvoicesPage() {
     {
       key: "actions",
       header: "Actions",
-      render: (row: Invoice) => row.status !== "PAID" && (
-        <Button size="sm" variant="secondary" onClick={() => { setSelectedInvoice(row); setShowPayment(true) }}>
-          <DollarSign size={14} className="mr-1" />
-          Record Payment
-        </Button>
+      render: (row: Invoice) => (
+        <RowActionsMenu actions={row.status !== "PAID" ? [
+          { label: "Record Payment", icon: <DollarSign size={15} />, onClick: () => { setSelectedInvoice(row); setShowPayment(true) } },
+        ] : []} />
       ),
     },
   ]
@@ -138,6 +140,27 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Invoice — ${detailRow?.invoiceNumber || ""}`}
+        fields={detailRow ? (() => {
+          const paid = detailRow.payments?.reduce((s, p) => s + p.amount, 0) || 0
+          return [
+            { label: "Customer", value: detailRow.salesOrder?.customer?.name },
+            { label: "Sales Order", value: detailRow.salesOrder?.soNumber },
+            { label: "Invoice Date", value: formatDate(detailRow.invoiceDate) },
+            { label: "Status", value: <Badge status={detailRow.status} /> },
+            { label: "Sub Total", value: formatCurrency(detailRow.subTotal) },
+            { label: "GST", value: detailRow.gstRate > 0 ? `${detailRow.gstRate}% = ${formatCurrency(detailRow.gstAmount)}` : "—" },
+            { label: "Grand Total", value: <span className="font-bold">{formatCurrency(detailRow.grandTotal)}</span> },
+            { label: "Paid / Outstanding", value: `${formatCurrency(paid)} / ${formatCurrency(detailRow.grandTotal - paid)}` },
+          ]
+        })() : []}
+      />
+
       <Header
         title="Invoices"
         actions={
@@ -153,6 +176,8 @@ export default function InvoicesPage() {
           columns={columns}
           data={(invoices || [])}
           emptyMessage="No invoices yet"
+          rowClassName={(row: Invoice) => statusRowClass(row.status)}
+          onRowClick={(row: Invoice) => setDetailRow(row)}
           searchPlaceholder="Search invoice #, customer, SO #…"
           searchKeys={["salesOrder.soNumber"]}
           filters={[

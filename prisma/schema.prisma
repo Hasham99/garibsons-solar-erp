@@ -468,6 +468,7 @@ model SalesOrderLine {
 model DeliveryOrder {
   id          String     @id @default(cuid())
   doNumber    String     @unique
+  referenceNo String?    // Customer's own DO number (from their Excel sheet)
   soId        String
   salesOrder  SalesOrder @relation(fields: [soId], references: [id])
   warehouseId String

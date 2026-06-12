@@ -236,6 +236,20 @@ export function Table<T extends Record<string, any>>({
 
   const pageData = sortedData.slice((page - 1) * pageSize, page * pageSize)
 
+  // Stable, guaranteed-unique row keys. Some datasets key by a non-unique field
+  // (e.g. a report grouped by product name where missing names all read "—"),
+  // which would otherwise trigger React "duplicate key" warnings.
+  const rowKeys = (() => {
+    const seen = new Map<string, number>()
+    return pageData.map((row, idx) => {
+      const raw = row[keyField]
+      const base = raw != null && raw !== "" ? String(raw) : `row-${idx}`
+      const count = seen.get(base) ?? 0
+      seen.set(base, count + 1)
+      return count === 0 ? base : `${base}__${count}`
+    })
+  })()
+
   const thClass = compact
     ? `px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`
     : `px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`
@@ -407,7 +421,7 @@ export function Table<T extends Record<string, any>>({
             ) : (
               pageData.map((row, idx) => (
                 <tr
-                  key={row[keyField] != null ? String(row[keyField]) : idx}
+                  key={rowKeys[idx]}
                   className={`hover:bg-gray-50 transition-colors ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || ""}`}
                   onClick={() => onRowClick?.(row)}
                 >

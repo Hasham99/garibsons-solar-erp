@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -30,6 +32,7 @@ export default function ExchangeRatesPage() {
   const [form, setForm] = useState<typeof emptyForm>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [detailRow, setDetailRow] = useState<ExchangeRate | null>(null)
 
   const openAdd = () => { setEditingId(null); setForm(emptyForm); setShowModal(true) }
   const openEdit = (row: ExchangeRate) => {
@@ -87,16 +90,12 @@ export default function ExchangeRatesPage() {
     { key: "notes", header: "Notes", render: (row: ExchangeRate) => row.notes || "-" },
     { key: "createdAt", header: "Added", render: (row: ExchangeRate) => formatDate(row.createdAt) },
     {
-      key: "actions", header: "",
+      key: "actions", header: "Actions",
       render: (row: ExchangeRate) => (
-        <div className="flex gap-2 justify-end">
-          <button onClick={() => openEdit(row)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
-            <Pencil size={15} />
-          </button>
-          <button onClick={() => handleDelete(row.id)} disabled={deleting === row.id} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
-            <Trash2 size={15} />
-          </button>
-        </div>
+        <RowActionsMenu actions={[
+          { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEdit(row) },
+          { label: "Delete Rate", icon: <Trash2 size={15} />, danger: true, disabled: deleting === row.id, onClick: () => handleDelete(row.id) },
+        ]} />
       ),
     },
   ]
@@ -106,6 +105,19 @@ export default function ExchangeRatesPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Exchange Rate — ${detailRow ? formatDate(detailRow.date) : ""}`}
+        fields={detailRow ? [
+          { label: "Rate (PKR/USD)", value: <span className="font-bold text-blue-700">Rs {detailRow.rate}</span> },
+          { label: "Source", value: detailRow.source },
+          { label: "Added", value: formatDate(detailRow.createdAt) },
+          ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
+        ] : []}
+      />
       <Header title="Exchange Rates" breadcrumbs={[{ label: "Settings" }, { label: "Exchange Rates" }]}
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Rate</Button>}
       />
@@ -114,6 +126,7 @@ export default function ExchangeRatesPage() {
           columns={columns}
           data={(rates || [])}
           emptyMessage="No exchange rates yet"
+          onRowClick={(row: ExchangeRate) => setDetailRow(row)}
           searchPlaceholder="Search source, notes…"
           filters={[
             { key: "source", label: "Source", value: (row: ExchangeRate) => row.source },

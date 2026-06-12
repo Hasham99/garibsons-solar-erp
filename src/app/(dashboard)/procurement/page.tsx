@@ -11,7 +11,8 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
 import { Plus, FileCheck, Upload, Paperclip, Trash2, ExternalLink, Pencil } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
@@ -371,29 +372,23 @@ export default function ProcurementPage() {
     {
       key: "actions",
       header: "Actions",
-      render: (row: PO) => (
-        <div className="flex items-center gap-1 flex-wrap">
-          {row.status !== "RECEIVED" && (
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openEditPO(row) }}>
-              <Pencil size={13} className="mr-1" />Edit
-            </Button>
-          )}
-          {row.status === "DRAFT" && (
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleStatusChange(row.id, "CONFIRMED") }}>Confirm</Button>
-          )}
-          {row.status === "CONFIRMED" && row.lcType !== "LOCAL" && (
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleStatusChange(row.id, "SHIPPED") }}>Mark Shipped</Button>
-          )}
-          {(row.status === "SHIPPED" || row.status === "READY_TO_RECEIVE") && (
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openCosting(row) }}>
-              <FileCheck size={14} className="mr-1" />{row.status === "READY_TO_RECEIVE" ? "Edit Clearing" : "Clearing"}
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openDocs(row) }}>
-            <Paperclip size={14} />
-          </Button>
-        </div>
-      ),
+      render: (row: PO) => {
+        const actions = []
+        if (row.status !== "RECEIVED") {
+          actions.push({ label: "Edit", icon: <Pencil size={15} />, onClick: () => openEditPO(row) })
+        }
+        if (row.status === "DRAFT") {
+          actions.push({ label: "Confirm", icon: <FileCheck size={15} />, onClick: () => handleStatusChange(row.id, "CONFIRMED") })
+        }
+        if (row.status === "CONFIRMED" && row.lcType !== "LOCAL") {
+          actions.push({ label: "Mark Shipped", onClick: () => handleStatusChange(row.id, "SHIPPED") })
+        }
+        if (row.status === "SHIPPED" || row.status === "READY_TO_RECEIVE") {
+          actions.push({ label: row.status === "READY_TO_RECEIVE" ? "Edit Clearing" : "Clearing", icon: <FileCheck size={15} />, onClick: () => openCosting(row) })
+        }
+        actions.push({ label: "Documents", icon: <Paperclip size={15} />, onClick: () => openDocs(row) })
+        return <RowActionsMenu actions={actions} />
+      },
     },
   ]
 
@@ -431,6 +426,7 @@ export default function ProcurementPage() {
           columns={columns}
           data={pos || []}
           emptyMessage="No purchase orders yet"
+          rowClassName={(row: PO) => statusRowClass(row.status)}
           onRowClick={openDetail}
           searchPlaceholder="Search PO #, product, supplier, LC #…"
           searchKeys={["product.code", "lcNumber"]}

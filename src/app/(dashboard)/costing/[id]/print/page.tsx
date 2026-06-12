@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { Letterhead } from "@/components/print/Letterhead"
 
 interface Costing {
   id: string
@@ -88,19 +89,11 @@ export default function CostingPrintPage() {
           <button onClick={() => window.close()} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">Close</button>
         </div>
 
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">GARIBSONS PRIVATE LIMITED</h1>
-            <p className="text-sm text-gray-500 mt-1">Solar Division</p>
-          </div>
-          <div className="text-right">
-            <div className="text-blue-700 font-bold text-lg">LANDED COST CALCULATION</div>
-            <p className="text-sm font-medium mt-1">{costing.reference}</p>
-            <p className="text-xs text-gray-500">{formatDate(costing.createdAt)}</p>
-            <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${costing.status === "FINALIZED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-              {costing.status}
-            </span>
-          </div>
+        <Letterhead docTitle="LANDED COST CALCULATION" docNumber={costing.reference} docDate={formatDate(costing.createdAt)} />
+        <div className="-mt-6 mb-6 text-right">
+          <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${costing.status === "FINALIZED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+            {costing.status}
+          </span>
         </div>
 
         <table className="w-full mb-6 text-sm border-collapse">

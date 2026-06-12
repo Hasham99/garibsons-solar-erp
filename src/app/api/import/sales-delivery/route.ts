@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     type Work = {
       customerId: string; productId: string; wattP: number; panels: number; watts: number
       rateWatt: number; ratePerPanel: number; valueSale: number; orderDate: Date
-      isDelivered: boolean; doNumber: string | null
+      isDelivered: boolean; doNumber: string | null; referenceNo: string | null
     }
     const work: Work[] = []
     const errors: { row: number; message: string }[] = []
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         if (existingDoNumbers.has(doNumber)) { errors.push({ row: line, message: `Delivery order ${doNumber} already exists — skipped` }); continue }
         existingDoNumbers.add(doNumber)
       }
-      work.push({ customerId, productId, wattP, panels: Math.round(panels), watts, rateWatt, ratePerPanel, valueSale, orderDate, isDelivered, doNumber })
+      work.push({ customerId, productId, wattP, panels: Math.round(panels), watts, rateWatt, ratePerPanel, valueSale, orderDate, isDelivered, doNumber, referenceNo: doRaw || null })
     }
 
     // ---- Allocate SO numbers in one shot ----
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
 
       const doId = randomUUID()
       doData.push({
-        id: doId, doNumber: w.doNumber!, soId, warehouseId: warehouse.id, quantity: w.panels, watts: w.watts,
+        id: doId, doNumber: w.doNumber!, referenceNo: w.referenceNo, soId, warehouseId: warehouse.id, quantity: w.panels, watts: w.watts,
         status: "DISPATCHED", dispatchedAt: w.orderDate, createdAt: w.orderDate, createdById: session.userId || null,
       })
       doLineData.push({ id: randomUUID(), doId, soLineId, productId: w.productId, quantity: w.panels, watts: w.watts })

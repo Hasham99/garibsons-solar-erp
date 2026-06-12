@@ -10,6 +10,8 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatCurrency } from "@/lib/utils"
 import { Plus, Pencil, Trash2, Receipt } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -58,6 +60,7 @@ export default function CustomersPage() {
   const { data: customers, loading, refetch } = useFetch<Customer[]>("/api/customers")
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
+  const [detailRow, setDetailRow] = useState<Customer | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [contacts, setContacts] = useState<CustomerContact[]>([{ ...emptyContact }])
   const [saving, setSaving] = useState(false)
@@ -161,20 +164,11 @@ export default function CustomersPage() {
     },
     {
       key: "actions", header: "Actions", render: (row: Customer) => (
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}><Pencil size={14} /></Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => router.push(`/masters/customers/${row.id}/receipts`)}
-            title="View Receipts"
-          >
-            <Receipt size={14} className="mr-1" />Receipts
-          </Button>
-          <Button size="sm" variant="ghost" title="Delete customer" onClick={() => handleDelete(row)}>
-            <Trash2 size={14} className="text-red-500" />
-          </Button>
-        </div>
+        <RowActionsMenu actions={[
+          { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+          { label: "View Receipts", icon: <Receipt size={15} />, onClick: () => router.push(`/masters/customers/${row.id}/receipts`) },
+          { label: "Delete Customer", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(row) },
+        ]} />
       ),
     },
   ]
@@ -184,6 +178,26 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Customer — ${detailRow?.name || ""}`}
+        fields={detailRow ? [
+          { label: "Type", value: detailRow.type.replace(/_/g, " ") },
+          { label: "Status", value: detailRow.active ? "Active" : "Inactive" },
+          { label: "NTN", value: detailRow.ntn || "—" },
+          { label: "STRN", value: detailRow.strn || "—" },
+          { label: "Contact Person", value: detailRow.contactPerson || "—" },
+          { label: "Phone", value: detailRow.contactPhone || "—" },
+          { label: "Email", value: detailRow.contactEmail || "—" },
+          { label: "Payment Terms", value: detailRow.paymentTerms.replace(/_/g, " ") },
+          { label: "Credit Limit", value: detailRow.creditLimit ? formatCurrency(detailRow.creditLimit) : "—" },
+          { label: "Contacts", value: detailRow.contacts?.length ? detailRow.contacts.map((c) => `${c.name} (${c.whatsapp})`).join(", ") : "—" },
+          ...(detailRow.address ? [{ label: "Address", value: detailRow.address, wide: true }] : []),
+        ] : []}
+      />
       <Header
         title="Customers"
         breadcrumbs={[{ label: "Master Data" }, { label: "Customers" }]}
@@ -211,6 +225,7 @@ export default function CustomersPage() {
           columns={columns}
           data={customers || []}
           emptyMessage="No customers yet"
+          onRowClick={(row: Customer) => setDetailRow(row)}
           searchPlaceholder="Search name, NTN, phone…"
           searchKeys={["contactPhone", "contactPerson", "contactEmail"]}
           filters={[

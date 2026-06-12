@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import { formatDate } from "@/lib/utils"
+import { Letterhead } from "@/components/print/Letterhead"
 
 interface PrintLine {
   product: {
@@ -33,6 +34,7 @@ interface DOLine {
 interface DeliveryOrder {
   id: string
   doNumber: string
+  referenceNo: string | null
   quantity: number
   watts: number
   validityDays: number
@@ -217,17 +219,7 @@ export default function DeliveryOrderPrintPage() {
         <div ref={printAreaRef}>
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">GARIBSONS PRIVATE LIMITED</h1>
-            <p className="text-sm text-gray-500 mt-1">Solar Division</p>
-          </div>
-          <div className="text-right">
-            <div className="text-blue-700 font-bold text-lg">DELIVERY ORDER</div>
-            <p className="text-sm font-medium mt-1">{order.doNumber}</p>
-            <p className="text-xs text-gray-500">{formatDate(order.createdAt)}</p>
-          </div>
-        </div>
+        <Letterhead docTitle="DELIVERY ORDER" docNumber={order.doNumber} docDate={formatDate(order.createdAt)} />
 
         {/* Deliver To + Dispatch Details */}
         <div className="grid grid-cols-2 gap-8 mb-8">
@@ -242,6 +234,7 @@ export default function DeliveryOrderPrintPage() {
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Dispatch Details</p>
             <table className="text-sm text-gray-700 w-full">
               <tbody>
+                {order.referenceNo && <tr><td className="text-gray-500 pr-4">Ref. DO No.:</td><td className="font-medium">{order.referenceNo}</td></tr>}
                 <tr><td className="text-gray-500 pr-4">SO No.:</td><td>{order.salesOrder.soNumber}</td></tr>
                 <tr><td className="text-gray-500 pr-4">Date:</td><td>{formatDate(order.createdAt)}</td></tr>
                 <tr><td className="text-gray-500 pr-4">Status:</td><td className="font-medium">{order.status}</td></tr>

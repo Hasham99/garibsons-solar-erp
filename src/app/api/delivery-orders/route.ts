@@ -141,6 +141,7 @@ export async function POST(request: Request) {
       const createdOrder = await tx.deliveryOrder.create({
         data: {
           doNumber,
+          referenceNo: data.referenceNo?.trim() || null,
           soId: salesOrder.id,
           warehouseId: data.warehouseId,
           quantity,

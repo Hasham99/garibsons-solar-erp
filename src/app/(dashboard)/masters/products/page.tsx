@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Plus, Pencil, ChevronDown } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
@@ -50,6 +52,7 @@ export default function ProductsPage() {
   const [selectedBrand, setSelectedBrand] = useState<string>("")
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(false)
   const [newBrandMode, setNewBrandMode] = useState(false)
+  const [detailRow, setDetailRow] = useState<Product | null>(null)
 
   // Group products by brand
   const brandGroups = (products || []).reduce<Record<string, Product[]>>((acc, p) => {
@@ -136,6 +139,24 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Product — ${detailRow?.name || ""}`}
+        fields={detailRow ? [
+          { label: "Code", value: detailRow.code },
+          { label: "Brand", value: detailRow.brand },
+          { label: "SKU Name", value: detailRow.skuName || "—" },
+          { label: "Category", value: detailRow.category },
+          { label: "Wattage", value: `${detailRow.wattage} W` },
+          { label: "Status", value: detailRow.active ? "Active" : "Inactive" },
+          { label: "Panels / Container", value: detailRow.panelsPerContainer?.toLocaleString() || "—" },
+          { label: "Pallets / Container", value: detailRow.palletsPerContainer?.toLocaleString() || "—" },
+          { label: "Default Supplier", value: detailRow.defaultSupplier?.name || "—" },
+        ] : []}
+      />
       <Header
         title="Products"
         breadcrumbs={[{ label: "Master Data" }, { label: "Products" }]}
@@ -198,6 +219,7 @@ export default function ProductsPage() {
           <Table
             data={visibleProducts}
             emptyMessage={`No products under ${selectedBrand}`}
+            onRowClick={(row: Product) => setDetailRow(row)}
             searchPlaceholder="Search code, name, SKU…"
             searchKeys={["skuName"]}
             filters={[
@@ -234,12 +256,12 @@ export default function ProductsPage() {
                 ),
               },
               {
-                key: "actions", header: "",
+                key: "actions", header: "Actions",
                 render: (p: Product) => (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => handleEdit(p)}><Pencil size={14} /></Button>
-                    {p.active && <Button size="sm" variant="danger" onClick={() => handleDeactivate(p.id)}>Deactivate</Button>}
-                  </div>
+                  <RowActionsMenu actions={[
+                    { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(p) },
+                    ...(p.active ? [{ label: "Deactivate", danger: true, onClick: () => handleDeactivate(p.id) }] : []),
+                  ]} />
                 ),
               },
             ]}

@@ -55,3 +55,34 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return Response.json({ error: "Failed to update receipt" }, { status: 500 })
   }
 }
+
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string; rid: string }> }) {
+  try {
+    const session = await getSession()
+    if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
+    if (!["ADMIN", "ACCOUNTS"].includes(session.role || "")) {
+      return Response.json({ error: "Only admin or accounts can delete collections" }, { status: 403 })
+    }
+
+    const { id: customerId, rid: receiptId } = await params
+    const existing = await prisma.customerReceipt.findUnique({ where: { id: receiptId } })
+    if (!existing || existing.customerId !== customerId) {
+      return Response.json({ error: "Receipt not found" }, { status: 404 })
+    }
+
+    await prisma.customerReceipt.delete({ where: { id: receiptId } })
+
+    await writeAuditLog({
+      userId: session.userId,
+      action: "DELETE",
+      entity: "CustomerReceipt",
+      entityId: receiptId,
+      changes: { receiptNo: existing.receiptNo, amount: existing.amount, customerId },
+    })
+
+    return Response.json({ ok: true })
+  } catch (error) {
+    console.error(error)
+    return Response.json({ error: "Failed to delete receipt" }, { status: 500 })
+  }
+}

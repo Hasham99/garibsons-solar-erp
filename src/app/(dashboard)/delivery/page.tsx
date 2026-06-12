@@ -8,20 +8,25 @@ import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { formatDate } from "@/lib/utils"
+import { formatDate, statusRowClass } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { useAuth } from "@/hooks/useAuth"
 
 interface DeliveryOrder {
   id: string
   doNumber: string
+  referenceNo: string | null
   salesOrder: {
     soNumber: string
     customer: { name: string }
+    lines?: Array<{ ratePerWatt: number }>
   }
   warehouse: { name: string }
   quantity: number
@@ -47,6 +52,7 @@ interface SalesOrderOption {
     product: { id?: string; name: string; wattage: number }
     quantity: number
     watts: number
+    ratePerWatt: number
   }>
   deliveryOrders: Array<{ status: string; quantity: number }>
 }
@@ -62,9 +68,11 @@ export default function DeliveryPage() {
 
   const [showCreate, setShowCreate] = useState(Boolean(presetSoId))
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ soId: presetSoId || "", warehouseId: "", validityDays: "3", notes: "" })
+  const [form, setForm] = useState({ soId: presetSoId || "", warehouseId: "", validityDays: "3", notes: "", referenceNo: "" })
   const [lineQtys, setLineQtys] = useState<Record<number, string>>({})
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOrder | null>(null)
+  const [cancelDO, setCancelDO] = useState<DeliveryOrder | null>(null)
+  const [cancellingDO, setCancellingDO] = useState(false)
 
   useEffect(() => {
     if (presetSoId) {
@@ -131,6 +139,7 @@ export default function DeliveryPage() {
           lines,
           validityDays: form.validityDays,
           notes: form.notes,
+          referenceNo: form.referenceNo,
         }),
       })
 
@@ -142,7 +151,7 @@ export default function DeliveryPage() {
 
       toast.success("Delivery order created and stock reserved")
       setShowCreate(false)
-      setForm({ soId: "", warehouseId: "", validityDays: "3", notes: "" })
+      setForm({ soId: "", warehouseId: "", validityDays: "3", notes: "", referenceNo: "" })
       setLineQtys({})
       refetch()
     } finally {
@@ -164,59 +173,69 @@ export default function DeliveryPage() {
     toast.error(data.error || "Failed to dispatch delivery order")
   }
 
-  const handleCancel = async (id: string) => {
-    const response = await fetch(`/api/delivery-orders/${id}/cancel`, { method: "POST" })
-    if (response.ok) { toast.success("Delivery order cancelled and stock released"); refetch(); return }
-    const data = await response.json().catch(() => ({ error: "Failed" }))
-    toast.error(data.error || "Failed to cancel delivery order")
+  const handleCancel = async () => {
+    if (!cancelDO) return
+    setCancellingDO(true)
+    try {
+      const response = await fetch(`/api/delivery-orders/${cancelDO.id}/cancel`, { method: "POST" })
+      if (response.ok) { toast.success("Delivery order cancelled and stock released"); refetch(); return }
+      const data = await response.json().catch(() => ({ error: "Failed" }))
+      toast.error(data.error || "Failed to cancel delivery order")
+    } finally {
+      setCancellingDO(false)
+      setCancelDO(null)
+    }
+  }
+
+  const soRateDisplay = (order: SalesOrderOption) => {
+    const rates = [...new Set(order.lines.map((l) => l.ratePerWatt).filter((r) => r > 0))].sort((a, b) => a - b)
+    if (rates.length === 0) return null
+    return rates.length === 1 ? `Rs ${rates[0].toFixed(2)}` : `Rs ${rates[0].toFixed(2)}–${rates[rates.length - 1].toFixed(2)}`
+  }
+
+  const rateDisplay = (row: DeliveryOrder) => {
+    const rates = [...new Set((row.salesOrder.lines || []).map((l) => l.ratePerWatt))].sort((a, b) => a - b)
+    if (rates.length === 0) return null
+    return rates.length === 1 ? rates[0].toFixed(2) : `${rates[0].toFixed(2)}–${rates[rates.length - 1].toFixed(2)}`
   }
 
   const columns = [
-    { key: "doNumber", header: "DO Number", sortable: true },
+    { key: "createdAt", header: "Date", sortable: true, value: (row: DeliveryOrder) => row.createdAt, render: (row: DeliveryOrder) => <span className="whitespace-nowrap">{formatDate(row.createdAt)}</span> },
+    { key: "doNumber", header: "DO Number", sortable: true, render: (row: DeliveryOrder) => <span className="font-medium">{row.doNumber}</span> },
+    { key: "referenceNo", header: "Ref. DO #", sortable: true, value: (row: DeliveryOrder) => row.referenceNo || "", render: (row: DeliveryOrder) => row.referenceNo ? <span className="text-gray-700">{row.referenceNo}</span> : <span className="text-gray-300">—</span> },
+    { key: "soNumber", header: "SO Number", sortable: true, value: (row: DeliveryOrder) => row.salesOrder.soNumber, render: (row: DeliveryOrder) => row.salesOrder.soNumber },
+    { key: "party", header: "Party", sortable: true, value: (row: DeliveryOrder) => row.salesOrder.customer.name, render: (row: DeliveryOrder) => <span className="font-medium">{row.salesOrder.customer.name}</span> },
     {
-      key: "salesOrder", header: "Sales Order", sortable: true,
-      value: (row: DeliveryOrder) => row.salesOrder.soNumber,
-      render: (row: DeliveryOrder) => (
-        <div>
-          <p className="font-medium">{row.salesOrder.soNumber}</p>
-          <p className="text-xs text-gray-500">{row.salesOrder.customer.name}</p>
-        </div>
-      ),
+      key: "ratePerWatt", header: "Rate / Watt", sortable: true,
+      value: (row: DeliveryOrder) => row.salesOrder.lines?.[0]?.ratePerWatt ?? 0,
+      render: (row: DeliveryOrder) => {
+        const r = rateDisplay(row)
+        return r ? <span className="font-medium text-blue-700 whitespace-nowrap">{r}</span> : <span className="text-gray-400">—</span>
+      },
     },
-    { key: "warehouse", header: "Warehouse", render: (row: DeliveryOrder) => row.warehouse.name },
     { key: "quantity", header: "Panels", render: (row: DeliveryOrder) => row.quantity.toLocaleString() },
     { key: "reservedQuantity", header: "Reserved", render: (row: DeliveryOrder) => row.reservedQuantity.toLocaleString() },
     { key: "agingDays", header: "Age", render: (row: DeliveryOrder) => `${row.agingDays}d` },
     { key: "status", header: "Status", render: (row: DeliveryOrder) => <Badge status={row.status} /> },
     { key: "authorizedBy", header: "Authorized By", render: (row: DeliveryOrder) => row.authorizedBy || "-" },
-    { key: "createdAt", header: "Date", render: (row: DeliveryOrder) => formatDate(row.createdAt) },
     {
       key: "actions", header: "Actions",
-      render: (row: DeliveryOrder) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => window.open(`/delivery/${row.id}/print`, "_blank")}>
-            <Printer size={14} className="mr-1" />Print
-          </Button>
-          {row.status === "PENDING" && user?.role === "ADMIN" && (
-            <Button size="sm" variant="secondary" onClick={() => handleAuthorize(row.id)}>
-              <CheckCircle size={14} className="mr-1" />Authorize
-            </Button>
-          )}
-          {row.status === "AUTHORIZED" && ["ADMIN", "WAREHOUSE"].includes(user?.role || "") && (
-            <Button size="sm" variant="success" onClick={() => handleDispatch(row.id)}>
-              <Truck size={14} className="mr-1" />Dispatch
-            </Button>
-          )}
-          {["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "") && (
-            <Button size="sm" variant="danger" onClick={() => handleCancel(row.id)}>
-              <XCircle size={14} className="mr-1" />Cancel
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={() => setSelectedDelivery(row)}>
-            <Eye size={14} className="mr-1" />Details
-          </Button>
-        </div>
-      ),
+      render: (row: DeliveryOrder) => {
+        const actions: RowAction[] = [
+          { label: "View Details", icon: <Eye size={15} />, onClick: () => setSelectedDelivery(row) },
+          { label: "Print", icon: <Printer size={15} />, onClick: () => window.open(`/delivery/${row.id}/print`, "_blank") },
+        ]
+        if (row.status === "PENDING" && user?.role === "ADMIN") {
+          actions.push({ label: "Authorize", icon: <CheckCircle size={15} />, onClick: () => handleAuthorize(row.id) })
+        }
+        if (row.status === "AUTHORIZED" && ["ADMIN", "WAREHOUSE"].includes(user?.role || "")) {
+          actions.push({ label: "Dispatch", icon: <Truck size={15} />, onClick: () => handleDispatch(row.id) })
+        }
+        if (["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "")) {
+          actions.push({ label: "Cancel DO", icon: <XCircle size={15} />, danger: true, onClick: () => setCancelDO(row) })
+        }
+        return <RowActionsMenu actions={actions} />
+      },
     },
   ]
 
@@ -236,15 +255,35 @@ export default function DeliveryPage() {
           columns={columns}
           data={dos || []}
           emptyMessage="No delivery orders yet"
-          searchPlaceholder="Search DO #, SO #, customer…"
-          searchKeys={["salesOrder.soNumber", "salesOrder.customer.name", "warehouse.name"]}
+          rowClassName={(row: DeliveryOrder) => statusRowClass(row.status)}
+          onRowClick={(row: DeliveryOrder) => setSelectedDelivery(row)}
+          searchPlaceholder="Search DO #, Ref #, SO #, customer…"
+          searchKeys={["salesOrder.soNumber", "salesOrder.customer.name", "warehouse.name", "referenceNo"]}
           filters={[
             { key: "status", label: "Status", value: (row: DeliveryOrder) => row.status },
+            { key: "party", label: "Party", value: (row: DeliveryOrder) => row.salesOrder.customer.name },
             { key: "warehouse", label: "Warehouse", value: (row: DeliveryOrder) => row.warehouse.name },
             { key: "createdAt", label: "Date", type: "date", value: (row: DeliveryOrder) => row.createdAt },
           ]}
         />
       </div>
+
+      {/* ── Cancel confirmation ── */}
+      <ConfirmDialog
+        isOpen={Boolean(cancelDO)}
+        onClose={() => setCancelDO(null)}
+        onConfirm={handleCancel}
+        loading={cancellingDO}
+        title={`Cancel Delivery Order — ${cancelDO?.doNumber || ""}`}
+        confirmLabel="Cancel Delivery Order"
+        cancelLabel="Keep DO"
+        message={
+          <span>
+            Cancel <strong>{cancelDO?.doNumber}</strong> for <strong>{cancelDO?.salesOrder.customer.name}</strong> ({cancelDO?.quantity.toLocaleString()} panels)?
+            <br />Reserved stock will be released back to the warehouse.
+          </span>
+        }
+      />
 
       {/* ── Create DO Modal ── */}
       <Modal isOpen={showCreate} onClose={() => { setShowCreate(false); setLineQtys({}) }} title="Create Delivery Order" size="lg">
@@ -257,17 +296,14 @@ export default function DeliveryPage() {
             </p>
           </div>
 
-          <Select
+          <SearchableSelect
             label="Sales Order"
             required
+            placeholder="Type SO # or party name to search…"
+            options={eligibleSOs.map((o) => ({ value: o.id, label: `${o.soNumber} — ${o.customer.name}`, sublabel: o.status.replace(/_/g, " ") }))}
             value={form.soId}
-            onChange={(e) => setForm((prev) => ({ ...prev, soId: e.target.value, quantity: "" }))}
-          >
-            <option value="">Select confirmed SO...</option>
-            {eligibleSOs.map((o) => (
-              <option key={o.id} value={o.id}>{o.soNumber} — {o.customer.name}</option>
-            ))}
-          </Select>
+            onChange={(soId) => setForm((prev) => ({ ...prev, soId }))}
+          />
 
           {selectedOrder && (
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
@@ -279,7 +315,7 @@ export default function DeliveryPage() {
                 <Badge status={selectedOrder.status} />
               </div>
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-lg bg-white p-3">
                   <p className="text-xs text-gray-500">Total Panels</p>
                   <p className="text-xl font-semibold text-gray-900">{orderTotalPanels.toLocaleString()}</p>
@@ -292,6 +328,10 @@ export default function DeliveryPage() {
                   <p className="text-xs text-gray-500">Remaining</p>
                   <p className="text-xl font-semibold text-green-700">{remainingPanels.toLocaleString()}</p>
                 </div>
+                <div className="rounded-lg bg-white border-2 border-blue-200 p-3">
+                  <p className="text-xs text-gray-500">Rate / Watt</p>
+                  <p className="text-xl font-semibold text-blue-700">{soRateDisplay(selectedOrder) || "—"}</p>
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -299,7 +339,7 @@ export default function DeliveryPage() {
                   <div key={i} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm">
                     <div>
                       <p className="font-medium text-gray-900">{line.product.name}</p>
-                      <p className="text-xs text-gray-500">{line.product.wattage}W</p>
+                      <p className="text-xs text-gray-500">{line.product.wattage}W · Rs {line.ratePerWatt?.toFixed(2)}/W</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900">{line.quantity.toLocaleString()} panels</p>
@@ -363,14 +403,20 @@ export default function DeliveryPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <Input
+              label="Reference DO No. (from your sheet)"
+              value={form.referenceNo}
+              onChange={(e) => setForm((prev) => ({ ...prev, referenceNo: e.target.value }))}
+              placeholder="e.g. 543"
+            />
+            <Input
               label="Validity (working days)"
               type="number"
               value={form.validityDays}
               onChange={(e) => setForm((prev) => ({ ...prev, validityDays: e.target.value }))}
               placeholder="3"
             />
-            <Input label="Notes" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
           </div>
+          <Input label="Notes" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
 
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
@@ -389,6 +435,8 @@ export default function DeliveryPage() {
                 <p className="font-semibold text-gray-900">{selectedDelivery.salesOrder.customer.name}</p>
                 <p className="mt-2 text-xs text-gray-500">Sales Order</p>
                 <p className="font-semibold text-gray-900">{selectedDelivery.salesOrder.soNumber}</p>
+                <p className="mt-2 text-xs text-gray-500">Reference DO No.</p>
+                <p className="font-semibold text-gray-900">{selectedDelivery.referenceNo || "—"}</p>
               </div>
               <div className="rounded-lg bg-gray-50 p-3 text-sm">
                 <p className="text-xs text-gray-500">Warehouse</p>

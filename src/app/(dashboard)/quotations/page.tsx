@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
+import { formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
 import { Plus, ArrowRight } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import { useRouter } from "next/navigation"
@@ -27,6 +29,7 @@ interface Quotation {
 
 export default function QuotationsPage() {
   const router = useRouter()
+  const [detailRow, setDetailRow] = useState<Quotation | null>(null)
   const { data: quotations, loading, refetch } = useFetch<Quotation[]>("/api/quotations")
   const { data: customers } = useFetch<{ id: string; name: string }[]>("/api/customers")
   const { data: products } = useFetch<{ id: string; name: string; wattage: number }[]>("/api/products")
@@ -102,11 +105,10 @@ export default function QuotationsPage() {
     {
       key: "actions",
       header: "Actions",
-      render: (row: Quotation) => row.status === "DRAFT" && (
-        <Button size="sm" variant="secondary" onClick={() => handleConvertToSO(row)}>
-          <ArrowRight size={14} className="mr-1" />
-          Convert to SO
-        </Button>
+      render: (row: Quotation) => (
+        <RowActionsMenu actions={row.status === "DRAFT" ? [
+          { label: "Convert to SO", icon: <ArrowRight size={15} />, onClick: () => handleConvertToSO(row) },
+        ] : []} />
       ),
     },
   ]
@@ -116,6 +118,45 @@ export default function QuotationsPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Quotation — ${detailRow?.qNumber || ""}`}
+        fields={detailRow ? [
+          { label: "Customer", value: detailRow.customer?.name },
+          { label: "Status", value: <Badge status={detailRow.status} /> },
+          { label: "Date", value: formatDate(detailRow.createdAt) },
+          { label: "Valid Until", value: detailRow.validUntil ? formatDate(detailRow.validUntil) : "—" },
+          { label: "Total", value: <span className="font-bold">{formatCurrency(detailRow.lines?.reduce((s, l) => s + l.totalAmount, 0) || 0)}</span> },
+          { label: "Line Items", value: String(detailRow.lines?.length || 0) },
+        ] : []}
+      >
+        {detailRow?.lines?.length ? (
+          <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                <tr>
+                  <th className="px-3 py-2 text-left">Product</th>
+                  <th className="px-3 py-2 text-right">Panels</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {detailRow.lines.map((l, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-2">{l.product?.name}</td>
+                    <td className="px-3 py-2 text-right">{l.quantity.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-medium">{formatCurrency(l.totalAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </DetailsModal>
+
       <Header
         title="Quotations"
         actions={
@@ -131,6 +172,8 @@ export default function QuotationsPage() {
           columns={columns}
           data={(quotations || [])}
           emptyMessage="No quotations yet"
+          rowClassName={(row: Quotation) => statusRowClass(row.status)}
+          onRowClick={(row: Quotation) => setDetailRow(row)}
           searchPlaceholder="Search quotation #, customer…"
           filters={[
             { key: "status", label: "Status", value: (row: Quotation) => row.status },

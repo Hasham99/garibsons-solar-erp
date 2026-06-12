@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 
@@ -33,6 +35,7 @@ export default function TaxConfigsPage() {
   const [form, setForm] = useState<typeof emptyForm>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [detailRow, setDetailRow] = useState<TaxConfig | null>(null)
 
   const openAdd = () => { setEditingId(null); setForm(emptyForm); setShowModal(true) }
   const openEdit = (row: TaxConfig) => {
@@ -116,16 +119,12 @@ export default function TaxConfigsPage() {
       ) : null,
     },
     {
-      key: "actions", header: "",
+      key: "actions", header: "Actions",
       render: (row: TaxConfig) => (
-        <div className="flex gap-2 justify-end">
-          <button onClick={() => openEdit(row)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
-            <Pencil size={15} />
-          </button>
-          <button onClick={() => handleDelete(row.id)} disabled={deleting === row.id} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
-            <Trash2 size={15} />
-          </button>
-        </div>
+        <RowActionsMenu actions={[
+          { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEdit(row) },
+          { label: "Delete Config", icon: <Trash2 size={15} />, danger: true, disabled: deleting === row.id, onClick: () => handleDelete(row.id) },
+        ]} />
       ),
     },
   ]
@@ -135,11 +134,29 @@ export default function TaxConfigsPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Tax Configuration — ${detailRow?.name || ""}`}
+        fields={detailRow ? [
+          { label: "Customs Duty", value: `${detailRow.customsDuty}%` },
+          { label: "Additional CD", value: `${detailRow.additionalCD}%` },
+          { label: "Excise", value: `${detailRow.excise}%` },
+          { label: "Sales Tax (GST)", value: `${detailRow.salesTax}%` },
+          { label: "Additional ST", value: `${detailRow.additionalST}%` },
+          { label: "Income Tax", value: `${detailRow.incomeTax}%` },
+          { label: "Total Tax", value: <span className="font-bold">{(detailRow.customsDuty + detailRow.additionalCD + detailRow.excise + detailRow.salesTax + detailRow.additionalST + detailRow.incomeTax).toFixed(2)}%</span> },
+          { label: "Handling / Watt", value: `Rs ${detailRow.handlingPerWatt}` },
+          { label: "Default", value: detailRow.isDefault ? "Yes" : "No" },
+        ] : []}
+      />
       <Header title="Tax Configurations" breadcrumbs={[{ label: "Settings" }, { label: "Tax Configs" }]}
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Tax Config</Button>}
       />
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <Table columns={columns} data={(configs || [])} emptyMessage="No tax configs yet" searchPlaceholder="Search name…" />
+        <Table columns={columns} data={(configs || [])} emptyMessage="No tax configs yet" searchPlaceholder="Search name…" onRowClick={(row: TaxConfig) => setDetailRow(row)} />
       </div>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? "Edit Tax Configuration" : "Add Tax Configuration"} size="lg">
         <div className="space-y-4">

@@ -9,12 +9,16 @@ import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils"
+import { formatCurrency, formatDate, formatNumber, statusRowClass } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { useAuth } from "@/hooks/useAuth"
 
@@ -118,6 +122,9 @@ export default function SalesPage() {
     { productId: "", quantityMode: "PANELS", quantity: "", ratePerWatt: "" },
   ])
   const [pendingUploadId, setPendingUploadId] = useState<string | null>(null)
+  const [cancelOrder, setCancelOrder] = useState<SalesOrder | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [detailRow, setDetailRow] = useState<SalesOrder | null>(null)
   const [lastUsedProductId, setLastUsedProductId] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -244,6 +251,22 @@ export default function SalesPage() {
     setShowCreate(true)
   }
 
+  // Deep-link from Party Ledger: /sales?editId=<soId> opens the edit modal
+  const editIdParam = searchParams.get("editId")
+  const openedEditRef = useRef(false)
+  useEffect(() => {
+    if (!editIdParam || openedEditRef.current || !orders || !customers) return
+    const order = orders.find((o) => o.id === editIdParam)
+    if (!order) return
+    openedEditRef.current = true
+    if (order.status !== "DRAFT") {
+      toast.error(`${order.soNumber} is ${order.status.replace(/_/g, " ")} — only DRAFT orders can be edited`)
+      return
+    }
+    openEditModal(order)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editIdParam, orders, customers])
+
   const addLine = () => setLines((cur) => [...cur, buildBlankLine(lastUsedProductId)])
   const removeLine = (i: number) => setLines((cur) => cur.filter((_, idx) => idx !== i))
 
@@ -329,15 +352,27 @@ export default function SalesPage() {
     else toast.error("Failed to confirm order")
   }
 
-  const handleCancel = async (id: string) => {
-    if (!confirm("Cancel this sales order?")) return
-    const response = await fetch(`/api/sales-orders/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "CANCELLED" }),
-    })
-    if (response.ok) { toast.success("Order cancelled"); refetch() }
-    else toast.error("Failed to cancel order")
+  const handleCancel = async () => {
+    if (!cancelOrder) return
+    setCancelling(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${cancelOrder.id}/cancel`, { method: "POST" })
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(
+          data.cancelledDOs?.length
+            ? `Order cancelled — DOs cancelled too: ${data.cancelledDOs.join(", ")}`
+            : "Order cancelled"
+        )
+        refetch()
+      } else {
+        const data = await response.json().catch(() => ({ error: "Failed" }))
+        toast.error(data.error || "Failed to cancel order")
+      }
+    } finally {
+      setCancelling(false)
+      setCancelOrder(null)
+    }
   }
 
   const handleVerifyPayment = async (id: string) => {
@@ -393,14 +428,19 @@ export default function SalesPage() {
     { key: "customer", header: "Customer", sortable: true, value: (row: SalesOrder) => row.customer?.name, render: (row: SalesOrder) => row.customer?.name },
     { key: "subTotal", header: "Sub Total", render: (row: SalesOrder) => formatCurrency(row.subTotal) },
     {
-      key: "gstAmount",
-      header: "GST",
-      render: (row: SalesOrder) =>
-        row.gstRate > 0 ? (
-          <span className="text-orange-700">{row.gstRate}% = {formatCurrency(row.gstAmount)}</span>
-        ) : (
-          <span className="text-gray-400">—</span>
-        ),
+      key: "ratePerWatt",
+      header: "Rate / Watt",
+      sortable: true,
+      value: (row: SalesOrder) => row.lines?.[0]?.ratePerWatt ?? 0,
+      render: (row: SalesOrder) => {
+        const rates = [...new Set((row.lines || []).map((l) => l.ratePerWatt))].sort((a, b) => a - b)
+        if (rates.length === 0) return <span className="text-gray-400">—</span>
+        return (
+          <span className="font-medium text-blue-700 whitespace-nowrap">
+            {rates.length === 1 ? rates[0].toFixed(2) : `${rates[0].toFixed(2)}–${rates[rates.length - 1].toFixed(2)}`}
+          </span>
+        )
+      },
     },
     { key: "grandTotal", header: "Grand Total", render: (row: SalesOrder) => <span className="font-bold">{formatCurrency(row.grandTotal)}</span> },
     { key: "paymentTerms", header: "Terms", render: (row: SalesOrder) => row.paymentTerms.replace(/_/g, " ") },
@@ -409,50 +449,29 @@ export default function SalesPage() {
     {
       key: "actions",
       header: "Actions",
-      render: (row: SalesOrder) => (
-        <div className="flex flex-wrap items-center gap-1">
-          {row.status === "DRAFT" && (
-            <>
-              <Button size="sm" variant="success" onClick={() => handleConfirm(row.id)}>
-                <CheckCircle size={14} className="mr-1" />Confirm
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => openEditModal(row)}>
-                <Pencil size={14} className="mr-1" />Edit
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => triggerProofUpload(row.id)} loading={uploadingProof === row.id}>
-                <Upload size={14} className="mr-1" />Proof
-              </Button>
-              <Button size="sm" variant="danger" onClick={() => handleCancel(row.id)}>
-                <Trash2 size={14} />
-              </Button>
-            </>
-          )}
-          {row.status === "PENDING_PAYMENT" && (
-            <>
-              {row.paymentProofUrl && (
-                <Button size="sm" variant="ghost" onClick={() => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber })}>
-                  <Eye size={14} className="mr-1" />Proof
-                </Button>
-              )}
-              {["ADMIN", "ACCOUNTS"].includes(user?.role || "") && (
-                <Button size="sm" variant="success" onClick={() => handleVerifyPayment(row.id)}>
-                  <CheckCircle size={14} className="mr-1" />Verify
-                </Button>
-              )}
-            </>
-          )}
-          {row.paymentProofUrl && row.status !== "PENDING_PAYMENT" && (
-            <Button size="sm" variant="ghost" onClick={() => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber })}>
-              <Eye size={14} className="mr-1" />Proof
-            </Button>
-          )}
-          {row.status === "PAYMENT_CONFIRMED" && (
-            <Button size="sm" variant="secondary" onClick={() => (window.location.href = `/delivery?soId=${row.id}`)}>
-              <Truck size={14} className="mr-1" />Create DO
-            </Button>
-          )}
-        </div>
-      ),
+      render: (row: SalesOrder) => {
+        const actions: RowAction[] = []
+        if (row.status === "DRAFT") {
+          actions.push(
+            { label: "Confirm Order", icon: <CheckCircle size={15} />, onClick: () => handleConfirm(row.id) },
+            { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEditModal(row) },
+            { label: "Upload Payment Proof", icon: <Upload size={15} />, onClick: () => triggerProofUpload(row.id), disabled: uploadingProof === row.id },
+          )
+        }
+        if (row.paymentProofUrl) {
+          actions.push({ label: "View Payment Proof", icon: <Eye size={15} />, onClick: () => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber }) })
+        }
+        if (row.status === "PENDING_PAYMENT" && ["ADMIN", "ACCOUNTS"].includes(user?.role || "")) {
+          actions.push({ label: "Verify Payment", icon: <CheckCircle size={15} />, onClick: () => handleVerifyPayment(row.id) })
+        }
+        if (row.status === "PAYMENT_CONFIRMED") {
+          actions.push({ label: "Create DO", icon: <Truck size={15} />, onClick: () => (window.location.href = `/delivery?soId=${row.id}`) })
+        }
+        if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status)) {
+          actions.push({ label: "Cancel SO (+ its DOs)", icon: <Trash2 size={15} />, danger: true, onClick: () => setCancelOrder(row) })
+        }
+        return <RowActionsMenu actions={actions} />
+      },
     },
   ]
 
@@ -495,6 +514,8 @@ export default function SalesPage() {
           columns={columns}
           data={orders || []}
           emptyMessage="No sales orders yet"
+          rowClassName={(row: SalesOrder) => statusRowClass(row.status)}
+          onRowClick={(row: SalesOrder) => setDetailRow(row)}
           searchPlaceholder="Search SO #, customer…"
           filters={[
             { key: "status", label: "Status", value: (row: SalesOrder) => row.status.replace(/_/g, " ") },
@@ -503,6 +524,69 @@ export default function SalesPage() {
           ]}
         />
       </div>
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Sales Order — ${detailRow?.soNumber || ""}`}
+        fields={detailRow ? [
+          { label: "Customer", value: detailRow.customer?.name },
+          { label: "Status", value: <Badge status={detailRow.status} /> },
+          { label: "Order Date", value: formatDate(detailRow.orderDate || detailRow.createdAt) },
+          { label: "Payment Terms", value: detailRow.paymentTerms.replace(/_/g, " ") },
+          { label: "Sub Total", value: formatCurrency(detailRow.subTotal) },
+          { label: "GST", value: detailRow.gstRate > 0 ? `${detailRow.gstRate}% = ${formatCurrency(detailRow.gstAmount)}` : "—" },
+          { label: "Grand Total", value: <span className="font-bold">{formatCurrency(detailRow.grandTotal)}</span> },
+          { label: "Payment Proof", value: detailRow.paymentProofUrl ? "Uploaded" : "—" },
+          ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
+        ] : []}
+      >
+        {detailRow?.lines?.length ? (
+          <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                <tr>
+                  <th className="px-3 py-2 text-left">Product</th>
+                  <th className="px-3 py-2 text-right">Panels</th>
+                  <th className="px-3 py-2 text-right">Watts</th>
+                  <th className="px-3 py-2 text-right">Rate / Watt</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {detailRow.lines.map((l, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-2">{l.product?.brand} ({l.product?.wattage}W)</td>
+                    <td className="px-3 py-2 text-right">{l.quantity.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right">{l.watts.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right">{l.ratePerWatt.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-right font-medium">{formatCurrency(l.totalAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </DetailsModal>
+
+      {/* Cancel confirmation */}
+      <ConfirmDialog
+        isOpen={Boolean(cancelOrder)}
+        onClose={() => setCancelOrder(null)}
+        onConfirm={handleCancel}
+        loading={cancelling}
+        title={`Cancel Sales Order — ${cancelOrder?.soNumber || ""}`}
+        confirmLabel="Cancel Sales Order"
+        cancelLabel="Keep Order"
+        message={
+          <span>
+            Cancel <strong>{cancelOrder?.soNumber}</strong> for <strong>{cancelOrder?.customer?.name}</strong> ({formatCurrency(cancelOrder?.grandTotal || 0)})?
+            <br />Any delivery orders created for it will also be cancelled and their reserved stock released.
+            Dispatched DOs block cancellation.
+          </span>
+        }
+      />
 
       {/* Proof viewer */}
       <Modal isOpen={Boolean(viewProof)} onClose={() => setViewProof(null)} title={`Payment Proof — ${viewProof?.soNumber}`} size="lg">
@@ -619,18 +703,17 @@ export default function SalesPage() {
               return (
                 <div key={`${index}-${line.productId}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <div className="grid gap-3 lg:grid-cols-[2fr_0.8fr_0.8fr_0.9fr_auto]">
-                    <Select
+                    <SearchableSelect
                       label="SKU / Product"
+                      placeholder="Type brand or SKU to search…"
+                      options={(products || []).map((p) => ({
+                        value: p.id,
+                        label: `${p.brand} — ${p.name}`,
+                        sublabel: `${p.wattage}W`,
+                      }))}
                       value={line.productId}
-                      onChange={(e) => updateLine(index, { productId: e.target.value })}
-                    >
-                      <option value="">Select SKU...</option>
-                      {(products || []).map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.brand} — {p.name} ({p.wattage}W)
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={(productId) => updateLine(index, { productId })}
+                    />
 
                     <Select
                       label="Qty In"

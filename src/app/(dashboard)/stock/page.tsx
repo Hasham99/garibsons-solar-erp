@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/Badge"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, Package, DollarSign, AlertTriangle, SlidersHorizontal, Pencil } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -91,6 +93,7 @@ export default function StockPage() {
   const [showEdit, setShowEdit] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<StockEntry | null>(null)
   const [editingEntry, setEditingEntry] = useState<StockEntry | null>(null)
+  const [detailRow, setDetailRow] = useState<StockEntry | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [receiveForm, setReceiveForm] = useState({
@@ -310,10 +313,10 @@ export default function StockPage() {
       render: (row: StockEntry) => <span className="whitespace-nowrap">{formatDate(row.receivedAt)}</span>
     },
     ...(canAdjust ? [{
-      key: "actions", header: "",
+      key: "actions", header: "Actions",
       render: (row: StockEntry) => (
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" title="Edit entry" onClick={() => {
+        <RowActionsMenu actions={[
+          { label: "Edit Entry", icon: <Pencil size={15} />, onClick: () => {
             setEditingEntry(row)
             setEditForm({
               panelQuantity: String(row.panelQuantity),
@@ -322,13 +325,9 @@ export default function StockPage() {
               receivedAt: row.receivedAt.split("T")[0],
             })
             setShowEdit(true)
-          }}>
-            <Pencil size={12} />
-          </Button>
-          <Button size="sm" variant="ghost" title="Adjust stock" onClick={() => { setSelectedEntry(row); setShowAdjust(true) }}>
-            <SlidersHorizontal size={12} />
-          </Button>
-        </div>
+          } },
+          { label: "Adjust Stock", icon: <SlidersHorizontal size={15} />, onClick: () => { setSelectedEntry(row); setShowAdjust(true) } },
+        ]} />
       )
     }] : []),
   ]
@@ -338,6 +337,27 @@ export default function StockPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
+
+      {/* Row details */}
+      <DetailsModal
+        isOpen={Boolean(detailRow)}
+        onClose={() => setDetailRow(null)}
+        title={`Stock Batch — ${detailRow?.product?.name || ""}`}
+        fields={detailRow ? [
+          { label: "Product", value: `${detailRow.product?.name} (${detailRow.product?.code})` },
+          { label: "Warehouse", value: detailRow.warehouse?.name },
+          { label: "PO Reference", value: detailRow.po?.poNumber || "—" },
+          { label: "Received", value: `${detailRow.panelQuantity.toLocaleString()} panels · ${formatDate(detailRow.receivedAt)}` },
+          { label: "Current", value: `${detailRow.currentQuantity.toLocaleString()} panels (${detailRow.currentWatts.toLocaleString()} W)` },
+          { label: "Reserved", value: `${detailRow.reservedQuantity.toLocaleString()} panels` },
+          { label: "Available", value: <span className="font-bold text-green-700">{detailRow.availableQuantity.toLocaleString()} panels</span> },
+          { label: "Age", value: `${detailRow.agingDays} days` },
+          { label: "Cost / Panel", value: formatCurrency(detailRow.costPerPanel) },
+          { label: "Cost / Watt", value: `Rs ${detailRow.costPerWatt.toFixed(4)}` },
+          { label: "Current Value", value: formatCurrency(detailRow.currentValue) },
+          { label: "Available Value", value: formatCurrency(detailRow.availableValue) },
+        ] : []}
+      />
       <Header
         title="Stock Register"
         actions={
@@ -417,8 +437,8 @@ export default function StockPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="font-semibold text-gray-900 mb-4">Stock by Warehouse</h3>
             <div className="space-y-3">
-              {dashboard.byWarehouse.map((w) => (
-                <div key={w.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              {dashboard.byWarehouse.map((w, i) => (
+                <div key={`${w.name}-${i}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="font-medium text-gray-900">{w.name}</p>
                     <p className="text-xs text-gray-500">
@@ -543,6 +563,7 @@ export default function StockPage() {
           data={(stock || [])}
           emptyMessage="No stock entries yet"
           compact
+          onRowClick={(row: StockEntry) => setDetailRow(row)}
           searchPlaceholder="Search product, code, PO #…"
           searchKeys={["product.code"]}
           filters={[
