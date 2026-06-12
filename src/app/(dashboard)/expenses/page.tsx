@@ -221,7 +221,7 @@ export default function ExpensesPage() {
   if (loading) return <TableSkeleton columns={7} rows={10} />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       <Toaster position="top-right" />
 
       {/* Row details */}
@@ -273,7 +273,7 @@ export default function ExpensesPage() {
       {byCategory.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {byCategory.map((c, i) => (
-            <div key={`${c.name}-${i}`} className="bg-white rounded-xl border border-gray-200 p-4">
+            <div key={`${c.name}-${i}`} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <p className="text-xs text-gray-500">{c.name}</p>
               <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(c.total)}</p>
             </div>
@@ -333,25 +333,25 @@ export default function ExpensesPage() {
           </div>
 
           {/* List */}
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Category</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Type</th>
-                  <th className="px-4 py-2"></th>
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Category</th>
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Type</th>
+                  <th className="px-3 py-2.5"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {(categories || []).map((c, i) => (
                   <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2.5">
+                    <td className="px-3 py-2.5 text-[13px]">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PALETTE[i % PALETTE.length]}`}>
                         {c.name}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500">{c.isSystem ? "System" : "Custom"}</td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-3 py-2.5 text-xs text-gray-500">{c.isSystem ? "System" : "Custom"}</td>
+                    <td className="px-3 py-2.5 text-right">
                       {!c.isSystem && (
                         <Button size="sm" variant="danger" onClick={() => handleDeactivateCat(c.id)}>
                           <Trash2 size={12} />

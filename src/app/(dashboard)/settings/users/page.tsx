@@ -84,7 +84,7 @@ export default function UsersPage() {
   if (loading) return <TableSkeleton columns={5} rows={6} />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       <Toaster position="top-right" />
 
       {/* Row details */}

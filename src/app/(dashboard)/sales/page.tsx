@@ -259,8 +259,8 @@ export default function SalesPage() {
     const order = orders.find((o) => o.id === editIdParam)
     if (!order) return
     openedEditRef.current = true
-    if (order.status !== "DRAFT") {
-      toast.error(`${order.soNumber} is ${order.status.replace(/_/g, " ")} — only DRAFT orders can be edited`)
+    if (!["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED"].includes(order.status)) {
+      toast.error(`${order.soNumber} is ${order.status.replace(/_/g, " ")} — orders can be edited until a delivery order is issued`)
       return
     }
     openEditModal(order)
@@ -454,9 +454,12 @@ export default function SalesPage() {
         if (row.status === "DRAFT") {
           actions.push(
             { label: "Confirm Order", icon: <CheckCircle size={15} />, onClick: () => handleConfirm(row.id) },
-            { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEditModal(row) },
             { label: "Upload Payment Proof", icon: <Upload size={15} />, onClick: () => triggerProofUpload(row.id), disabled: uploadingProof === row.id },
           )
+        }
+        // Editable until a DO is issued — no stock is reserved before that
+        if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED"].includes(row.status)) {
+          actions.push({ label: "Edit SO", icon: <Pencil size={15} />, onClick: () => openEditModal(row) })
         }
         if (row.paymentProofUrl) {
           actions.push({ label: "View Payment Proof", icon: <Eye size={15} />, onClick: () => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber }) })

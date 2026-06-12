@@ -188,11 +188,11 @@ interface ColSpec<R = any> {
 // ---------- small UI helpers ----------
 type KpiTone = "blue" | "green" | "yellow" | "red" | "purple"
 const KPI_TONES: Record<KpiTone, string> = {
-  blue: "bg-blue-50 text-blue-600",
-  green: "bg-green-50 text-green-600",
-  yellow: "bg-amber-50 text-amber-600",
-  red: "bg-red-50 text-red-600",
-  purple: "bg-purple-50 text-purple-600",
+  blue: "bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-200",
+  green: "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-200",
+  yellow: "bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-200",
+  red: "bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-200",
+  purple: "bg-gradient-to-br from-violet-500 to-violet-600 shadow-violet-200",
 }
 
 /**
@@ -210,14 +210,14 @@ function Kpi({ label, value, sub, full, icon, tone = "blue" }: {
 }) {
   const subLine = full && full !== value ? (sub ? `${full} · ${sub}` : full) : sub
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 min-w-0" title={full || undefined}>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 min-w-0 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" title={full || undefined}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 truncate" title={label}>{label}</p>
           <p className="mt-1.5 text-xl xl:text-[22px] font-bold text-gray-900 leading-none whitespace-nowrap tabular-nums">{value}</p>
           <p className={`mt-1.5 text-xs text-gray-400 truncate ${subLine ? "" : "invisible"}`} title={subLine}>{subLine || "·"}</p>
         </div>
-        {icon && <div className={`p-2.5 rounded-lg shrink-0 ${KPI_TONES[tone]}`}>{icon}</div>}
+        {icon && <div className={`p-2.5 rounded-xl shrink-0 text-white shadow-lg ${KPI_TONES[tone]}`}>{icon}</div>}
       </div>
     </div>
   )
@@ -275,7 +275,7 @@ function TrendChart({ data, xKey, yKey, label, color = "#3b82f6" }: { data: Reco
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "#64748b" }} tickLine={false} axisLine={{ stroke: "#e2e8f0" }} />
               <YAxis tick={{ fontSize: 12, fill: "#64748b" }} tickLine={false} axisLine={false} tickFormatter={(v) => compactNum(Number(v))} width={48} />
-              <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Value"]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} cursor={{ fill: "#f8fafc" }} />
+              <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Value"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)", fontSize: 13 }} cursor={{ fill: "#f8fafc" }} />
               <Bar dataKey={yKey} fill={color} radius={[6, 6, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
@@ -645,7 +645,7 @@ export default function ReportsPage() {
     : 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       <Toaster position="top-right" />
       <Header title="Reports & Analytics" />
 

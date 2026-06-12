@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import toast, { Toaster } from "react-hot-toast"
-import { CheckCircle, Eye, Plus, Printer, Truck, XCircle } from "lucide-react"
+import { CheckCircle, Eye, Pencil, Plus, Printer, Truck, XCircle } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -22,6 +22,11 @@ import { useAuth } from "@/hooks/useAuth"
 interface DeliveryOrder {
   id: string
   doNumber: string
+  soId: string
+  warehouseId: string
+  validityDays: number | null
+  notes: string | null
+  lines?: Array<{ soLineId: string | null; productId: string; quantity: number; watts: number }>
   referenceNo: string | null
   salesOrder: {
     soNumber: string
@@ -67,6 +72,7 @@ export default function DeliveryPage() {
   const { data: warehouses } = useFetch<{ id: string; name: string }[]>("/api/warehouses")
 
   const [showCreate, setShowCreate] = useState(Boolean(presetSoId))
+  const [editDO, setEditDO] = useState<DeliveryOrder | null>(null)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ soId: presetSoId || "", warehouseId: "", validityDays: "3", notes: "", referenceNo: "" })
   const [lineQtys, setLineQtys] = useState<Record<number, string>>({})
@@ -85,13 +91,19 @@ export default function DeliveryPage() {
   const selectedOrder = orders?.find((o) => o.id === form.soId)
 
   const orderTotalPanels = selectedOrder?.lines.reduce((t, l) => t + l.quantity, 0) || 0
-  const alreadyDispatchedPanels = selectedOrder?.deliveryOrders
-    ?.filter((d) => d.status !== "CANCELLED")
-    .reduce((t, d) => t + d.quantity, 0) || 0
+  // When editing, this DO's own panels don't count against the remaining allowance
+  const alreadyDispatchedPanels = Math.max(
+    (selectedOrder?.deliveryOrders
+      ?.filter((d) => d.status !== "CANCELLED")
+      .reduce((t, d) => t + d.quantity, 0) || 0) -
+      (editDO && editDO.soId === form.soId ? editDO.quantity : 0),
+    0
+  )
   const remainingPanels = orderTotalPanels - alreadyDispatchedPanels
 
   // Default line quantities to remaining when SO is selected
   useEffect(() => {
+    if (editDO) return
     if (form.soId && selectedOrder && remainingPanels > 0 && Object.keys(lineQtys).length === 0) {
       const defaults: Record<number, string> = {}
       const ratio = remainingPanels / orderTotalPanels
@@ -105,14 +117,56 @@ export default function DeliveryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.soId, remainingPanels])
 
-  // Reset line quantities when SO changes
+  // Reset line quantities when SO changes (skip while prefilling an edit)
   useEffect(() => {
+    if (editDO) return
     setLineQtys({})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.soId])
 
   const requestedQty = Object.values(lineQtys).reduce((s, v) => s + (parseInt(v) || 0), 0)
 
-  const handleCreate = async () => {
+  const closeModal = () => {
+    setShowCreate(false)
+    setEditDO(null)
+    setForm({ soId: "", warehouseId: "", validityDays: "3", notes: "", referenceNo: "" })
+    setLineQtys({})
+  }
+
+  // Opens instantly — the list payload already carries everything the form needs
+  const openEditModal = (row: DeliveryOrder) => {
+    const so = orders?.find((o) => o.id === row.soId)
+
+    setEditDO(row)
+    setForm({
+      soId: row.soId,
+      warehouseId: row.warehouseId,
+      validityDays: String(row.validityDays ?? 3),
+      notes: row.notes || "",
+      referenceNo: row.referenceNo || "",
+    })
+
+    // Map this DO's line quantities onto the SO's line rows (by soLineId, falling back to productId)
+    const doLines = [...(row.lines || [])]
+    const qtys: Record<number, string> = {}
+    ;(so?.lines || []).forEach((line, i) => {
+      const idx = doLines.findIndex(
+        (dl) => (line.id && dl.soLineId === line.id) || dl.productId === line.product?.id
+      )
+      if (idx >= 0) {
+        qtys[i] = String(doLines[idx].quantity)
+        doLines.splice(idx, 1)
+      }
+    })
+    // DO without per-line records (legacy/imported): put the full quantity on the first line
+    if (Object.keys(qtys).length === 0 && (so?.lines.length || 0) > 0) {
+      qtys[0] = String(row.quantity)
+    }
+    setLineQtys(qtys)
+    setShowCreate(true)
+  }
+
+  const handleSave = async () => {
     if (!form.soId || !form.warehouseId) {
       return toast.error("Select both a sales order and warehouse")
     }
@@ -129,11 +183,11 @@ export default function DeliveryPage() {
 
     setSaving(true)
     try {
-      const response = await fetch("/api/delivery-orders", {
-        method: "POST",
+      const response = await fetch(editDO ? `/api/delivery-orders/${editDO.id}` : "/api/delivery-orders", {
+        method: editDO ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          soId: form.soId,
+          ...(editDO ? { editLines: true } : { soId: form.soId }),
           warehouseId: form.warehouseId,
           quantity: requestedQty,
           lines,
@@ -145,14 +199,12 @@ export default function DeliveryPage() {
 
       if (!response.ok) {
         const data = await response.json()
-        toast.error(data.error || "Failed to create delivery order")
+        toast.error(data.error || `Failed to ${editDO ? "update" : "create"} delivery order`)
         return
       }
 
-      toast.success("Delivery order created and stock reserved")
-      setShowCreate(false)
-      setForm({ soId: "", warehouseId: "", validityDays: "3", notes: "", referenceNo: "" })
-      setLineQtys({})
+      toast.success(editDO ? "Delivery order updated and stock re-reserved" : "Delivery order created and stock reserved")
+      closeModal()
       refetch()
     } finally {
       setSaving(false)
@@ -225,6 +277,9 @@ export default function DeliveryPage() {
           { label: "View Details", icon: <Eye size={15} />, onClick: () => setSelectedDelivery(row) },
           { label: "Print", icon: <Printer size={15} />, onClick: () => window.open(`/delivery/${row.id}/print`, "_blank") },
         ]
+        if (["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "")) {
+          actions.push({ label: "Edit DO", icon: <Pencil size={15} />, onClick: () => openEditModal(row) })
+        }
         if (row.status === "PENDING" && user?.role === "ADMIN") {
           actions.push({ label: "Authorize", icon: <CheckCircle size={15} />, onClick: () => handleAuthorize(row.id) })
         }
@@ -285,25 +340,51 @@ export default function DeliveryPage() {
         }
       />
 
-      {/* ── Create DO Modal ── */}
-      <Modal isOpen={showCreate} onClose={() => { setShowCreate(false); setLineQtys({}) }} title="Create Delivery Order" size="lg">
+      {/* ── Create / Edit DO Modal ── */}
+      <Modal
+        isOpen={showCreate}
+        onClose={closeModal}
+        title={editDO ? `Edit Delivery Order — ${editDO.doNumber}` : "Create Delivery Order"}
+        size="lg"
+      >
         <div className="space-y-4">
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <p className="text-sm font-semibold text-blue-900">Reserve stock from a payment-confirmed sales order</p>
-            <p className="mt-1 text-xs text-blue-700">
-              You can create multiple delivery orders for one sales order — useful for partial shipments.
-              Stock is reserved immediately and held until dispatch or cancellation.
-            </p>
+          <div className={`rounded-xl border p-4 ${editDO ? "border-amber-100 bg-amber-50" : "border-blue-100 bg-blue-50"}`}>
+            {editDO ? (
+              <>
+                <p className="text-sm font-semibold text-amber-900">Editing re-plans the stock reservation</p>
+                <p className="mt-1 text-xs text-amber-700">
+                  The current reservation is released and stock is re-reserved for the new quantities/warehouse.
+                  An authorized DO goes back to PENDING and needs re-authorization.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-blue-900">Reserve stock from a payment-confirmed sales order</p>
+                <p className="mt-1 text-xs text-blue-700">
+                  You can create multiple delivery orders for one sales order — useful for partial shipments.
+                  Stock is reserved immediately and held until dispatch or cancellation.
+                </p>
+              </>
+            )}
           </div>
 
-          <SearchableSelect
-            label="Sales Order"
-            required
-            placeholder="Type SO # or party name to search…"
-            options={eligibleSOs.map((o) => ({ value: o.id, label: `${o.soNumber} — ${o.customer.name}`, sublabel: o.status.replace(/_/g, " ") }))}
-            value={form.soId}
-            onChange={(soId) => setForm((prev) => ({ ...prev, soId }))}
-          />
+          {editDO ? (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <p className="text-xs text-gray-500">Sales Order</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {selectedOrder ? `${selectedOrder.soNumber} — ${selectedOrder.customer.name}` : editDO.salesOrder.soNumber}
+              </p>
+            </div>
+          ) : (
+            <SearchableSelect
+              label="Sales Order"
+              required
+              placeholder="Type SO # or party name to search…"
+              options={eligibleSOs.map((o) => ({ value: o.id, label: `${o.soNumber} — ${o.customer.name}`, sublabel: o.status.replace(/_/g, " ") }))}
+              value={form.soId}
+              onChange={(soId) => setForm((prev) => ({ ...prev, soId }))}
+            />
+          )}
 
           {selectedOrder && (
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
@@ -419,8 +500,10 @@ export default function DeliveryPage() {
           <Input label="Notes" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
 
           <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate} loading={saving}>Create DO and Reserve Stock</Button>
+            <Button variant="secondary" onClick={closeModal}>Cancel</Button>
+            <Button onClick={handleSave} loading={saving}>
+              {editDO ? "Save Changes and Re-reserve Stock" : "Create DO and Reserve Stock"}
+            </Button>
           </div>
         </div>
       </Modal>

@@ -26,11 +26,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params
     const data = await request.json()
 
-    // Full edit for DRAFT orders
+    // Full edit — allowed until delivery starts (no stock is reserved before a DO exists)
     if (data.editLines) {
       const existing = await prisma.salesOrder.findUnique({ where: { id } })
-      if (!existing || existing.status !== "DRAFT") {
-        return Response.json({ error: "Only DRAFT orders can be edited" }, { status: 422 })
+      const EDITABLE_STATUSES = ["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED"]
+      if (!existing) {
+        return Response.json({ error: "Not found" }, { status: 404 })
+      }
+      if (!EDITABLE_STATUSES.includes(existing.status)) {
+        return Response.json(
+          { error: `${existing.soNumber} is ${existing.status.replace(/_/g, " ")} — orders can be edited until a delivery order is issued. Cancel its DOs first to edit.` },
+          { status: 422 }
+        )
       }
 
       const subTotal = (data.lines || []).reduce(

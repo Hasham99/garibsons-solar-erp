@@ -9,6 +9,19 @@ export const COMPANY = {
   address: "C-69/71, 12th Commercial Street II Extension, D.H.A. Karachi - 75500, Pakistan",
 }
 
+/**
+ * Faint brand watermark behind printable documents. Fixed positioning makes
+ * the browser repeat it on every printed page.
+ */
+export function Watermark() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/garibsons-logo.png" alt="" className="w-[420px] max-w-[70vw] opacity-[0.05] -rotate-12 select-none" />
+    </div>
+  )
+}
+
 export function Letterhead({
   docTitle,
   docNumber,
@@ -20,6 +33,7 @@ export function Letterhead({
 }) {
   return (
     <div className="flex items-start justify-between gap-6 border-b border-gray-200 pb-5 mb-8">
+      <Watermark />
       <div className="flex items-start gap-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/garibsons-logo.png" alt="Garibsons (Pvt) Ltd" className="h-14 w-auto object-contain shrink-0" />

@@ -1,4 +1,4 @@
-import jsPDF from "jspdf"
+import jsPDF, { GState } from "jspdf"
 import autoTable from "jspdf-autotable"
 import { GS_LOGO } from "@/lib/logo"
 
@@ -132,6 +132,19 @@ export function downloadPdf(opts: PdfOptions) {
     },
     didDrawPage: () => {
       const pageH = doc.internal.pageSize.getHeight()
+
+      // Faint brand watermark, centered on every page (best-effort)
+      try {
+        doc.saveGraphicsState()
+        doc.setGState(new GState({ opacity: 0.05 }))
+        const wmW = 300
+        const wmH = wmW * (300 / 294) // mark is 294×300
+        doc.addImage(GS_LOGO, "PNG", (pageW - wmW) / 2, (pageH - wmH) / 2, wmW, wmH)
+        doc.restoreGraphicsState()
+      } catch {
+        /* watermark render is best-effort */
+      }
+
       doc.setFontSize(8)
       doc.setTextColor(...GRAY)
       doc.text("Garibsons (Pvt) Ltd — internal report", margin, pageH - 20)

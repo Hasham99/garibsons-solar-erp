@@ -252,8 +252,8 @@ export function Table<T extends Record<string, any>>({
 
   const thClass = compact
     ? `px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`
-    : `px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`
-  const tdClass = compact ? `px-2 py-1.5 text-xs text-gray-900` : `px-4 py-3 text-sm text-gray-900`
+    : `px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap`
+  const tdClass = compact ? `px-2 py-1.5 text-xs text-gray-900` : `px-3 py-2.5 text-[13px] text-gray-900`
 
   const showToolbar = searchable || resolvedFilters.length > 0
 
@@ -422,7 +422,7 @@ export function Table<T extends Record<string, any>>({
               pageData.map((row, idx) => (
                 <tr
                   key={rowKeys[idx]}
-                  className={`hover:bg-gray-50 transition-colors ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || ""}`}
+                  className={`hover:bg-gray-50 transition-colors ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || "bg-white"}`}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((col) => (
@@ -467,7 +467,7 @@ export function Table<T extends Record<string, any>>({
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-50"
+              className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-gray-50 transition-colors"
             >
               Previous
             </button>
@@ -477,7 +477,7 @@ export function Table<T extends Record<string, any>>({
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-50"
+              className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-gray-50 transition-colors"
             >
               Next
             </button>

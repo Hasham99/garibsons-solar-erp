@@ -28,6 +28,7 @@ export async function GET() {
         },
         warehouse: { select: { id: true, name: true } },
         createdBy: { select: { name: true } },
+        lines: { select: { soLineId: true, productId: true, quantity: true, watts: true } },
         stockMovements: {
           select: { type: true, quantity: true, watts: true, stockEntryId: true },
         },

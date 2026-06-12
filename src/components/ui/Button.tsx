@@ -9,7 +9,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
   children: ReactNode
 }
-// skhxjASHx
+
 export function Button({
   variant = "primary",
   size = "md",
@@ -19,14 +19,14 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const base = "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+  const base = "inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
 
   const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
-    secondary: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-500",
-    danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
+    primary: "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-sm shadow-blue-200 hover:from-blue-700 hover:to-blue-600 focus:ring-blue-500",
+    secondary: "bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50 focus:ring-gray-500",
+    danger: "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-sm shadow-rose-200 hover:from-red-700 hover:to-rose-600 focus:ring-red-500",
     ghost: "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 focus:ring-gray-500",
-    success: "bg-green-600 text-white hover:bg-green-700 focus:ring-green-500",
+    success: "bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-sm shadow-emerald-200 hover:from-green-700 hover:to-emerald-600 focus:ring-green-500",
   }
 
   const sizes = {

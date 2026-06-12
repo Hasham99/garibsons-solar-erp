@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/Select"
 import { Badge } from "@/components/ui/Badge"
 import { Card } from "@/components/ui/Card"
 import { Table } from "@/components/ui/Table"
+import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import toast from "react-hot-toast"
 import { Toaster } from "react-hot-toast"
@@ -79,7 +80,7 @@ const emptyImpForm: Record<ImpKey, string> = {
 export default function CostingPage() {
   const { data: rates } = useFetch<ExchangeRate[]>("/api/exchange-rates")
   const { data: taxConfigs } = useFetch<TaxConfig[]>("/api/tax-configs")
-  const { data: costings, refetch } = useFetch<CostingCalc[]>("/api/costing")
+  const { data: costings, loading, refetch } = useFetch<CostingCalc[]>("/api/costing")
 
   // ── Step 01: CIF Calculation ──
   const [fobPerWatt, setFobPerWatt] = useState("")
@@ -195,8 +196,10 @@ export default function CostingPage() {
     { key: "createdAt", header: "Date", render: (row: CostingCalc) => formatDate(row.createdAt) },
   ]
 
+  if (loading) return <TableSkeleton columns={6} rows={8} />
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       <Toaster position="top-right" />
       <Header title="Costing Calculator" breadcrumbs={[{ label: "Costing Calculator" }]} />
 
@@ -331,9 +334,9 @@ export default function CostingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-2 pr-4 text-gray-500 font-medium w-64">Expense</th>
-                <th className="text-right py-2 px-4 text-gray-500 font-medium w-44">PKR Amount</th>
-                <th className="text-right py-2 pl-4 text-gray-500 font-medium w-24">Avg/W</th>
+                <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide w-64">Expense</th>
+                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide w-44">PKR Amount</th>
+                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide w-24">Avg/W</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -342,8 +345,8 @@ export default function CostingPage() {
                 const avgW = totalWatts > 0 && pkrVal > 0 ? pkrVal / totalWatts : null
                 return (
                   <tr key={key} className="hover:bg-gray-50">
-                    <td className="py-2 pr-4 text-gray-700">{label}</td>
-                    <td className="py-2 px-4">
+                    <td className="px-3 py-2.5 text-[13px] text-gray-700">{label}</td>
+                    <td className="px-3 py-2.5 text-[13px]">
                       <input
                         type="number"
                         step="0.01"
@@ -354,7 +357,7 @@ export default function CostingPage() {
                         className="w-full text-right rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </td>
-                    <td className="py-2 pl-4 text-right font-medium text-gray-700">
+                    <td className="px-3 py-2.5 text-[13px] text-right font-medium text-gray-700">
                       {avgW !== null ? avgW.toFixed(2) : "—"}
                     </td>
                   </tr>
@@ -363,9 +366,9 @@ export default function CostingPage() {
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-gray-300 bg-blue-50">
-                <td className="py-3 pr-4 font-bold text-blue-900">Total Landed Cost (Import)</td>
-                <td className="py-3 px-4 text-right font-bold text-blue-900 text-base">{impTotal > 0 ? formatCurrency(impTotal) : "—"}</td>
-                <td className="py-3 pl-4 text-right font-bold text-blue-900">{avgPerWatt !== null ? avgPerWatt.toFixed(2) : "—"}</td>
+                <td className="px-3 py-3 font-bold text-blue-900 text-[13px]">Total Landed Cost (Import)</td>
+                <td className="px-3 py-3 text-right font-bold text-blue-900 text-base">{impTotal > 0 ? formatCurrency(impTotal) : "—"}</td>
+                <td className="px-3 py-3 text-right font-bold text-blue-900 text-[13px]">{avgPerWatt !== null ? avgPerWatt.toFixed(2) : "—"}</td>
               </tr>
             </tfoot>
           </table>

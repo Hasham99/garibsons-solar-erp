@@ -132,7 +132,7 @@ export default function TaxConfigsPage() {
   if (loading) return <TableSkeleton columns={5} rows={6} />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       <Toaster position="top-right" />
 
       {/* Row details */}
@@ -176,7 +176,7 @@ export default function TaxConfigsPage() {
             <input type="checkbox" id="isDefault" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} />
             <label htmlFor="isDefault" className="text-sm text-gray-700">Set as default tax configuration</label>
           </div>
-          <div className="bg-blue-50 rounded-lg p-3 text-sm">
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
             <span className="font-medium text-blue-900">Total Tax Rate: {totalTax.toFixed(2)}%</span>
           </div>
           <div className="flex justify-end gap-3">

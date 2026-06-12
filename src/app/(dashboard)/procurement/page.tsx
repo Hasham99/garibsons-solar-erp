@@ -395,7 +395,7 @@ export default function ProcurementPage() {
   if (loading) return <TableSkeleton columns={7} rows={10} />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       <Toaster position="top-right" />
       <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" title="Upload document" onChange={handleDocUpload} />
 

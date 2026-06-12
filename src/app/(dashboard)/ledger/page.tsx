@@ -541,7 +541,7 @@ export default function LedgerPage() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       <Toaster position="top-right" />
       <Header
         title="Party Ledger"
@@ -1033,21 +1033,21 @@ export default function LedgerPage() {
             </div>
             <div className="rounded-lg border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                <thead className="bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
                   <tr>
-                    <th className="px-3 py-2 text-left">Product</th>
-                    <th className="px-3 py-2 text-right">Panels</th>
-                    <th className="px-3 py-2 text-right">Rate / Watt</th>
-                    <th className="px-3 py-2 text-right">Total</th>
+                    <th className="px-3 py-2.5 text-left">Product</th>
+                    <th className="px-3 py-2.5 text-right">Panels</th>
+                    <th className="px-3 py-2.5 text-right">Rate / Watt</th>
+                    <th className="px-3 py-2.5 text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {soDetail.lines?.map((l) => (
                     <tr key={l.id}>
-                      <td className="px-3 py-2">{l.product?.name} <span className="text-xs text-gray-400">({l.product?.wattage}W)</span></td>
-                      <td className="px-3 py-2 text-right">{l.quantity.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{l.ratePerWatt.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-right font-medium">{formatCurrency(l.totalAmount)}</td>
+                      <td className="px-3 py-2.5 text-[13px]">{l.product?.name} <span className="text-xs text-gray-400">({l.product?.wattage}W)</span></td>
+                      <td className="px-3 py-2.5 text-[13px] text-right">{l.quantity.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right">{l.ratePerWatt.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right font-medium">{formatCurrency(l.totalAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1110,26 +1110,26 @@ export default function LedgerPage() {
             </div>
             <div className="rounded-lg border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                <thead className="bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
                   <tr>
-                    <th className="px-3 py-2 text-left">Product</th>
-                    <th className="px-3 py-2 text-right">Panels</th>
-                    <th className="px-3 py-2 text-right">Watts</th>
+                    <th className="px-3 py-2.5 text-left">Product</th>
+                    <th className="px-3 py-2.5 text-right">Panels</th>
+                    <th className="px-3 py-2.5 text-right">Watts</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {(doDetail.lines?.length ? doDetail.lines : []).map((l) => (
                     <tr key={l.id}>
-                      <td className="px-3 py-2">{l.product?.name} <span className="text-xs text-gray-400">({l.product?.wattage}W)</span></td>
-                      <td className="px-3 py-2 text-right">{l.quantity.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{l.watts.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px]">{l.product?.name} <span className="text-xs text-gray-400">({l.product?.wattage}W)</span></td>
+                      <td className="px-3 py-2.5 text-[13px] text-right">{l.quantity.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right">{l.watts.toLocaleString()}</td>
                     </tr>
                   ))}
                   {!doDetail.lines?.length && (
                     <tr>
-                      <td className="px-3 py-2 text-gray-500">All products</td>
-                      <td className="px-3 py-2 text-right">{doDetail.quantity.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{doDetail.watts.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-gray-500">All products</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right">{doDetail.quantity.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right">{doDetail.watts.toLocaleString()}</td>
                     </tr>
                   )}
                 </tbody>

@@ -116,7 +116,7 @@ export default function QuotationsPage() {
   if (loading) return <TableSkeleton columns={7} rows={10} />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       <Toaster position="top-right" />
 
       {/* Row details */}
@@ -136,19 +136,19 @@ export default function QuotationsPage() {
         {detailRow?.lines?.length ? (
           <div className="rounded-lg border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+              <thead className="bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
                 <tr>
-                  <th className="px-3 py-2 text-left">Product</th>
-                  <th className="px-3 py-2 text-right">Panels</th>
-                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2.5 text-left">Product</th>
+                  <th className="px-3 py-2.5 text-right">Panels</th>
+                  <th className="px-3 py-2.5 text-right">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {detailRow.lines.map((l, i) => (
                   <tr key={i}>
-                    <td className="px-3 py-2">{l.product?.name}</td>
-                    <td className="px-3 py-2 text-right">{l.quantity.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-medium">{formatCurrency(l.totalAmount)}</td>
+                    <td className="px-3 py-2.5 text-[13px]">{l.product?.name}</td>
+                    <td className="px-3 py-2.5 text-[13px] text-right">{l.quantity.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-[13px] text-right font-medium">{formatCurrency(l.totalAmount)}</td>
                   </tr>
                 ))}
               </tbody>
