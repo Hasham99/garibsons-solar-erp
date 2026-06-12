@@ -14,10 +14,10 @@ export async function GET(request: Request) {
     const salesOrders = await prisma.salesOrder.findMany({
       where: { customerId, status: { not: "CANCELLED" } },
       include: {
-        lines: true,
+        lines: { include: { product: { select: { name: true } } } },
         deliveryOrders: {
           where: { status: { not: "CANCELLED" } },
-          include: { lines: true },
+          include: { lines: { include: { product: { select: { name: true } } } } },
           orderBy: { createdAt: "asc" },
         },
       },
@@ -48,10 +48,26 @@ export async function GET(request: Request) {
 
     const rows: LedgerRow[] = []
 
+    // "Aiko-650 BF 720 pcs @42.50" — item, quantity and rate per watt
+    const compactName = (name: string) => name.replace(/\s*-\s*/g, "-")
+    const lineDesc = (name: string, qty: number, rate: number) =>
+      `${compactName(name)} ${qty.toLocaleString()} pcs${rate > 0 ? ` @${rate.toFixed(2)}` : ""}`
+
     for (const so of salesOrders) {
       const soQty = so.lines.reduce((s, l) => s + l.quantity, 0)
       const doQty = so.deliveryOrders.reduce((s, d) => s + d.quantity, 0)
       const remaining = soQty - doQty
+
+      const soDesc =
+        so.lines.map((l) => lineDesc(l.product.name, l.quantity, l.ratePerWatt)).join(" · ") ||
+        `Sales Order · ${soQty} panels`
+      // rate lookup for DO lines (from the SO line they fulfil)
+      const rateBySoLine = new Map(so.lines.map((l) => [l.id, l.ratePerWatt]))
+      const fallbackRate = so.lines[0]?.ratePerWatt ?? 0
+      const doDesc = (doItem: (typeof so.deliveryOrders)[number]) =>
+        doItem.lines
+          .map((l) => lineDesc(l.product.name, l.quantity, (l.soLineId ? rateBySoLine.get(l.soLineId) : undefined) ?? fallbackRate))
+          .join(" · ") || `${doItem.quantity} panels`
 
       if (doQty === 0) {
         // No DOs — show SO row
@@ -61,7 +77,7 @@ export async function GET(request: Request) {
           type: "SO",
           reference: so.soNumber,
           soNumber: so.soNumber,
-          description: `Sales Order · ${soQty} panels`,
+          description: soDesc,
           qtyTotal: soQty,
           qtyDelivered: 0,
           qtyRemaining: soQty,
@@ -78,7 +94,7 @@ export async function GET(request: Request) {
             reference: doItem.doNumber,
             soNumber: so.soNumber,
             doNumber: doItem.doNumber,
-            description: `DO for ${so.soNumber} · ${doItem.quantity} panels delivered`,
+            description: doDesc(doItem),
             qtyTotal: soQty,
             qtyDelivered: doItem.quantity,
             qtyRemaining: 0,
@@ -93,7 +109,7 @@ export async function GET(request: Request) {
           type: "PARTIAL",
           reference: so.soNumber,
           soNumber: so.soNumber,
-          description: `${so.soNumber} (partial) · ${remaining} panels remaining`,
+          description: `${soDesc} · ${remaining} pcs remaining`,
           qtyTotal: soQty,
           qtyDelivered: doQty,
           qtyRemaining: remaining,
@@ -110,7 +126,7 @@ export async function GET(request: Request) {
             reference: doItem.doNumber,
             soNumber: so.soNumber,
             doNumber: doItem.doNumber,
-            description: `DO for ${so.soNumber} · ${doItem.quantity} panels`,
+            description: doDesc(doItem),
             qtyTotal: soQty,
             qtyDelivered: doItem.quantity,
             qtyRemaining: 0,

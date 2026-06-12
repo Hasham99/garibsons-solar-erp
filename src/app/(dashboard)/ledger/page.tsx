@@ -148,8 +148,10 @@ export default function LedgerPage() {
 
   const exportLedgerPdf = () => {
     const customer = customers?.find((c) => c.id === customerId)
-    const exportRows = filteredLedgerRef.current.length ? filteredLedgerRef.current : rows
-    if (!customer || exportRows.length === 0) return toast.error("Nothing to export")
+    const visible = filteredLedgerRef.current.length ? filteredLedgerRef.current : rows
+    if (!customer || visible.length === 0) return toast.error("Nothing to export")
+    // Statement always reads oldest → newest, regardless of on-screen sort.
+    const exportRows = [...visible].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     const isFiltered = exportRows.length !== rows.length
     const times = exportRows.map((r) => new Date(r.date).getTime())
     const from = new Date(Math.min(...times)).toISOString()
