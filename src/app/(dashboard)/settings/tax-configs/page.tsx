@@ -11,7 +11,7 @@ import { TableSkeleton } from "@/components/ui/Skeleton"
 import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Plus, Pencil, Trash2 } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface TaxConfig {
   id: string
@@ -100,18 +100,18 @@ export default function TaxConfigsPage() {
 
   const columns = [
     { key: "name", header: "Name", sortable: true },
-    { key: "customsDuty", header: "CD", render: (row: TaxConfig) => `${row.customsDuty}%` },
-    { key: "salesTax", header: "GST", render: (row: TaxConfig) => `${row.salesTax}%` },
-    { key: "incomeTax", header: "IT", render: (row: TaxConfig) => `${row.incomeTax}%` },
-    { key: "excise", header: "Excise", render: (row: TaxConfig) => `${row.excise}%` },
+    { key: "customsDuty", header: "CD", numeric: true, render: (row: TaxConfig) => `${row.customsDuty}%` },
+    { key: "salesTax", header: "GST", numeric: true, render: (row: TaxConfig) => `${row.salesTax}%` },
+    { key: "incomeTax", header: "IT", numeric: true, render: (row: TaxConfig) => `${row.incomeTax}%` },
+    { key: "excise", header: "Excise", numeric: true, render: (row: TaxConfig) => `${row.excise}%` },
     {
-      key: "total", header: "Total Tax",
+      key: "total", header: "Total Tax", numeric: true,
       render: (row: TaxConfig) => {
         const total = row.customsDuty + row.additionalCD + row.excise + row.salesTax + row.additionalST + row.incomeTax
         return <span className="font-bold">{total.toFixed(2)}%</span>
       },
     },
-    { key: "handlingPerWatt", header: "Handling/W", render: (row: TaxConfig) => `Rs ${row.handlingPerWatt}` },
+    { key: "handlingPerWatt", header: "Handling/W", numeric: true, render: (row: TaxConfig) => `Rs ${row.handlingPerWatt}` },
     {
       key: "isDefault", header: "Default",
       render: (row: TaxConfig) => row.isDefault ? (
@@ -133,7 +133,6 @@ export default function TaxConfigsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -155,7 +154,7 @@ export default function TaxConfigsPage() {
       <Header title="Tax Configurations" breadcrumbs={[{ label: "Settings" }, { label: "Tax Configs" }]}
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Tax Config</Button>}
       />
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table columns={columns} data={(configs || [])} emptyMessage="No tax configs yet" searchPlaceholder="Search name…" onRowClick={(row: TaxConfig) => setDetailRow(row)} />
       </div>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? "Edit Tax Configuration" : "Add Tax Configuration"} size="lg">

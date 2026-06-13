@@ -12,7 +12,7 @@ import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2 } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface ExchangeRate {
   id: string
@@ -84,11 +84,11 @@ export default function ExchangeRatesPage() {
   }
 
   const columns = [
-    { key: "date", header: "Date", render: (row: ExchangeRate) => formatDate(row.date), sortable: true },
+    { key: "date", header: "Date", render: (row: ExchangeRate) => formatDate(row.date), sortable: true, numeric: true },
     { key: "source", header: "Source" },
-    { key: "rate", header: "Rate (PKR/USD)", render: (row: ExchangeRate) => <span className="font-bold text-blue-700">Rs {row.rate}</span> },
+    { key: "rate", header: "Rate (PKR/USD)", numeric: true, render: (row: ExchangeRate) => <span className="font-bold text-blue-700">Rs {row.rate}</span> },
     { key: "notes", header: "Notes", render: (row: ExchangeRate) => row.notes || "-" },
-    { key: "createdAt", header: "Added", render: (row: ExchangeRate) => formatDate(row.createdAt) },
+    { key: "createdAt", header: "Added", numeric: true, render: (row: ExchangeRate) => formatDate(row.createdAt) },
     {
       key: "actions", header: "Actions",
       render: (row: ExchangeRate) => (
@@ -104,7 +104,6 @@ export default function ExchangeRatesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -121,7 +120,7 @@ export default function ExchangeRatesPage() {
       <Header title="Exchange Rates" breadcrumbs={[{ label: "Settings" }, { label: "Exchange Rates" }]}
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Rate</Button>}
       />
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={(rates || [])}

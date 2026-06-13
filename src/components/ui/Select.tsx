@@ -15,19 +15,19 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-[13px] font-medium text-slate-700 mb-1">
             {label}
-            {props.required && <span className="text-red-500 ml-1">*</span>}
+            {props.required && <span className="text-rose-500 ml-1">*</span>}
           </label>
         )}
         <select
           ref={ref}
           className={clsx(
-            "block w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors bg-white",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500",
+            "block w-full rounded-lg border px-3 py-1.5 text-[13px] shadow-sm bg-white transition-[border-color,box-shadow] duration-200",
+            "focus:outline-none focus:ring-2",
             error
-              ? "border-red-300 text-red-900"
-              : "border-gray-300 text-gray-900 hover:border-gray-400",
+              ? "animate-shake border-rose-300 text-rose-900 focus:ring-rose-400/50 focus:border-rose-400"
+              : "border-slate-300 text-slate-900 hover:border-slate-400 focus:ring-blue-500/50 focus:border-blue-500",
             className
           )}
           {...props}
@@ -40,8 +40,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               ))
             : children}
         </select>
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-        {helperText && !error && <p className="mt-1 text-sm text-gray-500">{helperText}</p>}
+        {error && <p className="mt-1.5 text-[13px] text-rose-600 animate-slide-down">{error}</p>}
+        {helperText && !error && <p className="mt-1.5 text-[13px] text-slate-500">{helperText}</p>}
       </div>
     )
   }

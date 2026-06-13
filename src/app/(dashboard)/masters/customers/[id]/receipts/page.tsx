@@ -11,13 +11,13 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatAmount, formatDate } from "@/lib/utils"
 import { useAuth } from "@/hooks/useAuth"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { ArrowLeft, ArrowRightLeft, CheckSquare, Plus, Pencil, Trash2, TrendingDown, TrendingUp, Wallet, X } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface Receipt {
   id: string
@@ -211,6 +211,12 @@ export default function CustomerReceiptsPage() {
     }
   }
 
+  const receiptRowActions = (row: Receipt): RowAction[] => [
+    { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEdit(row) },
+    { label: "Transfer to Another Party", icon: <ArrowRightLeft size={15} />, onClick: () => { setTransferReceipt(row); setTransferTo("") } },
+    ...(canDelete ? [{ label: "Delete Collection", icon: <Trash2 size={15} />, danger: true, onClick: () => setConfirmDelete({ kind: "single", receipt: row }) }] : []),
+  ]
+
   if (loading && !receiptsData) return <TableSkeleton columns={5} rows={6} />
 
   const bal = balance?.balance ?? 0
@@ -219,7 +225,6 @@ export default function CustomerReceiptsPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -265,15 +270,15 @@ export default function CustomerReceiptsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
           <p className="text-sm text-gray-500">Total Collected</p>
           <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalCollected)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
           <p className="text-sm text-gray-500">Total SO Value</p>
           <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalSOValue)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
           <p className={`text-sm ${bal >= 0 ? "text-green-600" : "text-gray-500"}`}>
             {bal >= 0 ? "Advance Credit" : "Pending"}
           </p>
@@ -301,7 +306,7 @@ export default function CustomerReceiptsPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900">All Receipts ({receiptsData?.total ?? 0})</h3>
           {canDelete && receipts.length > 0 && !selectMode && (
@@ -338,19 +343,15 @@ export default function CustomerReceiptsPage() {
               ),
             }] : []),
             { key: "receiptNo", header: "Receipt No.", sortable: true, render: (r: Receipt) => <span className="font-medium text-blue-700">{r.receiptNo}</span> },
-            { key: "valueDate", header: "Bank Value Date", sortable: true, value: (r: Receipt) => r.valueDate, render: (r: Receipt) => <span className="whitespace-nowrap">{formatDate(r.valueDate)}</span> },
+            { key: "valueDate", header: "Bank Value Date", sortable: true, numeric: true, value: (r: Receipt) => r.valueDate, render: (r: Receipt) => <span className="whitespace-nowrap">{formatDate(r.valueDate)}</span> },
             { key: "bank", header: "Bank", sortable: true, value: (r: Receipt) => r.bank.name, render: (r: Receipt) => r.bank.name },
-            { key: "amount", header: "Amount", sortable: true, value: (r: Receipt) => r.amount, render: (r: Receipt) => <span className="font-semibold text-green-700">{formatCurrency(r.amount)}</span> },
+            { key: "amount", header: "Amount (PKR)", sortable: true, numeric: true, value: (r: Receipt) => r.amount, render: (r: Receipt) => <span className="font-semibold text-green-700">{formatAmount(r.amount)}</span> },
             { key: "reference", header: "Reference / Slip", render: (r: Receipt) => <span className="text-gray-500">{r.reference || "—"}</span> },
-            { key: "whatsappDate", header: "WhatsApp Date", render: (r: Receipt) => <span className="text-gray-500 whitespace-nowrap">{r.whatsappDate ? formatDate(r.whatsappDate) : "—"}</span> },
+            { key: "whatsappDate", header: "WhatsApp Date", numeric: true, render: (r: Receipt) => <span className="text-gray-500 whitespace-nowrap">{r.whatsappDate ? formatDate(r.whatsappDate) : "—"}</span> },
             { key: "notes", header: "Notes", render: (r: Receipt) => <span className="text-gray-500 max-w-xs truncate inline-block align-bottom">{r.notes || "—"}</span> },
             { key: "createdBy", header: "Recorded By", value: (r: Receipt) => r.createdBy?.name || "—", render: (r: Receipt) => <span className="text-gray-400">{r.createdBy?.name || "—"}</span> },
             { key: "actions", header: "Actions", render: (r: Receipt) => (
-              <RowActionsMenu actions={[
-                { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEdit(r) },
-                { label: "Transfer to Another Party", icon: <ArrowRightLeft size={15} />, onClick: () => { setTransferReceipt(r); setTransferTo("") } },
-                ...(canDelete ? [{ label: "Delete Collection", icon: <Trash2 size={15} />, danger: true, onClick: () => setConfirmDelete({ kind: "single", receipt: r }) }] : []),
-              ]} />
+              <RowActionsMenu actions={receiptRowActions(r)} />
             ) },
           ]}
         />
@@ -371,7 +372,7 @@ export default function CustomerReceiptsPage() {
           { label: "Recorded By", value: detailRow.createdBy?.name || "—" },
           ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
         ] : []}
-        footer={detailRow ? <Button onClick={() => { const r = detailRow; setDetailRow(null); openEdit(r) }}><Pencil size={14} className="mr-1" />Edit</Button> : undefined}
+        actions={detailRow ? receiptRowActions(detailRow) : []}
       />
 
       {/* Delete Confirmation */}

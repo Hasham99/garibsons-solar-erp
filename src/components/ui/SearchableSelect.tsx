@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, Search, X } from "lucide-react"
+import { clsx } from "clsx"
 
 export interface SearchableOption {
   value: string
@@ -16,6 +17,7 @@ interface SearchableSelectProps {
   label?: string
   placeholder?: string
   required?: boolean
+  error?: string
   /** Show a clear (×) button when a value is selected. Default true. */
   clearable?: boolean
 }
@@ -28,6 +30,7 @@ export function SearchableSelect({
   label,
   placeholder = "Type to search…",
   required,
+  error,
   clearable = true,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
@@ -59,47 +62,53 @@ export function SearchableSelect({
   return (
     <div className="w-full" ref={ref}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-[13px] font-medium text-slate-700 mb-1">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-rose-500 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
         <button
           type="button"
           onClick={() => { setOpen((o) => !o); setQuery("") }}
-          className="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          className={clsx(
+            "flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-[13px] shadow-sm cursor-pointer",
+            "transition-[border-color,box-shadow,background-color] duration-200 focus:outline-none focus:ring-2",
+            error
+              ? "animate-shake border-rose-300 bg-rose-50/60 focus:ring-rose-400/50 focus:border-rose-400"
+              : "border-slate-300 bg-white hover:border-slate-400 focus:ring-blue-500/50 focus:border-blue-500"
+          )}
         >
-          <span className={selected ? "text-gray-900" : "text-gray-400"}>
+          <span className={clsx("truncate", selected ? "text-slate-900" : error ? "text-rose-300" : "text-slate-400")}>
             {selected ? selected.label : placeholder}
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex shrink-0 items-center gap-1">
             {clearable && selected && (
               <X
                 size={14}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-slate-400 hover:text-slate-600 transition-colors"
                 onClick={(e) => { e.stopPropagation(); onChange(""); setQuery("") }}
               />
             )}
-            <ChevronDown size={15} className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+            <ChevronDown size={15} className={`text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
           </span>
         </button>
 
         {open && (
-          <div className="absolute z-30 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
-            <div className="relative border-b border-gray-100 p-2">
-              <Search size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <div className="absolute z-30 mt-1.5 w-full origin-top rounded-xl border border-slate-200 bg-white shadow-pop animate-slide-down">
+            <div className="relative border-b border-slate-100 p-2">
+              <Search size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}
-                className="w-full rounded-md border border-gray-200 pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-slate-200 pl-8 pr-2 py-1.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
               />
             </div>
             <div className="max-h-60 overflow-y-auto py-1">
               {filtered.length === 0 ? (
-                <p className="px-3 py-3 text-center text-sm text-gray-400">No match found</p>
+                <p className="px-3 py-3 text-center text-sm text-slate-400">No match found</p>
               ) : (
                 filtered.slice(0, 100).map((o) => (
                   <button
@@ -107,21 +116,22 @@ export function SearchableSelect({
                     type="button"
                     onClick={() => { onChange(o.value); setOpen(false); setQuery("") }}
                     className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-blue-50 cursor-pointer ${
-                      o.value === value ? "bg-blue-50 font-medium text-blue-700" : "text-gray-800"
+                      o.value === value ? "bg-blue-50 font-medium text-blue-700" : "text-slate-800"
                     }`}
                   >
                     <span>{o.label}</span>
-                    {o.sublabel && <span className="text-xs text-gray-400">{o.sublabel}</span>}
+                    {o.sublabel && <span className="text-xs text-slate-400">{o.sublabel}</span>}
                   </button>
                 ))
               )}
               {filtered.length > 100 && (
-                <p className="px-3 py-2 text-center text-xs text-gray-400">…{filtered.length - 100} more — keep typing to narrow</p>
+                <p className="px-3 py-2 text-center text-xs text-slate-400">…{filtered.length - 100} more — keep typing to narrow</p>
               )}
             </div>
           </div>
         )}
       </div>
+      {error && <p className="mt-1.5 text-[13px] text-rose-600 animate-slide-down">{error}</p>}
     </div>
   )
 }

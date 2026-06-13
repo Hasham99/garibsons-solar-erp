@@ -13,7 +13,7 @@ import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2 } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface Bank {
   id: string
@@ -85,6 +85,7 @@ export default function BanksPage() {
 
   const columns = [
     { key: "name", header: "Bank Name", sortable: true },
+    { key: "createdAt", header: "Added", numeric: true, render: (row: Bank) => formatDate(row.createdAt) },
     { key: "branch", header: "Branch", render: (row: Bank) => row.branch || "-" },
     {
       key: "active", header: "Status",
@@ -94,7 +95,6 @@ export default function BanksPage() {
         </span>
       ),
     },
-    { key: "createdAt", header: "Added", render: (row: Bank) => formatDate(row.createdAt) },
     {
       key: "actions", header: "Actions",
       render: (row: Bank) => (
@@ -110,7 +110,6 @@ export default function BanksPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -144,7 +143,7 @@ export default function BanksPage() {
           </div>
         }
       />
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={(banks || [])}

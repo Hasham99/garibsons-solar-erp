@@ -1,8 +1,10 @@
 import type { Metadata } from "next"
-import { Figtree } from "next/font/google"
+import { Figtree, Space_Mono } from "next/font/google"
 import "./globals.css"
 
 const figtree = Figtree({ subsets: ["latin"] })
+// Mono font for numeric figures (dashboard, tables, reports) — exposed as a CSS var
+const spaceMono = Space_Mono({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-space-mono" })
 
 export const metadata: Metadata = {
   title: "Garibsons Solar ERP",
@@ -16,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full">
-      <body suppressHydrationWarning className={`${figtree.className} h-full bg-slate-50 text-gray-900 antialiased`}>
+      <body suppressHydrationWarning className={`${figtree.className} ${spaceMono.variable} h-full text-gray-900 antialiased`}>
         {children}
       </body>
     </html>

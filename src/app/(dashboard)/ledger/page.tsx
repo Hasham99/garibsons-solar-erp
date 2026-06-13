@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useFetch } from "@/hooks/useFetch"
 import { useAuth } from "@/hooks/useAuth"
 import { Header } from "@/components/layout/Header"
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
+import { Drawer } from "@/components/ui/Drawer"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
@@ -17,11 +19,11 @@ import { Popover } from "@/components/ui/Popover"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { StatCardSkeleton, TableSkeleton } from "@/components/ui/Skeleton"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatAmount, formatCurrency, formatDate } from "@/lib/utils"
 import { downloadPdf } from "@/lib/pdf"
 import { downloadExcel } from "@/lib/excel"
 import { Banknote, CheckSquare, Eye, FileDown, FileSpreadsheet, Pencil, Plus, SlidersHorizontal, Trash2, TrendingDown, TrendingUp, Wallet, X } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface ReceiptDetail {
   id: string
@@ -159,8 +161,10 @@ export default function LedgerPage() {
   const { user } = useAuth()
   const canDelete = ["ADMIN", "ACCOUNTS"].includes(user?.role || "")
 
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<"customer" | "supplier">("customer")
-  const [customerId, setCustomerId] = useState("")
+  // Supports deep links like /ledger?customerId=… (e.g. from the customer profile page)
+  const [customerId, setCustomerId] = useState(searchParams.get("customerId") || "")
   const [range, setRange] = useState({ from: "", to: "" })
   const filteredLedgerRef = useRef<LedgerRow[]>([])
   const filteredPOsRef = useRef<PO[]>([])
@@ -510,7 +514,11 @@ export default function LedgerPage() {
         )
       }
       if (row.type === "DO" && row.doId) {
-        actions.push({ label: "View Delivery Order", icon: <Eye size={15} />, onClick: () => setViewDOId(row.doId!) })
+        actions.push(
+          { label: "View Delivery Order", icon: <Eye size={15} />, onClick: () => setViewDOId(row.doId!) },
+          { label: "Print DO", icon: <FileDown size={15} />, onClick: () => window.open(`/delivery/${row.doId}/print`, "_blank") },
+          { label: "Open in Delivery Orders", icon: <TrendingUp size={15} />, onClick: () => (window.location.href = "/delivery") },
+        )
       }
       if (row.type === "RECEIPT" && row.receipt) {
         actions.push({ label: "View / Edit Collection", icon: <Pencil size={15} />, onClick: () => openEditReceipt(row) })
@@ -542,7 +550,6 @@ export default function LedgerPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
       <Header
         title="Party Ledger"
         actions={
@@ -686,15 +693,15 @@ export default function LedgerPage() {
               )}
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
                   <p className="text-sm text-gray-500">Total Debit (SOs)</p>
                   <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalDebits)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
                   <p className="text-sm text-gray-500">Total Collected</p>
                   <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalCredits)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
                   <p className={`text-sm ${balance <= 0 ? "text-green-600" : "text-gray-500"}`}>
                     {balance <= 0 ? "Advance Credit" : "Net Receivable"}
                   </p>
@@ -706,7 +713,7 @@ export default function LedgerPage() {
 
               {selectionBar}
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold text-gray-900">Ledger Entries</h3>
@@ -764,7 +771,6 @@ export default function LedgerPage() {
                     ]}
                     columns={[
                       ...(showSelectCol ? [selectCol] : []),
-                      { key: "date", header: "Date", sortable: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</span> },
                       {
                         key: "type", header: "Type",
                         render: (row: LedgerRow) => (
@@ -774,13 +780,14 @@ export default function LedgerPage() {
                         ),
                       },
                       { key: "reference", header: "Reference", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-gray-800 whitespace-nowrap">{row.reference}</span> },
+                      { key: "date", header: "Date", sortable: true, numeric: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</span> },
                       { key: "description", header: "Description", render: (row: LedgerRow) => <span className="text-xs text-gray-600">{row.description}</span> },
-                      { key: "qtyTotal", header: "Total Qty", render: (row: LedgerRow) => <span className="text-xs text-gray-700">{row.qtyTotal > 0 ? row.qtyTotal.toLocaleString() : "—"}</span> },
-                      { key: "qtyDelivered", header: "Delivered", render: (row: LedgerRow) => <span className="text-xs text-green-700 font-medium">{row.qtyDelivered > 0 ? row.qtyDelivered.toLocaleString() : "—"}</span> },
-                      { key: "qtyRemaining", header: "Remaining", render: (row: LedgerRow) => row.qtyRemaining > 0 ? <span className="text-xs text-amber-700 font-medium">{row.qtyRemaining.toLocaleString()}</span> : <span className="text-xs">—</span> },
-                      { key: "debit", header: "Debit", sortable: true, render: (row: LedgerRow) => <span className="text-xs text-red-600 font-medium whitespace-nowrap">{row.debit > 0 ? formatCurrency(row.debit) : "—"}</span> },
-                      { key: "credit", header: "Credit", sortable: true, render: (row: LedgerRow) => <span className="text-xs text-green-600 font-medium whitespace-nowrap">{row.credit > 0 ? formatCurrency(row.credit) : "—"}</span> },
-                      { key: "runningBalance", header: "Balance", render: (row: LedgerRow) => <span className={`text-xs font-bold whitespace-nowrap ${row.runningBalance <= 0 ? "text-green-700" : "text-gray-900"}`}>{formatCurrency(row.runningBalance)}</span> },
+                      { key: "qtyTotal", header: "Total Qty", numeric: true, render: (row: LedgerRow) => <span className="text-xs text-gray-700">{row.qtyTotal > 0 ? row.qtyTotal.toLocaleString() : "—"}</span> },
+                      { key: "qtyDelivered", header: "Delivered", numeric: true, render: (row: LedgerRow) => <span className="text-xs text-green-700 font-medium">{row.qtyDelivered > 0 ? row.qtyDelivered.toLocaleString() : "—"}</span> },
+                      { key: "qtyRemaining", header: "Remaining", numeric: true, render: (row: LedgerRow) => row.qtyRemaining > 0 ? <span className="text-xs text-amber-700 font-medium">{row.qtyRemaining.toLocaleString()}</span> : <span className="text-xs">—</span> },
+                      { key: "debit", header: "Debit (PKR)", sortable: true, numeric: true, render: (row: LedgerRow) => <span className="text-xs text-red-600 font-medium whitespace-nowrap">{row.debit > 0 ? formatAmount(row.debit) : "—"}</span> },
+                      { key: "credit", header: "Credit (PKR)", sortable: true, numeric: true, render: (row: LedgerRow) => <span className="text-xs text-green-600 font-medium whitespace-nowrap">{row.credit > 0 ? formatAmount(row.credit) : "—"}</span> },
+                      { key: "runningBalance", header: "Balance (PKR)", numeric: true, render: (row: LedgerRow) => <span className={`text-xs font-bold whitespace-nowrap ${row.runningBalance <= 0 ? "text-green-700" : "text-gray-900"}`}>{formatAmount(row.runningBalance)}</span> },
                       actionsCol,
                     ]}
                   />
@@ -801,7 +808,7 @@ export default function LedgerPage() {
           {!customerId && !ledgerLoading && (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-500">Total Collections</p>
                     <Banknote size={18} className="text-green-400" />
@@ -809,15 +816,15 @@ export default function LedgerPage() {
                   <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalCredits)}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{receiptCount} receipt(s){rangeQs ? " in period" : " all time"}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
                   <p className="text-sm text-gray-500">Total Sales (SO Value)</p>
                   <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalDebits)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
                   <p className="text-sm text-gray-500">Net Receivable</p>
                   <p className={`text-2xl font-bold mt-1 ${balance <= 0 ? "text-green-600" : "text-orange-600"}`}>{formatCurrency(balance)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
                   <p className="text-sm text-gray-500">Entries</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">{rows.length.toLocaleString()}</p>
                 </div>
@@ -825,7 +832,7 @@ export default function LedgerPage() {
 
               {selectionBar}
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold text-gray-900">All Parties — Ledger Entries</h3>
@@ -870,7 +877,6 @@ export default function LedgerPage() {
                     ]}
                     columns={[
                       ...(showSelectCol ? [selectCol] : []),
-                      { key: "date", header: "Date", sortable: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</span> },
                       {
                         key: "type", header: "Type",
                         render: (row: LedgerRow) => (
@@ -881,9 +887,10 @@ export default function LedgerPage() {
                       },
                       { key: "customerName", header: "Party", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-gray-900 whitespace-nowrap">{row.customerName}</span> },
                       { key: "reference", header: "Reference", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-gray-800 whitespace-nowrap">{row.reference}</span> },
+                      { key: "date", header: "Date", sortable: true, numeric: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</span> },
                       { key: "description", header: "Description", render: (row: LedgerRow) => <span className="text-xs text-gray-600">{row.description}</span> },
-                      { key: "debit", header: "Debit", sortable: true, render: (row: LedgerRow) => <span className="text-xs text-red-600 font-medium whitespace-nowrap">{row.debit > 0 ? formatCurrency(row.debit) : "—"}</span> },
-                      { key: "credit", header: "Credit", sortable: true, render: (row: LedgerRow) => <span className="text-xs text-green-600 font-medium whitespace-nowrap">{row.credit > 0 ? formatCurrency(row.credit) : "—"}</span> },
+                      { key: "debit", header: "Debit (PKR)", sortable: true, numeric: true, render: (row: LedgerRow) => <span className="text-xs text-red-600 font-medium whitespace-nowrap">{row.debit > 0 ? formatAmount(row.debit) : "—"}</span> },
+                      { key: "credit", header: "Credit (PKR)", sortable: true, numeric: true, render: (row: LedgerRow) => <span className="text-xs text-green-600 font-medium whitespace-nowrap">{row.credit > 0 ? formatAmount(row.credit) : "—"}</span> },
                       actionsCol,
                     ]}
                   />
@@ -1019,7 +1026,7 @@ export default function LedgerPage() {
       />
 
       {/* ── Sales Order Detail Modal ── */}
-      <Modal isOpen={Boolean(viewSOId)} onClose={() => setViewSOId(null)} title={`Sales Order — ${soDetail?.soNumber || ""}`} size="lg">
+      <Drawer isOpen={Boolean(viewSOId)} onClose={() => setViewSOId(null)} title={`Sales Order — ${soDetail?.soNumber || ""}`} size="xl">
         {soDetailLoading || !soDetail ? (
           <TableSkeleton columns={4} rows={3} />
         ) : (
@@ -1045,9 +1052,9 @@ export default function LedgerPage() {
                   {soDetail.lines?.map((l) => (
                     <tr key={l.id}>
                       <td className="px-3 py-2.5 text-[13px]">{l.product?.name} <span className="text-xs text-gray-400">({l.product?.wattage}W)</span></td>
-                      <td className="px-3 py-2.5 text-[13px] text-right">{l.quantity.toLocaleString()}</td>
-                      <td className="px-3 py-2.5 text-[13px] text-right">{l.ratePerWatt.toFixed(2)}</td>
-                      <td className="px-3 py-2.5 text-[13px] text-right font-medium">{formatCurrency(l.totalAmount)}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.quantity.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.ratePerWatt.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right font-medium tabular-nums">{formatCurrency(l.totalAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1056,15 +1063,15 @@ export default function LedgerPage() {
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div className="rounded-lg bg-gray-50 p-3">
                 <p className="text-xs text-gray-500">Sub Total</p>
-                <p className="font-semibold">{formatCurrency(soDetail.subTotal)}</p>
+                <p className="font-semibold tabular-nums">{formatCurrency(soDetail.subTotal)}</p>
               </div>
               <div className="rounded-lg bg-gray-50 p-3">
                 <p className="text-xs text-gray-500">GST {soDetail.gstRate > 0 ? `(${soDetail.gstRate}%)` : ""}</p>
-                <p className="font-semibold">{soDetail.gstAmount > 0 ? formatCurrency(soDetail.gstAmount) : "—"}</p>
+                <p className="font-semibold tabular-nums">{soDetail.gstAmount > 0 ? formatCurrency(soDetail.gstAmount) : "—"}</p>
               </div>
               <div className="rounded-lg bg-blue-50 p-3">
                 <p className="text-xs text-blue-700">Grand Total</p>
-                <p className="font-bold text-blue-900">{formatCurrency(soDetail.grandTotal)}</p>
+                <p className="font-bold text-blue-900 tabular-nums">{formatCurrency(soDetail.grandTotal)}</p>
               </div>
             </div>
             {soDetail.deliveryOrders?.length > 0 && (
@@ -1074,7 +1081,7 @@ export default function LedgerPage() {
                   {soDetail.deliveryOrders.map((d) => (
                     <span key={d.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs">
                       <span className="font-medium">{d.doNumber}</span>
-                      <span className="text-gray-500">{d.quantity.toLocaleString()} pnl</span>
+                      <span className="text-gray-500 tabular-nums">{d.quantity.toLocaleString()} pnl</span>
                       <Badge status={d.status} />
                     </span>
                   ))}
@@ -1090,10 +1097,10 @@ export default function LedgerPage() {
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
 
-      {/* ── Delivery Order Detail Modal ── */}
-      <Modal isOpen={Boolean(viewDOId)} onClose={() => setViewDOId(null)} title={`Delivery Order — ${doDetail?.doNumber || ""}`} size="lg">
+      {/* ── Delivery Order Detail slide-over ── */}
+      <Drawer isOpen={Boolean(viewDOId)} onClose={() => setViewDOId(null)} title={`Delivery Order — ${doDetail?.doNumber || ""}`} size="xl">
         {doDetailLoading || !doDetail ? (
           <TableSkeleton columns={4} rows={3} />
         ) : (
@@ -1121,15 +1128,15 @@ export default function LedgerPage() {
                   {(doDetail.lines?.length ? doDetail.lines : []).map((l) => (
                     <tr key={l.id}>
                       <td className="px-3 py-2.5 text-[13px]">{l.product?.name} <span className="text-xs text-gray-400">({l.product?.wattage}W)</span></td>
-                      <td className="px-3 py-2.5 text-[13px] text-right">{l.quantity.toLocaleString()}</td>
-                      <td className="px-3 py-2.5 text-[13px] text-right">{l.watts.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.quantity.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.watts.toLocaleString()}</td>
                     </tr>
                   ))}
                   {!doDetail.lines?.length && (
                     <tr>
                       <td className="px-3 py-2.5 text-[13px] text-gray-500">All products</td>
-                      <td className="px-3 py-2.5 text-[13px] text-right">{doDetail.quantity.toLocaleString()}</td>
-                      <td className="px-3 py-2.5 text-[13px] text-right">{doDetail.watts.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{doDetail.quantity.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{doDetail.watts.toLocaleString()}</td>
                     </tr>
                   )}
                 </tbody>
@@ -1143,7 +1150,7 @@ export default function LedgerPage() {
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
 
       {/* ── Supplier Ledger ── */}
       {tab === "supplier" && (
@@ -1163,15 +1170,15 @@ export default function LedgerPage() {
           </Card>
 
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
               <p className="text-sm text-gray-500">Total PO Value (PKR)</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(supplierTotalPkr)}</p>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
               <p className="text-sm text-gray-500">Total Landed Cost (PKR)</p>
               <p className="text-2xl font-bold text-blue-700 mt-1">{formatCurrency(supplierTotalLanded)}</p>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
               <p className="text-sm text-gray-500">Active POs</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
                 {filteredPOs.filter((p) => !["RECEIVED", "CANCELLED"].includes(p.status)).length}
@@ -1179,7 +1186,7 @@ export default function LedgerPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
               <h3 className="font-semibold text-gray-900">Purchase Orders</h3>
               <Button size="sm" variant="secondary" onClick={exportSupplierPdf}>
@@ -1201,13 +1208,13 @@ export default function LedgerPage() {
                   { key: "createdAt", label: "Date", type: "date", value: (po: PO) => po.createdAt },
                 ]}
                 columns={[
-                  { key: "createdAt", header: "Date", sortable: true, value: (po: PO) => po.createdAt, render: (po: PO) => formatDate(po.createdAt) },
                   { key: "poNumber", header: "PO Number", sortable: true, render: (po: PO) => <span className="font-medium">{po.poNumber}</span> },
+                  { key: "createdAt", header: "Date", sortable: true, numeric: true, value: (po: PO) => po.createdAt, render: (po: PO) => formatDate(po.createdAt) },
                   { key: "supplier", header: "Supplier", sortable: true, value: (po: PO) => po.supplier?.name || "—", render: (po: PO) => po.supplier?.name || "—" },
-                  { key: "noOfPanels", header: "Panels", sortable: true, value: (po: PO) => po.noOfPanels, render: (po: PO) => `${po.noOfPanels.toLocaleString()} × ${po.panelWattage}W` },
-                  { key: "totalValueUsd", header: "USD Value", sortable: true, render: (po: PO) => `$${po.totalValueUsd.toLocaleString()}` },
-                  { key: "poAmountPkr", header: "PKR Amount", sortable: true, render: (po: PO) => <span className="font-medium text-red-600">{formatCurrency(po.poAmountPkr)}</span> },
-                  { key: "totalLandedCost", header: "Landed Cost", render: (po: PO) => po.totalLandedCost ? <span className="text-blue-700">{formatCurrency(po.totalLandedCost)}</span> : <span className="text-gray-400">—</span> },
+                  { key: "noOfPanels", header: "Panels", sortable: true, numeric: true, value: (po: PO) => po.noOfPanels, render: (po: PO) => `${po.noOfPanels.toLocaleString()} × ${po.panelWattage}W` },
+                  { key: "totalValueUsd", header: "USD Value", sortable: true, numeric: true, render: (po: PO) => `$${po.totalValueUsd.toLocaleString()}` },
+                  { key: "poAmountPkr", header: "PKR Amount", sortable: true, numeric: true, render: (po: PO) => <span className="font-medium text-red-600">{formatAmount(po.poAmountPkr)}</span> },
+                  { key: "totalLandedCost", header: "Landed Cost (PKR)", numeric: true, render: (po: PO) => po.totalLandedCost ? <span className="text-blue-700">{formatAmount(po.totalLandedCost)}</span> : <span className="text-gray-400">—</span> },
                   { key: "status", header: "Status", render: (po: PO) => <Badge status={po.status} /> },
                 ]}
               />

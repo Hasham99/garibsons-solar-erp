@@ -1,6 +1,9 @@
 "use client"
 
 import { useFetch } from "@/hooks/useFetch"
+import { useAuth } from "@/hooks/useAuth"
+import { motion } from "motion/react"
+import { Stagger, StaggerItem } from "@/components/motion/Motion"
 import { StatCard } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { DashboardSkeleton } from "@/components/ui/Skeleton"
@@ -129,6 +132,17 @@ const SO_STATUS_COLORS: Record<string, string> = {
   INVOICED: "#22c55e",
 }
 
+/* Status-tinted rows for the recent orders list — left stripe + soft wash */
+const SO_ROW_TINTS: Record<string, string> = {
+  DRAFT: "border-slate-300 bg-slate-50/60 hover:bg-slate-100/70",
+  PENDING_PAYMENT: "border-amber-400 bg-amber-50/60 hover:bg-amber-50",
+  PAYMENT_CONFIRMED: "border-teal-400 bg-teal-50/50 hover:bg-teal-50/80",
+  DO_ISSUED: "border-blue-400 bg-blue-50/50 hover:bg-blue-50/80",
+  DELIVERED: "border-indigo-400 bg-indigo-50/50 hover:bg-indigo-50/80",
+  INVOICED: "border-emerald-400 bg-emerald-50/50 hover:bg-emerald-50/80",
+  CANCELLED: "border-rose-400 bg-rose-50/50 hover:bg-rose-50/80",
+}
+
 /* Compact PKR for chart axes: Rs 12.4M / Rs 850K */
 function fmtCompact(v: number): string {
   const abs = Math.abs(v)
@@ -148,6 +162,7 @@ function statusLabel(s: string) {
 
 export default function DashboardPage() {
   const { data, loading } = useFetch<DashboardData>("/api/dashboard")
+  const { user } = useAuth()
 
   if (loading) return <DashboardSkeleton />
 
@@ -163,86 +178,139 @@ export default function DashboardPage() {
   const soTotal = soBreakdown.reduce((s, g) => s + g.count, 0)
   const maxOutstanding = Math.max(...(data?.topOutstanding || []).map((c) => c.outstanding), 1)
 
-  const today = new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+  // Greeting and date anchored to Pakistan time (PKT, UTC+5) regardless of the viewer's device timezone
+  const today = new Date().toLocaleDateString("en-PK", {
+    timeZone: "Asia/Karachi",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+  const pktHour =
+    Number(
+      new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Karachi", hour: "numeric", hour12: false }).format(new Date())
+    ) % 24
+  const greeting = pktHour < 12 ? "Good morning" : pktHour < 17 ? "Good afternoon" : "Good evening"
+  const firstName = user?.name?.split(" ")[0]
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      {/* Page header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Welcome back — here's how Garibsons Solar is doing.</p>
+      {/* Hero header — deep navy gradient with soft solar glows */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0e1526] via-[#142447] to-[#1e3a8a] px-6 py-7 sm:px-8 text-white shadow-pop">
+        <div className="pointer-events-none absolute -top-24 -right-12 h-64 w-64 rounded-full bg-blue-500/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-amber-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-indigo-500/20 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-5">
+          <div>
+            <p className="inline-flex items-center gap-2 text-[13px] font-medium text-blue-200/90">
+              <CalendarClock size={14} />
+              {today}
+            </p>
+            <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight">
+              {greeting}
+              {firstName ? `, ${firstName}` : ""}
+            </h1>
+            <p className="mt-1.5 text-[15px] text-slate-300/90">Here&rsquo;s how Garibsons Solar is doing.</p>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+              <TrendingUp size={14} className="text-emerald-300" />
+              {formatCurrency(summary.todaySales)} sales today
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+              <Banknote size={14} className="text-amber-300" />
+              {formatCurrency(summary.todayCollections)} collected
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+              <Truck size={14} className="text-sky-300" />
+              {summary.openDeliveryOrders} open DOs
+            </span>
+          </div>
         </div>
-        <p className="inline-flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
-          <CalendarClock size={15} className="text-blue-500" />
-          {today}
-        </p>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          title="Sales This Month"
-          value={formatCurrency(summary.monthSales)}
-          subtitle={`${summary.monthSalesCount} orders · ${formatCurrency(summary.todaySales)} today`}
-          trend={salesChange !== null ? { value: salesChange, label: "vs last month" } : undefined}
-          icon={<TrendingUp size={20} />}
-          color="indigo"
-        />
-        <StatCard
-          title="Collections This Month"
-          value={formatCurrency(summary.monthCollections)}
-          subtitle={`${summary.monthCollectionsCount} receipts · ${formatCurrency(summary.todayCollections)} today`}
-          trend={collectionsChange !== null ? { value: collectionsChange, label: "vs last month" } : undefined}
-          icon={<Banknote size={20} />}
-          color="emerald"
-        />
-        <StatCard
-          title="Receivables Outstanding"
-          value={formatCurrency(summary.totalReceivables)}
-          subtitle="Total sales minus collections"
-          icon={<Wallet size={20} />}
-          color="rose"
-        />
-        <StatCard
-          title="Expenses This Month"
-          value={formatCurrency(summary.monthExpenses)}
-          subtitle={`${summary.monthExpensesCount} entries recorded`}
-          icon={<ReceiptText size={20} />}
-          color="pink"
-        />
-        <StatCard
-          title="Stock in Hand"
-          value={`${summary.totalPanels.toLocaleString()} panels`}
-          subtitle={formatCurrency(summary.totalStockValue)}
-          icon={<Package size={20} />}
-          color="blue"
-        />
-        <StatCard
-          title="Available to Sell"
-          value={`${summary.availablePanels.toLocaleString()} panels`}
-          subtitle={formatCurrency(summary.availableStockValue)}
-          icon={<PackageCheck size={20} />}
-          color="green"
-        />
-        <StatCard
-          title="POs in Pipeline"
-          value={summary.activePOs}
-          subtitle={`${summary.activePOPanels.toLocaleString()} panels · ${formatCurrency(summary.activePOValue)}`}
-          icon={<ShoppingCart size={20} />}
-          color="violet"
-        />
-        <StatCard
-          title="Open Delivery Orders"
-          value={summary.openDeliveryOrders}
-          subtitle={`${summary.agingDeliveryOrders} aging 2+ days`}
-          icon={<Truck size={20} />}
-          color="amber"
-        />
-      </div>
+      {/* KPI cards — cascade in one after another */}
+      <Stagger className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <StaggerItem className="h-full">
+          <StatCard
+            title="Sales This Month"
+            value={formatCurrency(summary.monthSales)}
+            subtitle={`${summary.monthSalesCount} orders · ${formatCurrency(summary.todaySales)} today`}
+            trend={salesChange !== null ? { value: salesChange, label: "vs last month" } : undefined}
+            spark={trend.map((m) => m.sales)}
+            icon={<TrendingUp size={20} />}
+            color="indigo"
+          />
+        </StaggerItem>
+        <StaggerItem className="h-full">
+          <StatCard
+            title="Collections This Month"
+            value={formatCurrency(summary.monthCollections)}
+            subtitle={`${summary.monthCollectionsCount} receipts · ${formatCurrency(summary.todayCollections)} today`}
+            trend={collectionsChange !== null ? { value: collectionsChange, label: "vs last month" } : undefined}
+            spark={trend.map((m) => m.collections)}
+            icon={<Banknote size={20} />}
+            color="emerald"
+          />
+        </StaggerItem>
+        <StaggerItem className="h-full">
+          <StatCard
+            title="Receivables Outstanding"
+            value={formatCurrency(summary.totalReceivables)}
+            subtitle="Total sales minus collections"
+            icon={<Wallet size={20} />}
+            color="rose"
+          />
+        </StaggerItem>
+        <StaggerItem className="h-full">
+          <StatCard
+            title="Expenses This Month"
+            value={formatCurrency(summary.monthExpenses)}
+            subtitle={`${summary.monthExpensesCount} entries recorded`}
+            icon={<ReceiptText size={20} />}
+            color="pink"
+          />
+        </StaggerItem>
+        <StaggerItem className="h-full">
+          <StatCard
+            title="Stock in Hand"
+            value={`${summary.totalPanels.toLocaleString()} panels`}
+            subtitle={formatCurrency(summary.totalStockValue)}
+            icon={<Package size={20} />}
+            color="blue"
+          />
+        </StaggerItem>
+        <StaggerItem className="h-full">
+          <StatCard
+            title="Available to Sell"
+            value={`${summary.availablePanels.toLocaleString()} panels`}
+            subtitle={formatCurrency(summary.availableStockValue)}
+            icon={<PackageCheck size={20} />}
+            color="green"
+          />
+        </StaggerItem>
+        <StaggerItem className="h-full">
+          <StatCard
+            title="POs in Pipeline"
+            value={summary.activePOs}
+            subtitle={`${summary.activePOPanels.toLocaleString()} panels · ${formatCurrency(summary.activePOValue)}`}
+            icon={<ShoppingCart size={20} />}
+            color="violet"
+          />
+        </StaggerItem>
+        <StaggerItem className="h-full">
+          <StatCard
+            title="Open Delivery Orders"
+            value={summary.openDeliveryOrders}
+            subtitle={`${summary.agingDeliveryOrders} aging 2+ days`}
+            icon={<Truck size={20} />}
+            color="amber"
+          />
+        </StaggerItem>
+      </Stagger>
 
       {/* Secondary stat strip */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70 px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
         <div className="flex items-center gap-3">
           <span className="p-2 rounded-lg bg-amber-50 text-amber-600"><Lock size={16} /></span>
           <div className="min-w-0">
@@ -262,7 +330,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3 pt-4 sm:pt-0 sm:pl-4">
           <span className="p-2 rounded-lg bg-blue-50 text-blue-600"><CalendarClock size={16} /></span>
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">Today's Activity</p>
+            <p className="text-xs text-slate-500">Today&rsquo;s Activity</p>
             <p className="text-sm font-semibold text-slate-900 tabular-nums">
               {summary.todaySalesCount} sales · {summary.todayCollectionsCount} receipts
             </p>
@@ -272,7 +340,7 @@ export default function DashboardPage() {
 
       {/* Trend + PO pipeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
           <div className="mb-4">
             <h3 className="font-semibold text-slate-900">Sales vs Collections</h3>
             <p className="text-xs text-slate-500 mt-0.5">Last 6 months</p>
@@ -280,18 +348,25 @@ export default function DashboardPage() {
           {trend.some((m) => m.sales > 0 || m.collections > 0) ? (
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={trend} margin={{ left: 8, right: 8 }}>
+                <defs>
+                  <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="#818cf8" stopOpacity={0.65} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={fmtCompact} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={52} />
                 <Tooltip
                   formatter={(value, name) => [formatCurrency(Number(value)), name === "sales" ? "Sales" : "Collections"]}
-                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)", fontSize: 13 }}
+                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.1)", fontSize: 13 }}
+                  cursor={{ fill: "rgba(99,102,241,0.05)" }}
                 />
                 <Legend
                   formatter={(value) => (value === "sales" ? "Sales" : "Collections")}
                   wrapperStyle={{ fontSize: 13 }}
                 />
-                <Bar dataKey="sales" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="sales" fill="url(#salesGradient)" radius={[6, 6, 0, 0]} maxBarSize={36} />
                 <Line type="monotone" dataKey="collections" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4, fill: "#10b981" }} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -300,7 +375,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
           <div className="mb-4">
             <h3 className="font-semibold text-slate-900">Purchase Pipeline</h3>
             <p className="text-xs text-slate-500 mt-0.5">All purchase orders by status</p>
@@ -351,7 +426,7 @@ export default function DashboardPage() {
 
       {/* Sales order pipeline — segmented bar */}
       {soTotal > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-900">Sales Order Pipeline</h3>
             <span className="text-xs text-slate-500">{soTotal} active orders</span>
@@ -379,7 +454,7 @@ export default function DashboardPage() {
 
       {/* Warehouse stock + top outstanding */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
           <div className="mb-4">
             <h3 className="font-semibold text-slate-900">Stock by Warehouse</h3>
             <p className="text-xs text-slate-500 mt-0.5">Available vs reserved panels</p>
@@ -387,16 +462,27 @@ export default function DashboardPage() {
           {data?.warehouseStock && data.warehouseStock.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={data.warehouseStock} margin={{ left: 8, right: 8 }}>
+                <defs>
+                  <linearGradient id="availableGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.7} />
+                  </linearGradient>
+                  <linearGradient id="reservedGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.7} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={44} />
                 <Tooltip
                   formatter={(value, name) => [Number(value).toLocaleString() + " panels", name === "availablePanels" ? "Available" : "Reserved"]}
-                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)", fontSize: 13 }}
+                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.1)", fontSize: 13 }}
+                  cursor={{ fill: "rgba(59,130,246,0.05)" }}
                 />
                 <Legend formatter={(value) => (value === "availablePanels" ? "Available" : "Reserved")} wrapperStyle={{ fontSize: 13 }} />
-                <Bar dataKey="availablePanels" stackId="stock" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={48} />
-                <Bar dataKey="reservedPanels" stackId="stock" fill="#fbbf24" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                <Bar dataKey="availablePanels" stackId="stock" fill="url(#availableGradient)" radius={[0, 0, 0, 0]} maxBarSize={48} />
+                <Bar dataKey="reservedPanels" stackId="stock" fill="url(#reservedGradient)" radius={[6, 6, 0, 0]} maxBarSize={48} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -404,7 +490,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
           <div className="mb-4">
             <h3 className="font-semibold text-slate-900">Top Outstanding Customers</h3>
             <p className="text-xs text-slate-500 mt-0.5">Highest receivable balances</p>
@@ -418,9 +504,11 @@ export default function DashboardPage() {
                     <p className="text-[13px] font-semibold text-slate-900 tabular-nums shrink-0">{formatCurrency(c.outstanding)}</p>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-rose-400 to-rose-500 transition-all duration-500"
-                      style={{ width: `${Math.max((c.outstanding / maxOutstanding) * 100, 4)}%` }}
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-rose-400 to-rose-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max((c.outstanding / maxOutstanding) * 100, 4)}%` }}
+                      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
                     />
                   </div>
                 </div>
@@ -437,23 +525,29 @@ export default function DashboardPage() {
       {/* Recent activity + low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Sales Orders */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
           <div className="px-6 py-4 border-b border-slate-100">
             <h3 className="font-semibold text-slate-900">Recent Sales Orders</h3>
           </div>
           <div className="divide-y divide-slate-50">
             {data?.recentOrders && data.recentOrders.length > 0 ? (
               data.recentOrders.slice(0, 6).map((order) => (
-                <div key={order.id} className="px-6 py-3 flex items-center justify-between gap-2 hover:bg-slate-50/70 transition-colors">
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm text-slate-900">{order.soNumber}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {order.customer.name} &middot; {formatDate(order.createdAt)}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-medium text-slate-900 tabular-nums">{formatCurrency(order.grandTotal)}</p>
-                    <Badge status={order.status} />
+                <div
+                  key={order.id}
+                  className={`px-5 py-3 border-l-4 transition-colors ${SO_ROW_TINTS[order.status] || "border-slate-200 hover:bg-slate-50/70"}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    {/* left column wraps freely; right column stays fixed and right-aligned */}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-slate-900">{order.soNumber}</p>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        {order.customer.name} &middot; {formatDate(order.createdAt)}
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      <p className="text-sm font-semibold text-slate-900 tabular-nums">{formatCurrency(order.grandTotal)}</p>
+                      <Badge status={order.status} />
+                    </div>
                   </div>
                 </div>
               ))
@@ -464,22 +558,22 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Collections */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
           <div className="px-6 py-4 border-b border-slate-100">
             <h3 className="font-semibold text-slate-900">Recent Collections</h3>
           </div>
           <div className="divide-y divide-slate-50">
             {data?.recentReceipts && data.recentReceipts.length > 0 ? (
               data.recentReceipts.slice(0, 6).map((r) => (
-                <div key={r.id} className="px-6 py-3 flex items-center justify-between gap-2 hover:bg-slate-50/70 transition-colors">
-                  <div className="min-w-0">
+                <div key={r.id} className="px-6 py-3 hover:bg-slate-50/70 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
                     <p className="font-medium text-sm text-slate-900">{r.customer.name}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {r.receiptNo} &middot; {r.bank.name} &middot; {formatDate(r.valueDate)}
+                    <p className="text-sm font-semibold text-emerald-600 tabular-nums shrink-0">
+                      +{formatCurrency(r.amount)}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-emerald-600 tabular-nums shrink-0">
-                    +{formatCurrency(r.amount)}
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {r.receiptNo} &middot; {r.bank.name} &middot; {formatDate(r.valueDate)}
                   </p>
                 </div>
               ))
@@ -490,7 +584,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Low Stock Alerts */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
             <AlertTriangle size={16} className="text-amber-500" />
             <h3 className="font-semibold text-slate-900">Low Stock Alerts</h3>
@@ -498,9 +592,9 @@ export default function DashboardPage() {
           <div className="divide-y divide-slate-50">
             {data?.lowStock && data.lowStock.length > 0 ? (
               data.lowStock.map((p) => (
-                <div key={p.code} className="px-6 py-3 flex items-center justify-between gap-2 hover:bg-slate-50/70 transition-colors">
+                <div key={p.code} className="px-6 py-3 flex items-start justify-between gap-2 hover:bg-slate-50/70 transition-colors">
                   <div className="min-w-0">
-                    <p className="font-medium text-sm text-slate-900 truncate" title={p.name}>{p.name}</p>
+                    <p className="font-medium text-sm text-slate-900">{p.name}</p>
                     <p className="text-xs text-slate-500">{p.code} &middot; {p.wattage}W &middot; threshold {p.threshold}</p>
                   </div>
                   <span

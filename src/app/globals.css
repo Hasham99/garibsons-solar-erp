@@ -10,9 +10,16 @@
   --color-brand-600: #2563eb;
   --color-brand-700: #1d4ed8;
 
+  /* Soft elevation — calm layered shadows instead of hard borders */
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 4px -1px rgb(15 23 42 / 0.04);
+  --shadow-card-hover: 0 6px 16px -4px rgb(15 23 42 / 0.1), 0 2px 6px -2px rgb(15 23 42 / 0.05);
+  --shadow-pop: 0 12px 32px -8px rgb(15 23 42 / 0.18), 0 4px 12px -4px rgb(15 23 42 / 0.08);
+
   --animate-fade-in: fade-in 0.3s ease-out both;
-  --animate-fade-in-up: fade-in-up 0.35s ease-out both;
-  --animate-scale-in: scale-in 0.2s ease-out both;
+  --animate-fade-in-up: fade-in-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scale-in: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-slide-down: slide-down 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-shake: shake 0.4s ease-in-out both;
 
   @keyframes fade-in {
     from { opacity: 0; }
@@ -20,7 +27,7 @@
   }
 
   @keyframes fade-in-up {
-    from { opacity: 0; transform: translateY(8px); }
+    from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
@@ -28,16 +35,73 @@
     from { opacity: 0; transform: scale(0.97); }
     to { opacity: 1; transform: scale(1); }
   }
+
+  @keyframes slide-down {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(2px); }
+  }
+}
+
+/* Slightly smaller base — scales all rem-based text and spacing down ~6% so the
+   whole ERP reads more compact (dashboard, headings, padding). Fixed-px labels
+   stay put, so only the oversized elements shrink. */
+html {
+  font-size: 15px;
 }
 
 :root {
-  --background: #f8fafc;
+  --background: #f4f6fa;
   --foreground: #0f172a;
 }
 
+/* Soft ambient glow — blue sky top-right, solar amber bottom-left */
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(1100px 700px at 88% -10%, rgb(59 130 246 / 0.08), transparent 60%),
+    radial-gradient(900px 650px at -8% 105%, rgb(245 158 11 / 0.07), transparent 60%),
+    radial-gradient(800px 600px at 50% 55%, rgb(99 102 241 / 0.04), transparent 65%);
   color: var(--foreground);
+}
+
+/* Brand-tinted text selection */
+::selection {
+  background: #bfdbfe;
+  color: #1e3a8a;
+}
+
+/* Numbers align vertically in every table column (amounts, quantities, dates) */
+td,
+th {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Space Mono for numeric figures — every money/quantity value across the app
+   already carries `tabular-nums`, so the mono treatment lands exactly on numbers
+   (dashboard, tables, stock reports) without touching labels or names. */
+.tabular-nums {
+  font-family: var(--font-space-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shimmer sweep for skeleton loaders — softer than a flat pulse */
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #e9edf3 25%, #f3f6fa 45%, #e9edf3 65%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.6s ease infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 /* ── Sidebar scrollbar ── */
@@ -81,7 +145,25 @@ main::-webkit-scrollbar-thumb:hover {
   background-color: #94a3b8;
 }
 
+/* Users who prefer reduced motion get instant transitions everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @media print {
+  /* Printed documents (invoices, DOs, reports) keep the normal font — the mono
+     numeric treatment is screen-only, never on printed/PDF output. */
+  .tabular-nums {
+    font-family: inherit;
+  }
+
   /* Hide sidebar, header chrome, and action buttons when printing any dashboard page */
   nav,
   aside,

@@ -9,10 +9,10 @@ import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Plus, Pencil, ChevronDown } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface Product {
   id: string
@@ -127,6 +127,11 @@ export default function ProductsPage() {
     else toast.error("Failed")
   }
 
+  const productRowActions = (row: Product): RowAction[] => [
+    { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+    ...(row.active ? [{ label: "Deactivate", danger: true, onClick: () => handleDeactivate(row.id) }] : []),
+  ]
+
   const panelsPerContainer = parseFloat(form.panelsPerContainer) || 0
   const palletsPerContainer = parseFloat(form.palletsPerContainer) || 0
   const wattage = parseFloat(form.wattage) || 0
@@ -138,7 +143,6 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -156,6 +160,7 @@ export default function ProductsPage() {
           { label: "Pallets / Container", value: detailRow.palletsPerContainer?.toLocaleString() || "—" },
           { label: "Default Supplier", value: detailRow.defaultSupplier?.name || "—" },
         ] : []}
+        actions={detailRow ? productRowActions(detailRow) : []}
       />
       <Header
         title="Products"
@@ -164,7 +169,7 @@ export default function ProductsPage() {
       />
 
       {/* Brand selector */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-600">Brand</span>
@@ -237,7 +242,7 @@ export default function ProductsPage() {
                   </div>
                 ),
               },
-              { key: "wattage", header: "Wattage", sortable: true, value: (p: Product) => p.wattage, render: (p: Product) => <span className="font-medium">{p.wattage}W</span> },
+              { key: "wattage", header: "Wattage", sortable: true, numeric: true, value: (p: Product) => p.wattage, render: (p: Product) => <span className="font-medium">{p.wattage}W</span> },
               {
                 key: "packing", header: "Packing",
                 render: (p: Product) => {
@@ -258,10 +263,7 @@ export default function ProductsPage() {
               {
                 key: "actions", header: "Actions",
                 render: (p: Product) => (
-                  <RowActionsMenu actions={[
-                    { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(p) },
-                    ...(p.active ? [{ label: "Deactivate", danger: true, onClick: () => handleDeactivate(p.id) }] : []),
-                  ]} />
+                  <RowActionsMenu actions={productRowActions(p)} />
                 ),
               },
             ]}

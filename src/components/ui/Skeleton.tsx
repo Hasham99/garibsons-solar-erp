@@ -1,5 +1,5 @@
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+  return <div className={`skeleton-shimmer rounded ${className}`} />
 }
 
 export function TableSkeleton({ columns = 5, rows = 8, title }: { columns?: number; rows?: number; title?: string }) {

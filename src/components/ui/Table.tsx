@@ -1,7 +1,8 @@
 "use client"
 
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react"
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search, SlidersHorizontal, X } from "lucide-react"
+import { ChevronUp, ChevronDown, ChevronsUpDown, Search, SlidersHorizontal, X, Inbox, SearchX } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface Column<T = any> {
@@ -10,6 +11,11 @@ export interface Column<T = any> {
   render?: (row: T) => ReactNode
   sortable?: boolean
   className?: string
+  /**
+   * Marks this as a numeric column — renders its cells in the tabular mono
+   * figure font (Space Mono) so amounts/quantities line up cleanly.
+   */
+  numeric?: boolean
   /**
    * Returns the primitive value used for sorting AND searching this column.
    * Provide this for columns whose data is nested or rendered (e.g. customer.name),
@@ -66,6 +72,20 @@ function getPath(obj: unknown, path: string): unknown {
   return path.split(".").reduce<unknown>((acc, k) => (acc == null ? acc : (acc as Record<string, unknown>)[k]), obj)
 }
 
+interface PersistedTableState {
+  pageSize?: number
+  filterState?: Record<string, string | { from?: string; to?: string }>
+}
+
+function readTableState(key: string | null): PersistedTableState | null {
+  if (!key) return null
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null")
+  } catch {
+    return null
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function Table<T extends Record<string, any>>({
   columns,
@@ -85,15 +105,46 @@ export function Table<T extends Record<string, any>>({
   defaultSortKey,
   defaultSortDir = "desc",
 }: TableProps<T>) {
+  // Filters and page size persist per table (keyed by URL + column set) so
+  // every page reopens the way the user left it. Tables only mount client-side
+  // (pages render skeletons while data loads), so reading localStorage in the
+  // lazy initializers is hydration-safe.
+  const persistKey =
+    typeof window === "undefined"
+      ? null
+      : `gbs-table:${window.location.pathname}${window.location.search}:${columns.map((c) => c.key).join("|")}`
+
   const [sortKey, setSortKey] = useState<string | null>(defaultSortKey ?? null)
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortKey ? defaultSortDir : "asc")
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(initialPageSize)
+  const [pageSize, setPageSize] = useState(() => readTableState(persistKey)?.pageSize ?? initialPageSize)
   const [query, setQuery] = useState("")
   // select filters: key -> value ; date filters: key -> { from, to }
-  const [filterState, setFilterState] = useState<Record<string, string | { from?: string; to?: string }>>({})
+  const [filterState, setFilterState] = useState<Record<string, string | { from?: string; to?: string }>>(
+    () => readTableState(persistKey)?.filterState ?? {}
+  )
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!persistKey) return
+    localStorage.setItem(persistKey, JSON.stringify({ pageSize, filterState }))
+  }, [persistKey, pageSize, filterState])
+
+  // "/" focuses the table search from anywhere on the page
+  useEffect(() => {
+    if (!searchable) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/") return
+      const t = e.target as HTMLElement
+      if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [searchable])
 
   // Close filter popover on outside click / Escape
   useEffect(() => {
@@ -252,8 +303,8 @@ export function Table<T extends Record<string, any>>({
 
   const thClass = compact
     ? `px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`
-    : `px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap`
-  const tdClass = compact ? `px-2 py-1.5 text-xs text-gray-900` : `px-3 py-2.5 text-[13px] text-gray-900`
+    : `px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap`
+  const tdClass = compact ? `px-2 py-1.5 text-xs text-gray-900` : `px-3 py-2 text-[12px] text-gray-900`
 
   const showToolbar = searchable || resolvedFilters.length > 0
 
@@ -267,13 +318,14 @@ export function Table<T extends Record<string, any>>({
             <div className="relative flex-1 max-w-sm">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
+                ref={searchRef}
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value)
                   setPage(1)
                 }}
                 placeholder={searchPlaceholder}
-                className="block w-full rounded-md border border-gray-300 bg-white pl-9 pr-8 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full rounded-lg border border-slate-300 bg-white pl-9 pr-8 py-1.5 text-[13px] shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
               />
               {query && (
                 <button
@@ -293,7 +345,7 @@ export function Table<T extends Record<string, any>>({
               <button
                 type="button"
                 onClick={() => setFilterOpen((o) => !o)}
-                className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm shadow-sm transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] shadow-sm transition-colors ${
                   activeFilterCount > 0
                     ? "border-blue-500 bg-blue-50 text-blue-700"
                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -308,8 +360,14 @@ export function Table<T extends Record<string, any>>({
                 )}
               </button>
 
+              <AnimatePresence>
               {filterOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                  className="absolute right-0 z-20 mt-2 w-72 origin-top-right rounded-xl border border-slate-200 bg-white p-4 shadow-pop">
                   <div className="mb-3 flex items-center justify-between">
                     <span className="text-sm font-semibold text-gray-900">Filters</span>
                     {activeFilterCount > 0 && (
@@ -374,14 +432,39 @@ export function Table<T extends Record<string, any>>({
                       </div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
           )}
         </div>
       )}
 
-      <div className={compact ? "w-full" : "overflow-x-auto"}>
+      {/* Mobile: rows render as stacked label/value cards — squeezed tables are unreadable on phones */}
+      {!compact && pageData.length > 0 && (
+        <div className="md:hidden divide-y divide-slate-100">
+          {pageData.map((row, idx) => (
+            <div
+              key={rowKeys[idx]}
+              className={`px-4 py-3 space-y-2 ${onRowClick ? "cursor-pointer active:bg-slate-50" : ""} ${rowClassName?.(row) || ""}`}
+              onClick={() => onRowClick?.(row)}
+            >
+              {columns.map((col) => (
+                <div key={col.key} className="flex items-start justify-between gap-3">
+                  <span className="shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    {col.header}
+                  </span>
+                  <div className={`min-w-0 text-right text-[13px] text-slate-800 ${col.numeric ? "tabular-nums" : ""}`}>
+                    {col.render ? col.render(row) : String(row[col.key] ?? "")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={`${compact ? "w-full" : "overflow-x-auto"} ${!compact && pageData.length > 0 ? "hidden md:block" : ""}`}>
         <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -411,22 +494,35 @@ export function Table<T extends Record<string, any>>({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody
+            key={`${page}-${pageSize}-${query}-${sortKey}-${sortDir}`}
+            className="bg-white divide-y divide-gray-200 animate-fade-in"
+          >
             {pageData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-12 text-center text-gray-500">
-                  {query || activeFilterCount > 0 ? "No matching records" : emptyMessage}
+                <td colSpan={columns.length} className="px-4 py-14">
+                  <div className="flex flex-col items-center gap-2.5 text-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                      {query || activeFilterCount > 0 ? <SearchX size={22} /> : <Inbox size={22} />}
+                    </span>
+                    <p className="text-sm font-medium text-slate-600">
+                      {query || activeFilterCount > 0 ? "No matching records" : emptyMessage}
+                    </p>
+                    {(query || activeFilterCount > 0) && (
+                      <p className="text-xs text-slate-400">Try adjusting your search or clearing the filters.</p>
+                    )}
+                  </div>
                 </td>
               </tr>
             ) : (
               pageData.map((row, idx) => (
                 <tr
                   key={rowKeys[idx]}
-                  className={`hover:bg-gray-50 transition-colors ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || "bg-white"}`}
+                  className={`hover:bg-blue-50/40 transition-colors duration-150 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || "bg-white"}`}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className={`${tdClass} ${col.className || ""}`}>
+                    <td key={col.key} className={`${tdClass} ${col.numeric ? "tabular-nums" : ""} ${col.className || ""}`}>
                       {col.render ? col.render(row) : String(row[col.key] ?? "")}
                     </td>
                   ))}
@@ -467,19 +563,21 @@ export function Table<T extends Record<string, any>>({
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:hover:border-slate-200 disabled:active:scale-100 transition-all"
             >
+              <ChevronUp size={14} className="-rotate-90" />
               Previous
             </button>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-slate-500 tabular-nums">
               Page {page} of {totalPages}
             </span>
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:hover:border-slate-200 disabled:active:scale-100 transition-all"
             >
               Next
+              <ChevronUp size={14} className="rotate-90" />
             </button>
           </div>
         </div>

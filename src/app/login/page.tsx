@@ -57,7 +57,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex">
       {/* Brand panel */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between overflow-hidden bg-[#0e1526] p-12 text-white">
         {/* brand imagery + legibility overlay */}
@@ -70,6 +70,9 @@ export default function LoginPage() {
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0e1526]/85 via-[#0e1526]/55 to-[#0e1526]/90" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
+        {/* soft solar glows — same language as the dashboard hero */}
+        <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 -right-16 h-80 w-80 rounded-full bg-amber-400/15 blur-3xl" />
 
         <div className="relative">
           <div className="flex items-center gap-3">
@@ -111,8 +114,11 @@ export default function LoginPage() {
       </div>
 
       {/* Form panel */}
-      <div className="flex-1 flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md animate-fade-in-up">
+      <div className="relative flex-1 flex items-center justify-center overflow-hidden px-4 py-10">
+        {/* ambient glow behind the card */}
+        <div className="pointer-events-none absolute -top-32 right-0 h-80 w-80 rounded-full bg-blue-400/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative w-full max-w-md animate-fade-in-up">
           {/* Mobile-only logo */}
           <div className="text-center mb-8 lg:hidden">
             <div className="inline-flex h-14 w-14 rounded-2xl bg-white border border-slate-200 items-center justify-center shadow-lg shadow-slate-200 mb-4 p-2.5">
@@ -132,7 +138,7 @@ export default function LoginPage() {
             <IdleNotice />
           </Suspense>
 
-          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-200 p-8">
+          <div className="bg-white/90 backdrop-blur rounded-2xl shadow-pop border border-slate-200/70 p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
@@ -186,7 +192,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium py-2.5 px-4 rounded-lg shadow-md shadow-blue-200 hover:from-blue-700 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg shadow-md shadow-blue-600/25 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/25 hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {loading ? (
                   <>

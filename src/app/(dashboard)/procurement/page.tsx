@@ -8,13 +8,14 @@ import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
 import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
+import { Drawer } from "@/components/ui/Drawer"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
-import { formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
+import { formatAmount, formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
 import { Plus, FileCheck, Upload, Paperclip, Trash2, ExternalLink, Pencil } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 const DOC_TYPES = [
   "Proforma Invoice",
@@ -349,8 +350,29 @@ export default function ProcurementPage() {
     else toast.error("Failed to remove document")
   }
 
+  // Single source of truth for PO row actions — shown in the table's 3-dot
+  // menu and at the bottom of the detail drawer.
+  const poRowActions = (row: PO): RowAction[] => {
+    const actions: RowAction[] = []
+    if (row.status !== "RECEIVED") {
+      actions.push({ label: "Edit", icon: <Pencil size={15} />, onClick: () => openEditPO(row) })
+    }
+    if (row.status === "DRAFT") {
+      actions.push({ label: "Confirm", icon: <FileCheck size={15} />, onClick: () => handleStatusChange(row.id, "CONFIRMED") })
+    }
+    if (row.status === "CONFIRMED" && row.lcType !== "LOCAL") {
+      actions.push({ label: "Mark Shipped", onClick: () => handleStatusChange(row.id, "SHIPPED") })
+    }
+    if (row.status === "SHIPPED" || row.status === "READY_TO_RECEIVE") {
+      actions.push({ label: row.status === "READY_TO_RECEIVE" ? "Edit Clearing" : "Clearing", icon: <FileCheck size={15} />, onClick: () => openCosting(row) })
+    }
+    actions.push({ label: "Documents", icon: <Paperclip size={15} />, onClick: () => openDocs(row) })
+    return actions
+  }
+
   const columns = [
     { key: "poNumber", header: "PO Number", sortable: true },
+    { key: "createdAt", header: "Date", numeric: true, render: (row: PO) => formatDate(row.createdAt) },
     { key: "product", header: "Product", sortable: true, value: (row: PO) => row.product?.name, render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-gray-400">{row.product?.code}</p></div> },
     { key: "supplier", header: "Supplier", sortable: true, value: (row: PO) => row.supplier?.name || "—", render: (row: PO) => row.supplier?.name || "—" },
     { key: "lcNumber", header: "LC No.", render: (row: PO) => (
@@ -358,37 +380,27 @@ export default function ProcurementPage() {
         ? <span className="text-xs font-medium text-gray-800">{row.lcNumber}</span>
         : <span className="text-gray-400 text-xs">—</span>
     )},
-    { key: "noOfPanels", header: "Quantity", render: (row: PO) => `${row.noOfPanels.toLocaleString()} × ${row.panelWattage}W` },
+    { key: "noOfPanels", header: "Quantity", numeric: true, render: (row: PO) => `${row.noOfPanels.toLocaleString()} × ${row.panelWattage}W` },
     {
-      key: "totalValueUsd", header: "USD Value",
+      key: "totalValueUsd", header: "Value (USD)", numeric: true,
       render: (row: PO) => row.totalValueUsd > 0
-        ? `$${row.totalValueUsd.toLocaleString()}`
+        ? row.totalValueUsd.toLocaleString()
         : <span className="text-gray-400">—</span>
     },
-    { key: "poAmountPkr", header: "PKR Amount", render: (row: PO) => formatCurrency(row.poAmountPkr) },
-    { key: "landedCostPerPanel", header: "Landed/Panel", render: (row: PO) => row.landedCostPerPanel ? formatCurrency(row.landedCostPerPanel) : <span className="text-gray-400">—</span> },
+    { key: "poAmountPkr", header: "PKR Amount (PKR)", numeric: true, render: (row: PO) => formatAmount(row.poAmountPkr) },
+    { key: "landedCostPerPanel", header: "Landed/Panel (PKR)", numeric: true, render: (row: PO) => row.landedCostPerPanel ? formatAmount(row.landedCostPerPanel) : <span className="text-gray-400">—</span> },
     { key: "status", header: "Status", render: (row: PO) => <Badge status={row.status} /> },
-    { key: "createdAt", header: "Date", render: (row: PO) => formatDate(row.createdAt) },
     {
       key: "actions",
       header: "Actions",
-      render: (row: PO) => {
-        const actions = []
-        if (row.status !== "RECEIVED") {
-          actions.push({ label: "Edit", icon: <Pencil size={15} />, onClick: () => openEditPO(row) })
-        }
-        if (row.status === "DRAFT") {
-          actions.push({ label: "Confirm", icon: <FileCheck size={15} />, onClick: () => handleStatusChange(row.id, "CONFIRMED") })
-        }
-        if (row.status === "CONFIRMED" && row.lcType !== "LOCAL") {
-          actions.push({ label: "Mark Shipped", onClick: () => handleStatusChange(row.id, "SHIPPED") })
-        }
-        if (row.status === "SHIPPED" || row.status === "READY_TO_RECEIVE") {
-          actions.push({ label: row.status === "READY_TO_RECEIVE" ? "Edit Clearing" : "Clearing", icon: <FileCheck size={15} />, onClick: () => openCosting(row) })
-        }
-        actions.push({ label: "Documents", icon: <Paperclip size={15} />, onClick: () => openDocs(row) })
-        return <RowActionsMenu actions={actions} />
-      },
+      render: (row: PO) => (
+        <RowActionsMenu
+          actions={[
+            { label: "View Details", icon: <ExternalLink size={15} />, onClick: () => openDetail(row) },
+            ...poRowActions(row),
+          ]}
+        />
+      ),
     },
   ]
 
@@ -396,7 +408,6 @@ export default function ProcurementPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
       <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" title="Upload document" onChange={handleDocUpload} />
 
       <Header
@@ -421,7 +432,7 @@ export default function ProcurementPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={pos || []}
@@ -439,8 +450,8 @@ export default function ProcurementPage() {
         />
       </div>
 
-      {/* ── PO Detail / Preview Popup ── */}
-      <Modal isOpen={showDetail} onClose={() => { setShowDetail(false); setSelectedPO(null) }} title={`PO Details — ${selectedPO?.poNumber}`} size="lg">
+      {/* ── PO Detail slide-over ── */}
+      <Drawer isOpen={showDetail} onClose={() => { setShowDetail(false); setSelectedPO(null) }} title={`PO Details — ${selectedPO?.poNumber}`} size="xl">
         {selectedPO && (
           <div className="space-y-5 text-sm">
 
@@ -485,12 +496,12 @@ export default function ProcurementPage() {
                 {selectedPO.leadTimeDays && (
                   <div>
                     <p className="text-xs text-gray-500">Lead Time</p>
-                    <p className="font-semibold text-gray-900">{selectedPO.leadTimeDays} days</p>
+                    <p className="font-semibold text-gray-900 tabular-nums">{selectedPO.leadTimeDays} days</p>
                   </div>
                 )}
                 <div>
                   <p className="text-xs text-gray-500">Created</p>
-                  <p className="font-semibold text-gray-900">{formatDate(selectedPO.createdAt)}</p>
+                  <p className="font-semibold text-gray-900 tabular-nums">{formatDate(selectedPO.createdAt)}</p>
                 </div>
               </div>
             </div>
@@ -501,16 +512,16 @@ export default function ProcurementPage() {
               <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                 <div>
                   <p className="text-xs text-gray-500">No. of Panels</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.noOfPanels.toLocaleString()}</p>
+                  <p className="font-semibold text-gray-900 tabular-nums">{selectedPO.noOfPanels.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Panel Wattage</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.panelWattage}W</p>
+                  <p className="font-semibold text-gray-900 tabular-nums">{selectedPO.panelWattage}W</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Total Watts</p>
-                  <p className="font-semibold text-gray-900">{(selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage).toLocaleString()} W</p>
-                  <p className="text-xs text-gray-400">{((selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage) / 1000).toFixed(1)} kW</p>
+                  <p className="font-semibold text-gray-900 tabular-nums">{(selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage).toLocaleString()} W</p>
+                  <p className="text-xs text-gray-400 tabular-nums">{((selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage) / 1000).toFixed(1)} kW</p>
                 </div>
                 {(() => {
                   const ppc = selectedPO.product?.panelsPerContainer
@@ -519,12 +530,12 @@ export default function ProcurementPage() {
                     <>
                       <div>
                         <p className="text-xs text-gray-500">No. of Containers</p>
-                        <p className="font-semibold text-blue-700">{computed}</p>
+                        <p className="font-semibold text-blue-700 tabular-nums">{computed}</p>
                       </div>
                       {selectedPO.noOfPallets && (
                         <div>
                           <p className="text-xs text-gray-500">No. of Pallets</p>
-                          <p className="font-semibold text-gray-900">{selectedPO.noOfPallets}</p>
+                          <p className="font-semibold text-gray-900 tabular-nums">{selectedPO.noOfPallets}</p>
                         </div>
                       )}
                     </>
@@ -533,25 +544,25 @@ export default function ProcurementPage() {
                 {selectedPO.lcType !== "LOCAL" && (
                   <div>
                     <p className="text-xs text-gray-500">USD per Watt</p>
-                    <p className="font-semibold text-gray-900">${selectedPO.usdPerWatt?.toFixed(4)}</p>
+                    <p className="font-semibold text-gray-900 tabular-nums">${selectedPO.usdPerWatt?.toFixed(4)}</p>
                   </div>
                 )}
                 {selectedPO.exchangeRate && (
                   <div>
                     <p className="text-xs text-gray-500">Exchange Rate</p>
-                    <p className="font-semibold text-gray-900">Rs {selectedPO.exchangeRate.rate}</p>
+                    <p className="font-semibold text-gray-900 tabular-nums">Rs {selectedPO.exchangeRate.rate}</p>
                     <p className="text-xs text-gray-400">{selectedPO.exchangeRate.source}{selectedPO.exchangeRate.notes ? ` · ${selectedPO.exchangeRate.notes}` : ""}</p>
                   </div>
                 )}
                 {selectedPO.totalValueUsd > 0 && (
                   <div>
                     <p className="text-xs text-gray-500">Total USD Value</p>
-                    <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                    <p className="font-semibold text-gray-900 tabular-nums">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 <div>
                   <p className="text-xs text-gray-500">PKR Amount (at booking)</p>
-                  <p className="font-semibold text-gray-900">{formatCurrency(selectedPO.poAmountPkr)}</p>
+                  <p className="font-semibold text-gray-900 tabular-nums">{formatCurrency(selectedPO.poAmountPkr)}</p>
                 </div>
               </div>
             </div>
@@ -567,11 +578,11 @@ export default function ProcurementPage() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Landed Cost/Watt</p>
-                    <p className="font-semibold text-blue-700">Rs {selectedPO.costing.landedCostPerWatt?.toFixed(2)}</p>
+                    <p className="font-semibold text-blue-700 tabular-nums">Rs {selectedPO.costing.landedCostPerWatt?.toFixed(2)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Landed Cost/Panel</p>
-                    <p className="font-semibold text-blue-700">{formatCurrency(selectedPO.costing.landedCostPerPanel)}</p>
+                    <p className="font-semibold text-blue-700 tabular-nums">{formatCurrency(selectedPO.costing.landedCostPerPanel)}</p>
                   </div>
                 </div>
               </div>
@@ -588,19 +599,19 @@ export default function ProcurementPage() {
                     {selectedPO.totalValueUsd > 0 && (
                       <div>
                         <p className="text-xs text-amber-700">PO USD Value</p>
-                        <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                        <p className="font-semibold text-gray-900 tabular-nums">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                       </div>
                     )}
                     {selectedPO.exchangeRate && (
                       <div>
                         <p className="text-xs text-amber-700">Rate at Booking</p>
-                        <p className="font-semibold text-gray-900">Rs {selectedPO.exchangeRate.rate}</p>
+                        <p className="font-semibold text-gray-900 tabular-nums">Rs {selectedPO.exchangeRate.rate}</p>
                       </div>
                     )}
                     {selectedPO.clearingExchangeRate && (
                       <div>
                         <p className="text-xs text-amber-700">Rate at Clearing</p>
-                        <p className="font-semibold text-gray-900">Rs {selectedPO.clearingExchangeRate}</p>
+                        <p className="font-semibold text-gray-900 tabular-nums">Rs {selectedPO.clearingExchangeRate}</p>
                       </div>
                     )}
                   </div>
@@ -622,25 +633,25 @@ export default function ProcurementPage() {
                   ].filter(({ value }) => value != null && value > 0).map(({ label, value }) => (
                     <div key={label} className="flex items-center justify-between py-1 border-b border-gray-100">
                       <span className="text-gray-500">{label}</span>
-                      <span className="font-medium text-gray-900">{formatCurrency(value!)}</span>
+                      <span className="font-medium text-gray-900 tabular-nums">{formatCurrency(value!)}</span>
                     </div>
                   ))}
                 </div>
                 <div className="mt-3 bg-blue-50 rounded-lg p-3 grid grid-cols-3 gap-3">
                   <div>
                     <p className="text-xs text-blue-600">Total Landed Cost</p>
-                    <p className="font-bold text-blue-900">{formatCurrency(selectedPO.totalLandedCost)}</p>
+                    <p className="font-bold text-blue-900 tabular-nums">{formatCurrency(selectedPO.totalLandedCost)}</p>
                   </div>
                   {selectedPO.landedCostPerPanel && (
                     <div>
                       <p className="text-xs text-blue-600">Per Panel</p>
-                      <p className="font-bold text-blue-900">{formatCurrency(selectedPO.landedCostPerPanel)}</p>
+                      <p className="font-bold text-blue-900 tabular-nums">{formatCurrency(selectedPO.landedCostPerPanel)}</p>
                     </div>
                   )}
                   {selectedPO.landedCostPerWatt && (
                     <div>
                       <p className="text-xs text-blue-600">Per Watt</p>
-                      <p className="font-bold text-blue-900">Rs {selectedPO.landedCostPerWatt.toFixed(2)}</p>
+                      <p className="font-bold text-blue-900 tabular-nums">Rs {selectedPO.landedCostPerWatt.toFixed(2)}</p>
                     </div>
                   )}
                 </div>
@@ -656,32 +667,23 @@ export default function ProcurementPage() {
             )}
 
             {/* ── Actions ── */}
-            <div className="flex flex-wrap justify-between gap-3 border-t pt-4">
-              <div className="flex gap-2">
-                {selectedPO.status !== "RECEIVED" && (
-                  <Button variant="ghost" size="sm" onClick={() => openEditPO(selectedPO)}>
-                    <Pencil size={13} className="mr-1" />Edit PO
-                  </Button>
-                )}
-                {selectedPO.status === "DRAFT" && (
-                  <Button variant="secondary" size="sm" onClick={() => { handleStatusChange(selectedPO.id, "CONFIRMED"); setShowDetail(false) }}>Confirm PO</Button>
-                )}
-                {selectedPO.status === "CONFIRMED" && selectedPO.lcType !== "LOCAL" && (
-                  <Button variant="secondary" size="sm" onClick={() => { handleStatusChange(selectedPO.id, "SHIPPED"); setShowDetail(false) }}>Mark Shipped</Button>
-                )}
-                {(selectedPO.status === "SHIPPED" || selectedPO.status === "READY_TO_RECEIVE") && (
-                  <Button variant="primary" size="sm" onClick={() => { openCosting(selectedPO); setShowDetail(false) }}>
-                    <FileCheck size={14} className="mr-1" />{selectedPO.status === "READY_TO_RECEIVE" ? "Edit Clearing" : "Enter Clearing"}
-                  </Button>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => { openDocs(selectedPO); setShowDetail(false) }}>
-                <Paperclip size={14} className="mr-1" />Documents
-              </Button>
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-4">
+              {poRowActions(selectedPO).map((a) => (
+                <Button
+                  key={a.label}
+                  size="sm"
+                  variant={a.danger ? "danger" : "secondary"}
+                  disabled={a.disabled}
+                  onClick={() => { setShowDetail(false); setSelectedPO(null); a.onClick() }}
+                >
+                  {a.icon && <span className="mr-1.5">{a.icon}</span>}
+                  {a.label}
+                </Button>
+              ))}
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
 
       {/* ── Create / Edit PO Modal ── */}
       <Modal isOpen={showCreate} onClose={() => { setShowCreate(false); setEditingPoId(null); setForm(emptyForm) }} title={editingPoId ? "Edit Purchase Order" : "Create Purchase Order"} size="lg">

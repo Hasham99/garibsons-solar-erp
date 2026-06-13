@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 import { CheckCircle, Eye, Pencil, Plus, Printer, Truck, XCircle } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
+import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatDate, statusRowClass } from "@/lib/utils"
@@ -251,46 +252,55 @@ export default function DeliveryPage() {
     return rates.length === 1 ? rates[0].toFixed(2) : `${rates[0].toFixed(2)}–${rates[rates.length - 1].toFixed(2)}`
   }
 
+  // Shared by the 3-dot menu and the details panel footer
+  const doRowActions = (row: DeliveryOrder): RowAction[] => {
+    const actions: RowAction[] = [
+      { label: "Print", icon: <Printer size={15} />, onClick: () => window.open(`/delivery/${row.id}/print`, "_blank") },
+    ]
+    if (["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "")) {
+      actions.push({ label: "Edit DO", icon: <Pencil size={15} />, onClick: () => openEditModal(row) })
+    }
+    if (row.status === "PENDING" && user?.role === "ADMIN") {
+      actions.push({ label: "Authorize", icon: <CheckCircle size={15} />, onClick: () => handleAuthorize(row.id) })
+    }
+    if (row.status === "AUTHORIZED" && ["ADMIN", "WAREHOUSE"].includes(user?.role || "")) {
+      actions.push({ label: "Dispatch", icon: <Truck size={15} />, onClick: () => handleDispatch(row.id) })
+    }
+    if (["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "")) {
+      actions.push({ label: "Cancel DO", icon: <XCircle size={15} />, danger: true, onClick: () => setCancelDO(row) })
+    }
+    return actions
+  }
+
   const columns = [
-    { key: "createdAt", header: "Date", sortable: true, value: (row: DeliveryOrder) => row.createdAt, render: (row: DeliveryOrder) => <span className="whitespace-nowrap">{formatDate(row.createdAt)}</span> },
     { key: "doNumber", header: "DO Number", sortable: true, render: (row: DeliveryOrder) => <span className="font-medium">{row.doNumber}</span> },
+    { key: "createdAt", header: "Date", sortable: true, numeric: true, value: (row: DeliveryOrder) => row.createdAt, render: (row: DeliveryOrder) => <span className="whitespace-nowrap">{formatDate(row.createdAt)}</span> },
     { key: "referenceNo", header: "Ref. DO #", sortable: true, value: (row: DeliveryOrder) => row.referenceNo || "", render: (row: DeliveryOrder) => row.referenceNo ? <span className="text-gray-700">{row.referenceNo}</span> : <span className="text-gray-300">—</span> },
     { key: "soNumber", header: "SO Number", sortable: true, value: (row: DeliveryOrder) => row.salesOrder.soNumber, render: (row: DeliveryOrder) => row.salesOrder.soNumber },
     { key: "party", header: "Party", sortable: true, value: (row: DeliveryOrder) => row.salesOrder.customer.name, render: (row: DeliveryOrder) => <span className="font-medium">{row.salesOrder.customer.name}</span> },
     {
-      key: "ratePerWatt", header: "Rate / Watt", sortable: true,
+      key: "ratePerWatt", header: "Rate / Watt", sortable: true, numeric: true,
       value: (row: DeliveryOrder) => row.salesOrder.lines?.[0]?.ratePerWatt ?? 0,
       render: (row: DeliveryOrder) => {
         const r = rateDisplay(row)
         return r ? <span className="font-medium text-blue-700 whitespace-nowrap">{r}</span> : <span className="text-gray-400">—</span>
       },
     },
-    { key: "quantity", header: "Panels", render: (row: DeliveryOrder) => row.quantity.toLocaleString() },
-    { key: "reservedQuantity", header: "Reserved", render: (row: DeliveryOrder) => row.reservedQuantity.toLocaleString() },
-    { key: "agingDays", header: "Age", render: (row: DeliveryOrder) => `${row.agingDays}d` },
+    { key: "quantity", header: "Panels", numeric: true, render: (row: DeliveryOrder) => row.quantity.toLocaleString() },
+    { key: "reservedQuantity", header: "Reserved", numeric: true, render: (row: DeliveryOrder) => row.reservedQuantity.toLocaleString() },
+    { key: "agingDays", header: "Age", numeric: true, render: (row: DeliveryOrder) => `${row.agingDays}d` },
     { key: "status", header: "Status", render: (row: DeliveryOrder) => <Badge status={row.status} /> },
     { key: "authorizedBy", header: "Authorized By", render: (row: DeliveryOrder) => row.authorizedBy || "-" },
     {
       key: "actions", header: "Actions",
-      render: (row: DeliveryOrder) => {
-        const actions: RowAction[] = [
-          { label: "View Details", icon: <Eye size={15} />, onClick: () => setSelectedDelivery(row) },
-          { label: "Print", icon: <Printer size={15} />, onClick: () => window.open(`/delivery/${row.id}/print`, "_blank") },
-        ]
-        if (["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "")) {
-          actions.push({ label: "Edit DO", icon: <Pencil size={15} />, onClick: () => openEditModal(row) })
-        }
-        if (row.status === "PENDING" && user?.role === "ADMIN") {
-          actions.push({ label: "Authorize", icon: <CheckCircle size={15} />, onClick: () => handleAuthorize(row.id) })
-        }
-        if (row.status === "AUTHORIZED" && ["ADMIN", "WAREHOUSE"].includes(user?.role || "")) {
-          actions.push({ label: "Dispatch", icon: <Truck size={15} />, onClick: () => handleDispatch(row.id) })
-        }
-        if (["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "")) {
-          actions.push({ label: "Cancel DO", icon: <XCircle size={15} />, danger: true, onClick: () => setCancelDO(row) })
-        }
-        return <RowActionsMenu actions={actions} />
-      },
+      render: (row: DeliveryOrder) => (
+        <RowActionsMenu
+          actions={[
+            { label: "View Details", icon: <Eye size={15} />, onClick: () => setSelectedDelivery(row) },
+            ...doRowActions(row),
+          ]}
+        />
+      ),
     },
   ]
 
@@ -298,14 +308,13 @@ export default function DeliveryPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
 
       <Header
         title="Delivery Orders"
         actions={<Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-2" />New DO</Button>}
       />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={dos || []}
@@ -508,43 +517,32 @@ export default function DeliveryPage() {
         </div>
       </Modal>
 
-      {/* ── Details Modal ── */}
-      <Modal isOpen={Boolean(selectedDelivery)} onClose={() => setSelectedDelivery(null)} title={`Delivery Details — ${selectedDelivery?.doNumber}`}>
-        {selectedDelivery && (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg bg-gray-50 p-3 text-sm">
-                <p className="text-xs text-gray-500">Customer</p>
-                <p className="font-semibold text-gray-900">{selectedDelivery.salesOrder.customer.name}</p>
-                <p className="mt-2 text-xs text-gray-500">Sales Order</p>
-                <p className="font-semibold text-gray-900">{selectedDelivery.salesOrder.soNumber}</p>
-                <p className="mt-2 text-xs text-gray-500">Reference DO No.</p>
-                <p className="font-semibold text-gray-900">{selectedDelivery.referenceNo || "—"}</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-3 text-sm">
-                <p className="text-xs text-gray-500">Warehouse</p>
-                <p className="font-semibold text-gray-900">{selectedDelivery.warehouse.name}</p>
-                <p className="mt-2 text-xs text-gray-500">Reserved Batches</p>
-                <p className="font-semibold text-gray-900">{selectedDelivery.reservedBatches}</p>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-lg border border-gray-200 p-3 text-sm">
-                <p className="text-xs text-gray-500">Panels (DO)</p>
-                <p className="text-lg font-semibold text-gray-900">{selectedDelivery.quantity.toLocaleString()}</p>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-3 text-sm">
-                <p className="text-xs text-gray-500">Reserved</p>
-                <p className="text-lg font-semibold text-gray-900">{selectedDelivery.reservedQuantity.toLocaleString()}</p>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-3 text-sm">
-                <p className="text-xs text-gray-500">Age</p>
-                <p className="text-lg font-semibold text-gray-900">{selectedDelivery.agingDays} days</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* ── Details slide-over: every DO field + the row's actions ── */}
+      <DetailsModal
+        isOpen={Boolean(selectedDelivery)}
+        onClose={() => setSelectedDelivery(null)}
+        title={`Delivery Order — ${selectedDelivery?.doNumber || ""}`}
+        fields={selectedDelivery ? [
+          { label: "Status", value: <Badge status={selectedDelivery.status} /> },
+          { label: "Created", value: formatDate(selectedDelivery.createdAt) },
+          { label: "Customer", value: selectedDelivery.salesOrder.customer.name },
+          { label: "Sales Order", value: selectedDelivery.salesOrder.soNumber },
+          { label: "Reference DO #", value: selectedDelivery.referenceNo },
+          { label: "Warehouse", value: selectedDelivery.warehouse.name },
+          { label: "Rate / Watt", value: rateDisplay(selectedDelivery) },
+          { label: "Panels", value: selectedDelivery.quantity.toLocaleString() },
+          { label: "Watts", value: selectedDelivery.watts.toLocaleString() },
+          { label: "Reserved Panels", value: selectedDelivery.reservedQuantity.toLocaleString() },
+          { label: "Reserved Watts", value: selectedDelivery.reservedWatts.toLocaleString() },
+          { label: "Reserved Batches", value: selectedDelivery.reservedBatches },
+          { label: "Age", value: `${selectedDelivery.agingDays} days` },
+          { label: "Validity", value: selectedDelivery.validityDays ? `${selectedDelivery.validityDays} days` : null },
+          { label: "Authorized By", value: selectedDelivery.authorizedBy },
+          { label: "Dispatched At", value: selectedDelivery.dispatchedAt ? formatDate(selectedDelivery.dispatchedAt) : null },
+          ...(selectedDelivery.notes ? [{ label: "Notes", value: selectedDelivery.notes, wide: true }] : []),
+        ] : []}
+        actions={selectedDelivery ? doRowActions(selectedDelivery) : []}
+      />
     </div>
   )
 }

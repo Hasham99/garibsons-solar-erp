@@ -3,7 +3,7 @@
 import { type ChangeEvent, useDeferredValue, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { useSearchParams } from "next/navigation"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 import { CheckCircle, Eye, Pencil, Plus, Trash2, Truck, Upload } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
@@ -18,7 +18,7 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { formatCurrency, formatDate, formatNumber, statusRowClass } from "@/lib/utils"
+import { formatAmount, formatCurrency, formatDate, formatNumber, statusRowClass } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { useAuth } from "@/hooks/useAuth"
 
@@ -423,14 +423,45 @@ export default function SalesPage() {
     }
   }
 
+  // Single source of truth for what you can do with an SO — drives both the
+  // table's 3-dot menu and the details panel's footer buttons.
+  const soRowActions = (row: SalesOrder): RowAction[] => {
+    const actions: RowAction[] = []
+    if (row.status === "DRAFT") {
+      actions.push(
+        { label: "Confirm Order", icon: <CheckCircle size={15} />, onClick: () => handleConfirm(row.id) },
+        { label: "Upload Payment Proof", icon: <Upload size={15} />, onClick: () => triggerProofUpload(row.id), disabled: uploadingProof === row.id },
+      )
+    }
+    // Editable until a DO is issued — no stock is reserved before that
+    if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED"].includes(row.status)) {
+      actions.push({ label: "Edit SO", icon: <Pencil size={15} />, onClick: () => openEditModal(row) })
+    }
+    if (row.paymentProofUrl) {
+      actions.push({ label: "View Payment Proof", icon: <Eye size={15} />, onClick: () => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber }) })
+    }
+    if (row.status === "PENDING_PAYMENT" && ["ADMIN", "ACCOUNTS"].includes(user?.role || "")) {
+      actions.push({ label: "Verify Payment", icon: <CheckCircle size={15} />, onClick: () => handleVerifyPayment(row.id) })
+    }
+    if (row.status === "PAYMENT_CONFIRMED") {
+      actions.push({ label: "Create DO", icon: <Truck size={15} />, onClick: () => (window.location.href = `/delivery?soId=${row.id}`) })
+    }
+    if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status)) {
+      actions.push({ label: "Cancel SO (+ its DOs)", icon: <Trash2 size={15} />, danger: true, onClick: () => setCancelOrder(row) })
+    }
+    return actions
+  }
+
   const columns = [
     { key: "soNumber", header: "SO #", sortable: true },
+    { key: "orderDate", header: "Date", numeric: true, render: (row: SalesOrder) => formatDate(row.orderDate || row.createdAt) },
     { key: "customer", header: "Customer", sortable: true, value: (row: SalesOrder) => row.customer?.name, render: (row: SalesOrder) => row.customer?.name },
-    { key: "subTotal", header: "Sub Total", render: (row: SalesOrder) => formatCurrency(row.subTotal) },
+    { key: "subTotal", header: "Sub Total (PKR)", numeric: true, render: (row: SalesOrder) => formatAmount(row.subTotal) },
     {
       key: "ratePerWatt",
       header: "Rate / Watt",
       sortable: true,
+      numeric: true,
       value: (row: SalesOrder) => row.lines?.[0]?.ratePerWatt ?? 0,
       render: (row: SalesOrder) => {
         const rates = [...new Set((row.lines || []).map((l) => l.ratePerWatt))].sort((a, b) => a - b)
@@ -442,39 +473,13 @@ export default function SalesPage() {
         )
       },
     },
-    { key: "grandTotal", header: "Grand Total", render: (row: SalesOrder) => <span className="font-bold">{formatCurrency(row.grandTotal)}</span> },
+    { key: "grandTotal", header: "Grand Total (PKR)", numeric: true, render: (row: SalesOrder) => <span className="font-bold">{formatAmount(row.grandTotal)}</span> },
     { key: "paymentTerms", header: "Terms", render: (row: SalesOrder) => row.paymentTerms.replace(/_/g, " ") },
     { key: "status", header: "Status", render: (row: SalesOrder) => <Badge status={row.status} /> },
-    { key: "orderDate", header: "Date", render: (row: SalesOrder) => formatDate(row.orderDate || row.createdAt) },
     {
       key: "actions",
       header: "Actions",
-      render: (row: SalesOrder) => {
-        const actions: RowAction[] = []
-        if (row.status === "DRAFT") {
-          actions.push(
-            { label: "Confirm Order", icon: <CheckCircle size={15} />, onClick: () => handleConfirm(row.id) },
-            { label: "Upload Payment Proof", icon: <Upload size={15} />, onClick: () => triggerProofUpload(row.id), disabled: uploadingProof === row.id },
-          )
-        }
-        // Editable until a DO is issued — no stock is reserved before that
-        if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED"].includes(row.status)) {
-          actions.push({ label: "Edit SO", icon: <Pencil size={15} />, onClick: () => openEditModal(row) })
-        }
-        if (row.paymentProofUrl) {
-          actions.push({ label: "View Payment Proof", icon: <Eye size={15} />, onClick: () => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber }) })
-        }
-        if (row.status === "PENDING_PAYMENT" && ["ADMIN", "ACCOUNTS"].includes(user?.role || "")) {
-          actions.push({ label: "Verify Payment", icon: <CheckCircle size={15} />, onClick: () => handleVerifyPayment(row.id) })
-        }
-        if (row.status === "PAYMENT_CONFIRMED") {
-          actions.push({ label: "Create DO", icon: <Truck size={15} />, onClick: () => (window.location.href = `/delivery?soId=${row.id}`) })
-        }
-        if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status)) {
-          actions.push({ label: "Cancel SO (+ its DOs)", icon: <Trash2 size={15} />, danger: true, onClick: () => setCancelOrder(row) })
-        }
-        return <RowActionsMenu actions={actions} />
-      },
+      render: (row: SalesOrder) => <RowActionsMenu actions={soRowActions(row)} />,
     },
   ]
 
@@ -482,7 +487,6 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
 
       <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" title="Upload payment proof" onChange={handleFileChange} />
 
@@ -512,7 +516,7 @@ export default function SalesPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={orders || []}
@@ -544,6 +548,7 @@ export default function SalesPage() {
           { label: "Payment Proof", value: detailRow.paymentProofUrl ? "Uploaded" : "—" },
           ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
         ] : []}
+        actions={detailRow ? soRowActions(detailRow) : []}
       >
         {detailRow?.lines?.length ? (
           <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -561,10 +566,10 @@ export default function SalesPage() {
                 {detailRow.lines.map((l, i) => (
                   <tr key={i}>
                     <td className="px-3 py-2">{l.product?.brand} ({l.product?.wattage}W)</td>
-                    <td className="px-3 py-2 text-right">{l.quantity.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right">{l.watts.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right">{l.ratePerWatt.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-right font-medium">{formatCurrency(l.totalAmount)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{l.quantity.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{l.watts.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{l.ratePerWatt.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-right font-medium tabular-nums">{formatCurrency(l.totalAmount)}</td>
                   </tr>
                 ))}
               </tbody>

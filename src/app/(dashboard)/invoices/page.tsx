@@ -10,11 +10,11 @@ import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
-import { formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
+import { formatAmount, formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
 import { Plus, DollarSign } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface Invoice {
   id: string
@@ -94,44 +94,47 @@ export default function InvoicesPage() {
     }
   }
 
+  const invoiceRowActions = (row: Invoice): RowAction[] =>
+    row.status !== "PAID" ? [
+      { label: "Record Payment", icon: <DollarSign size={15} />, onClick: () => { setSelectedInvoice(row); setShowPayment(true) } },
+    ] : []
+
   const columns = [
     { key: "invoiceNumber", header: "Invoice #", sortable: true },
+    { key: "invoiceDate", header: "Date", numeric: true, render: (row: Invoice) => formatDate(row.invoiceDate) },
     { key: "salesOrder", header: "Customer", sortable: true, value: (row: Invoice) => row.salesOrder?.customer?.name, render: (row: Invoice) => (
       <div>
         <p className="font-medium">{row.salesOrder?.customer?.name}</p>
         <p className="text-xs text-gray-500">{row.salesOrder?.soNumber}</p>
       </div>
     )},
-    { key: "invoiceDate", header: "Date", render: (row: Invoice) => formatDate(row.invoiceDate) },
-    { key: "subTotal", header: "Sub Total", render: (row: Invoice) => formatCurrency(row.subTotal) },
-    { key: "gstAmount", header: "GST", render: (row: Invoice) => `${row.gstRate}% = ${formatCurrency(row.gstAmount)}` },
-    { key: "grandTotal", header: "Total", render: (row: Invoice) => <span className="font-bold">{formatCurrency(row.grandTotal)}</span> },
+    { key: "subTotal", header: "Sub Total (PKR)", numeric: true, render: (row: Invoice) => formatAmount(row.subTotal) },
+    { key: "gstAmount", header: "GST (PKR)", numeric: true, render: (row: Invoice) => `${row.gstRate}% = ${formatAmount(row.gstAmount)}` },
+    { key: "grandTotal", header: "Total (PKR)", numeric: true, render: (row: Invoice) => <span className="font-bold">{formatAmount(row.grandTotal)}</span> },
     {
       key: "paid",
-      header: "Paid",
+      header: "Paid (PKR)",
+      numeric: true,
       render: (row: Invoice) => {
         const paid = row.payments?.reduce((s, p) => s + p.amount, 0) || 0
-        return formatCurrency(paid)
+        return formatAmount(paid)
       },
     },
     {
       key: "outstanding",
-      header: "Outstanding",
+      header: "Outstanding (PKR)",
+      numeric: true,
       render: (row: Invoice) => {
         const paid = row.payments?.reduce((s, p) => s + p.amount, 0) || 0
         const outstanding = row.grandTotal - paid
-        return <span className={outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>{formatCurrency(outstanding)}</span>
+        return <span className={outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>{formatAmount(outstanding)}</span>
       },
     },
     { key: "status", header: "Status", render: (row: Invoice) => <Badge status={row.status} /> },
     {
       key: "actions",
       header: "Actions",
-      render: (row: Invoice) => (
-        <RowActionsMenu actions={row.status !== "PAID" ? [
-          { label: "Record Payment", icon: <DollarSign size={15} />, onClick: () => { setSelectedInvoice(row); setShowPayment(true) } },
-        ] : []} />
-      ),
+      render: (row: Invoice) => <RowActionsMenu actions={invoiceRowActions(row)} />,
     },
   ]
 
@@ -139,7 +142,6 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -159,6 +161,7 @@ export default function InvoicesPage() {
             { label: "Paid / Outstanding", value: `${formatCurrency(paid)} / ${formatCurrency(detailRow.grandTotal - paid)}` },
           ]
         })() : []}
+        actions={detailRow ? invoiceRowActions(detailRow) : []}
       />
 
       <Header
@@ -171,7 +174,7 @@ export default function InvoicesPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={(invoices || [])}

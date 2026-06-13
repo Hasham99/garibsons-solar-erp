@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Plus, Pencil, Trash2 } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface WarehouseContact {
   id?: string
@@ -84,6 +84,10 @@ export default function WarehousesPage() {
     setShowModal(true)
   }
 
+  const warehouseRowActions = (row: Warehouse): RowAction[] => [
+    { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+  ]
+
   const columns = [
     { key: "name", header: "Name", sortable: true },
     { key: "location", header: "Location" },
@@ -116,9 +120,7 @@ export default function WarehousesPage() {
     },
     {
       key: "actions", header: "Actions", render: (row: Warehouse) => (
-        <RowActionsMenu actions={[
-          { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
-        ]} />
+        <RowActionsMenu actions={warehouseRowActions(row)} />
       ),
     },
   ]
@@ -127,7 +129,6 @@ export default function WarehousesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -141,13 +142,14 @@ export default function WarehousesPage() {
           { label: "Manager", value: detailRow.manager || "—" },
           { label: "Contacts", value: detailRow.contacts?.length ? detailRow.contacts.map((c) => `${c.name} (${c.whatsapp})`).join(", ") : "—", wide: true },
         ] : []}
+        actions={detailRow ? warehouseRowActions(detailRow) : []}
       />
       <Header
         title="Warehouses"
         breadcrumbs={[{ label: "Master Data" }, { label: "Warehouses" }]}
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Warehouse</Button>}
       />
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={warehouses || []}

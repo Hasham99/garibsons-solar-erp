@@ -19,20 +19,20 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const base = "inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+  const base = "inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
 
   const variants = {
-    primary: "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-sm shadow-blue-200 hover:from-blue-700 hover:to-blue-600 focus:ring-blue-500",
-    secondary: "bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50 focus:ring-gray-500",
-    danger: "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-sm shadow-rose-200 hover:from-red-700 hover:to-rose-600 focus:ring-red-500",
-    ghost: "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 focus:ring-gray-500",
-    success: "bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-sm shadow-emerald-200 hover:from-green-700 hover:to-emerald-600 focus:ring-green-500",
+    primary: "bg-blue-600 text-white shadow-sm shadow-blue-600/25 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/20 hover:-translate-y-px focus-visible:ring-blue-500",
+    secondary: "bg-white text-slate-700 border border-slate-300 shadow-sm hover:bg-slate-50 hover:border-slate-400/60 focus-visible:ring-slate-400",
+    danger: "bg-rose-600 text-white shadow-sm shadow-rose-600/25 hover:bg-rose-700 hover:shadow-md hover:shadow-rose-600/20 hover:-translate-y-px focus-visible:ring-rose-500",
+    ghost: "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900 focus-visible:ring-slate-400",
+    success: "bg-emerald-600 text-white shadow-sm shadow-emerald-600/25 hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-600/20 hover:-translate-y-px focus-visible:ring-emerald-500",
   }
 
   const sizes = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-sm",
-    lg: "px-6 py-3 text-base",
+    sm: "px-3 py-1 text-xs",
+    md: "px-3.5 py-1.5 text-[13px]",
+    lg: "px-5 py-2.5 text-sm",
   }
 
   return (

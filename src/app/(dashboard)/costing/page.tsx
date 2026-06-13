@@ -12,7 +12,6 @@ import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import toast from "react-hot-toast"
-import { Toaster } from "react-hot-toast"
 
 interface ExchangeRate {
   id: string
@@ -200,7 +199,6 @@ export default function CostingPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
       <Header title="Costing Calculator" breadcrumbs={[{ label: "Costing Calculator" }]} />
 
       {/* ── Step 01: CIF Calculation ── */}

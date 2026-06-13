@@ -9,11 +9,11 @@ import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface User {
   id: string
@@ -62,8 +62,13 @@ export default function UsersPage() {
     setShowModal(true)
   }
 
+  const userRowActions = (row: User): RowAction[] => [
+    { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+  ]
+
   const columns = [
     { key: "name", header: "Name", sortable: true },
+    { key: "createdAt", header: "Created", numeric: true, render: (row: User) => formatDate(row.createdAt) },
     { key: "email", header: "Email" },
     { key: "role", header: "Role", render: (row: User) => (
       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{row.role}</span>
@@ -73,11 +78,8 @@ export default function UsersPage() {
         {row.active ? "Active" : "Inactive"}
       </span>
     )},
-    { key: "createdAt", header: "Created", render: (row: User) => formatDate(row.createdAt) },
     { key: "actions", header: "Actions", render: (row: User) => (
-      <RowActionsMenu actions={[
-        { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
-      ]} />
+      <RowActionsMenu actions={userRowActions(row)} />
     )},
   ]
 
@@ -85,7 +87,6 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -98,11 +99,12 @@ export default function UsersPage() {
           { label: "Status", value: detailRow.active ? "Active" : "Inactive" },
           { label: "Created", value: formatDate(detailRow.createdAt) },
         ] : []}
+        actions={detailRow ? userRowActions(detailRow) : []}
       />
       <Header title="Users" breadcrumbs={[{ label: "Settings" }, { label: "Users" }]}
         actions={<Button onClick={() => { setEditId(null); setForm(emptyForm); setShowModal(true) }}><Plus size={16} className="mr-2" />Add User</Button>}
       />
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={(users || [])}

@@ -10,12 +10,12 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
-import { formatCurrency } from "@/lib/utils"
-import { Plus, Pencil, Trash2, Receipt } from "lucide-react"
+import { formatCurrency, formatAmount } from "@/lib/utils"
+import { Plus, Pencil, Trash2, Receipt, UserRound } from "lucide-react"
 import { useRouter } from "next/navigation"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface CustomerContact {
   id?: string
@@ -130,6 +130,13 @@ export default function CustomersPage() {
     }
   }
 
+  const customerRowActions = (row: Customer): RowAction[] => [
+    { label: "View Profile", icon: <UserRound size={15} />, onClick: () => router.push(`/masters/customers/${row.id}`) },
+    { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+    { label: "View Receipts", icon: <Receipt size={15} />, onClick: () => router.push(`/masters/customers/${row.id}/receipts`) },
+    { label: "Delete Customer", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(row) },
+  ]
+
   const columns = [
     { key: "name", header: "Name", sortable: true },
     { key: "type", header: "Type", render: (row: Customer) => row.type.replace("_", " ") },
@@ -153,7 +160,7 @@ export default function CustomersPage() {
         )
       },
     },
-    { key: "creditLimit", header: "Credit Limit", render: (row: Customer) => row.creditLimit ? formatCurrency(row.creditLimit) : "-" },
+    { key: "creditLimit", header: "Credit Limit (PKR)", numeric: true, render: (row: Customer) => row.creditLimit ? formatAmount(row.creditLimit) : "-" },
     { key: "paymentTerms", header: "Payment Terms", render: (row: Customer) => row.paymentTerms.replace(/_/g, " ") },
     {
       key: "active", header: "Status", render: (row: Customer) => (
@@ -164,11 +171,7 @@ export default function CustomersPage() {
     },
     {
       key: "actions", header: "Actions", render: (row: Customer) => (
-        <RowActionsMenu actions={[
-          { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
-          { label: "View Receipts", icon: <Receipt size={15} />, onClick: () => router.push(`/masters/customers/${row.id}/receipts`) },
-          { label: "Delete Customer", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(row) },
-        ]} />
+        <RowActionsMenu actions={customerRowActions(row)} />
       ),
     },
   ]
@@ -177,7 +180,6 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -197,6 +199,7 @@ export default function CustomersPage() {
           { label: "Contacts", value: detailRow.contacts?.length ? detailRow.contacts.map((c) => `${c.name} (${c.whatsapp})`).join(", ") : "—" },
           ...(detailRow.address ? [{ label: "Address", value: detailRow.address, wide: true }] : []),
         ] : []}
+        actions={detailRow ? customerRowActions(detailRow) : []}
       />
       <Header
         title="Customers"
@@ -220,7 +223,7 @@ export default function CustomersPage() {
           </div>
         }
       />
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={customers || []}

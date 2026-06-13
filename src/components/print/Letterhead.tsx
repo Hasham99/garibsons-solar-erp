@@ -18,7 +18,7 @@ export function Watermark() {
   return (
     <div aria-hidden data-watermark="true" className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/garibsons-logo.png" alt="" className="w-[420px] max-w-[80%] opacity-[0.05] -rotate-12 select-none" />
+      <img src="/garibsons-logo.png" alt="" className="w-[420px] max-w-[80%] opacity-[0.05] select-none" />
     </div>
   )
 }

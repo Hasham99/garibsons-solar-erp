@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Plus, Pencil } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface Supplier {
   id: string
@@ -61,6 +61,10 @@ export default function SuppliersPage() {
     setShowModal(true)
   }
 
+  const supplierRowActions = (row: Supplier): RowAction[] => [
+    { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+  ]
+
   const columns = [
     { key: "name", header: "Name", sortable: true },
     { key: "country", header: "Country", render: (row: Supplier) => row.country || "-" },
@@ -74,9 +78,7 @@ export default function SuppliersPage() {
       </span>
     )},
     { key: "actions", header: "Actions", render: (row: Supplier) => (
-      <RowActionsMenu actions={[
-        { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
-      ]} />
+      <RowActionsMenu actions={supplierRowActions(row)} />
     )},
   ]
 
@@ -84,7 +86,6 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -99,11 +100,12 @@ export default function SuppliersPage() {
           { label: "Email", value: detailRow.contactEmail || "—" },
           { label: "Payment Terms", value: detailRow.paymentTerms || "—" },
         ] : []}
+        actions={detailRow ? supplierRowActions(detailRow) : []}
       />
       <Header title="Suppliers" breadcrumbs={[{ label: "Master Data" }, { label: "Suppliers" }]}
         actions={<Button onClick={() => { setEditId(null); setForm(emptyForm); setShowModal(true) }}><Plus size={16} className="mr-2" />Add Supplier</Button>}
       />
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={(suppliers || [])}

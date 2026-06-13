@@ -9,11 +9,11 @@ import { Select } from "@/components/ui/Select"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatAmount, formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2, Settings2 } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 // Color palette for categories (auto-assigned by index)
 const PALETTE = [
@@ -189,8 +189,13 @@ export default function ExpensesPage() {
 
   const grandTotal = filtered.reduce((s, e) => s + e.amount, 0)
 
+  const expenseRowActions = (row: Expense): RowAction[] => [
+    { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
+    { label: "Delete Expense", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(row.id) },
+  ]
+
   const columns = [
-    { key: "date", header: "Date", sortable: true, render: (row: Expense) => formatDate(row.date) },
+    { key: "date", header: "Date", sortable: true, numeric: true, render: (row: Expense) => formatDate(row.date) },
     {
       key: "category", header: "Category",
       render: (row: Expense) => {
@@ -205,16 +210,11 @@ export default function ExpensesPage() {
     { key: "description", header: "Description" },
     { key: "paidTo", header: "Paid To", render: (row: Expense) => row.paidTo || <span className="text-gray-400">-</span> },
     { key: "reference", header: "Ref #", render: (row: Expense) => row.reference || <span className="text-gray-400">-</span> },
-    { key: "amount", header: "Amount", render: (row: Expense) => <span className="font-semibold text-red-700">{formatCurrency(row.amount)}</span> },
+    { key: "amount", header: "Amount (PKR)", numeric: true, render: (row: Expense) => <span className="font-semibold text-red-700">{formatAmount(row.amount)}</span> },
     { key: "createdBy", header: "Entered By", render: (row: Expense) => row.createdBy?.name || "-" },
     {
       key: "actions", header: "Actions",
-      render: (row: Expense) => (
-        <RowActionsMenu actions={[
-          { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
-          { label: "Delete Expense", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(row.id) },
-        ]} />
-      ),
+      render: (row: Expense) => <RowActionsMenu actions={expenseRowActions(row)} />,
     },
   ]
 
@@ -222,7 +222,6 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -239,6 +238,7 @@ export default function ExpensesPage() {
           { label: "Description", value: detailRow.description, wide: true },
           ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
         ] : []}
+        actions={detailRow ? expenseRowActions(detailRow) : []}
       />
       <Header
         title="Expense Management"
@@ -273,7 +273,7 @@ export default function ExpensesPage() {
       {byCategory.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {byCategory.map((c, i) => (
-            <div key={`${c.name}-${i}`} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div key={`${c.name}-${i}`} className="bg-white rounded-xl shadow-card border border-slate-200/70 p-4">
               <p className="text-xs text-gray-500">{c.name}</p>
               <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(c.total)}</p>
             </div>
@@ -286,7 +286,7 @@ export default function ExpensesPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table columns={columns} data={filtered} emptyMessage="No expenses recorded yet" searchPlaceholder="Search description, paid to, ref #…" onRowClick={(row: Expense) => setDetailRow(row)} />
       </div>
 

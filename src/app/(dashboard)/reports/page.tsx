@@ -10,7 +10,7 @@ import { Popover } from "@/components/ui/Popover"
 import { Table, type Column } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatAmount, formatCurrency, formatDate } from "@/lib/utils"
 import { downloadPdf } from "@/lib/pdf"
 import { downloadExcel } from "@/lib/excel"
 import {
@@ -18,7 +18,7 @@ import {
   LineChart as LineIcon, Package, ShoppingCart, SlidersHorizontal, TrendingUp, Wallet, X,
 } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 // ---------- response shapes ----------
 type SalesReport = {
@@ -210,7 +210,7 @@ function Kpi({ label, value, sub, full, icon, tone = "blue" }: {
 }) {
   const subLine = full && full !== value ? (sub ? `${full} · ${sub}` : full) : sub
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 min-w-0 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" title={full || undefined}>
+    <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-4 min-w-0 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" title={full || undefined}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 truncate" title={label}>{label}</p>
@@ -239,7 +239,7 @@ function MoneyKpi({ label, amount, sub, icon, tone }: { label: string; amount: n
 
 function SectionCard({ title, subtitle, children, headerExtra }: { title: string; subtitle?: string; children: ReactNode; headerExtra?: ReactNode }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-card border border-slate-200/70 overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-semibold text-gray-900">{title}</h3>
@@ -296,11 +296,11 @@ function BreakdownCard<T extends Record<string, unknown>>({ title, columns, data
 }
 
 const moneyCol = <T extends Record<string, unknown>>(key: string, header: string, strong = false): Column<T> => ({
-  key, header, sortable: true, className: "text-right",
-  render: (r) => <span className={`whitespace-nowrap ${strong ? "font-semibold text-gray-900" : ""}`}>{formatCurrency(Number(r[key]))}</span>,
+  key, header: `${header} (PKR)`, sortable: true, className: "text-right", numeric: true,
+  render: (r) => <span className={`whitespace-nowrap ${strong ? "font-semibold text-gray-900" : ""}`}>{formatAmount(Number(r[key]))}</span>,
 })
 const numCol = <T extends Record<string, unknown>>(key: string, header: string): Column<T> => ({
-  key, header, sortable: true, className: "text-right", render: (r) => Number(r[key]).toLocaleString(),
+  key, header, sortable: true, className: "text-right", numeric: true, render: (r) => Number(r[key]).toLocaleString(),
 })
 
 /** Hides table columns the user unticked in the Columns panel. */
@@ -646,12 +646,11 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
       <Header title="Reports & Analytics" />
 
       <div className="space-y-5">
           {/* Toolbar: period + detailed filters + sections + columns + exports */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-3.5 space-y-3">
+          <div className="bg-white rounded-xl shadow-card border border-slate-200/70 px-5 py-3.5 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-sm font-semibold text-gray-900 mr-1">{item.label}</h2>
 
@@ -848,7 +847,7 @@ function SalesView({ d, sections, hidden }: { d: SalesReport; sections: Sections
         <SectionCard title="Sales Orders" subtitle={`${d.rows.length} orders`}>
           <Table data={d.rows} searchPlaceholder="Search SO #, customer…" columns={vis<SalesReport["rows"][0]>([
             { key: "soNumber", header: "SO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 whitespace-nowrap">{r.soNumber}</span> },
-            { key: "date", header: "Date", sortable: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
+            { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
             { key: "customer", header: "Customer", sortable: true },
             { key: "status", header: "Status", render: (r) => <Badge status={r.status} /> },
             numCol("panels", "Panels"), moneyCol("value", "Value", true),
@@ -883,10 +882,10 @@ function OutstandingView({ d, sections, hidden }: { d: Outstanding; sections: Se
           <Table data={d.rows} keyField="customerId" searchPlaceholder="Search customer…" columns={vis<Outstanding["rows"][0]>([
             { key: "customer", header: "Customer", sortable: true, render: (r) => <span className="font-medium text-gray-900">{r.customer}</span> },
             moneyCol("soTotal", "Sales"),
-            { key: "collected", header: "Collected", sortable: true, className: "text-right", render: (r) => <span className="text-green-700 whitespace-nowrap">{formatCurrency(r.collected)}</span> },
-            { key: "outstanding", header: "Outstanding", sortable: true, className: "text-right", render: (r) => <span className={`font-semibold whitespace-nowrap ${r.outstanding > 0 ? "text-red-600" : "text-green-700"}`}>{formatCurrency(r.outstanding)}</span> },
-            { key: "over90", header: "90+ d", className: "text-right", value: (r) => r.buckets.over90 || 0, render: (r) => r.buckets.over90 ? <span className="text-red-700 whitespace-nowrap">{formatCurrency(r.buckets.over90)}</span> : <span className="text-gray-300">—</span> },
-            { key: "oldestUnpaid", header: "Oldest", render: (r) => <span className="whitespace-nowrap">{r.oldestUnpaid ? formatDate(r.oldestUnpaid) : "—"}</span> },
+            { key: "collected", header: "Collected (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="text-green-700 whitespace-nowrap">{formatAmount(r.collected)}</span> },
+            { key: "outstanding", header: "Outstanding (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-semibold whitespace-nowrap ${r.outstanding > 0 ? "text-red-600" : "text-green-700"}`}>{formatAmount(r.outstanding)}</span> },
+            { key: "over90", header: "90+ d (PKR)", className: "text-right", numeric: true, value: (r) => r.buckets.over90 || 0, render: (r) => r.buckets.over90 ? <span className="text-red-700 whitespace-nowrap">{formatAmount(r.buckets.over90)}</span> : <span className="text-gray-300">—</span> },
+            { key: "oldestUnpaid", header: "Oldest", numeric: true, render: (r) => <span className="whitespace-nowrap">{r.oldestUnpaid ? formatDate(r.oldestUnpaid) : "—"}</span> },
           ], hidden)} emptyMessage="No outstanding balances" />
         </SectionCard>
       )}
@@ -914,7 +913,7 @@ function CollectionsView({ d, sections, hidden }: { d: Collections; sections: Se
         <SectionCard title="Collection Receipts" subtitle={`${d.rows.length} receipts`}>
           <Table data={d.rows} searchPlaceholder="Search receipt, customer, ref…" columns={vis<Collections["rows"][0]>([
             { key: "receiptNo", header: "Receipt #", sortable: true, render: (r) => <span className="font-medium text-blue-700 whitespace-nowrap">{r.receiptNo}</span> },
-            { key: "date", header: "Date", sortable: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
+            { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
             { key: "customer", header: "Customer", sortable: true },
             { key: "bank", header: "Bank", sortable: true },
             { key: "reference", header: "Reference", render: (r) => r.reference || "—" },
@@ -943,8 +942,8 @@ function ProfitView({ d, sections, hidden }: { d: Profit; sections: Sections; hi
             { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-gray-900">{r.product}</span> },
             { key: "brand", header: "Brand", sortable: true },
             numCol("panels", "Panels"), moneyCol("revenue", "Revenue"), moneyCol("cogs", "Cost"),
-            { key: "grossProfit", header: "Gross Profit", sortable: true, className: "text-right", render: (r) => <span className={`font-semibold whitespace-nowrap ${r.grossProfit >= 0 ? "text-green-700" : "text-red-600"}`}>{formatCurrency(r.grossProfit)}</span> },
-            { key: "marginPct", header: "Margin", sortable: true, className: "text-right", render: (r) => `${r.marginPct.toFixed(1)}%` },
+            { key: "grossProfit", header: "Gross Profit (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-semibold whitespace-nowrap ${r.grossProfit >= 0 ? "text-green-700" : "text-red-600"}`}>{formatAmount(r.grossProfit)}</span> },
+            { key: "marginPct", header: "Margin", sortable: true, className: "text-right", numeric: true, render: (r) => `${r.marginPct.toFixed(1)}%` },
           ], hidden)} emptyMessage="No delivered sales in range" />
         </SectionCard>
       )}
@@ -970,11 +969,11 @@ function PurchasesView({ d, sections, hidden }: { d: Purchases; sections: Sectio
         <SectionCard title="Purchase Orders" subtitle={`${d.rows.length} POs`}>
           <Table data={d.rows} searchPlaceholder="Search PO, supplier, product…" columns={vis<Purchases["rows"][0]>([
             { key: "poNumber", header: "PO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 whitespace-nowrap">{r.poNumber}</span> },
-            { key: "date", header: "Date", sortable: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
+            { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
             { key: "supplier", header: "Supplier", sortable: true },
             { key: "product", header: "Product", sortable: true },
             { key: "lcType", header: "Type", render: (r) => <Badge status={r.lcType} /> },
-            numCol("panels", "Panels"), moneyCol("value", "PKR Value", true),
+            numCol("panels", "Panels"), moneyCol("value", "Value", true),
           ], hidden)} emptyMessage="No purchases in range" />
         </SectionCard>
       )}
@@ -1004,9 +1003,9 @@ function StockAgingView({ d, sections, hidden }: { d: StockAging; sections: Sect
             { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-gray-900">{r.product}</span> },
             { key: "warehouse", header: "Warehouse", sortable: true },
             numCol("availablePanels", "Panels"),
-            { key: "ageDays", header: "Age", sortable: true, className: "text-right", render: (r) => <span className={r.ageDays > 90 ? "font-semibold text-red-600" : ""}>{r.ageDays}d</span> },
+            { key: "ageDays", header: "Age", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={r.ageDays > 90 ? "font-semibold text-red-600" : ""}>{r.ageDays}d</span> },
             moneyCol("value", "Value", true),
-            { key: "receivedAt", header: "Received", render: (r) => <span className="whitespace-nowrap">{formatDate(r.receivedAt)}</span> },
+            { key: "receivedAt", header: "Received", numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.receivedAt)}</span> },
           ], hidden)} emptyMessage="No stock" />
         </SectionCard>
       )}
@@ -1031,7 +1030,7 @@ function StockView({ d, sections, hidden, asOfDate }: { d: StockSummary; section
             { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-gray-900">{r.product}</span> },
             { key: "warehouse", header: "Warehouse", sortable: true },
             numCol("currentPanels", "Current"), numCol("reservedPanels", "Reserved"),
-            { key: "availablePanels", header: "Available", sortable: true, className: "text-right", render: (r) => <span className="font-semibold text-green-700">{r.availablePanels.toLocaleString()}</span> },
+            { key: "availablePanels", header: "Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="font-semibold text-green-700">{r.availablePanels.toLocaleString()}</span> },
             moneyCol("availableValue", "Avail. Value", true),
           ], hidden)} emptyMessage="No stock" />
         </SectionCard>
@@ -1090,16 +1089,16 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
             <div className="overflow-x-auto">
               <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={vis<StockPositionRow>([
                 { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
-                { key: "packing", header: "Packing", className: "text-right", render: (r) => r.packing ?? "—" },
-                { key: "receivedLocal", header: "Recv Local", sortable: true, className: "text-right", render: (r) => num(r.receivedLocal) },
-                { key: "receivedImport", header: "Recv Import", sortable: true, className: "text-right", render: (r) => num(r.receivedImport) },
-                { key: "so", header: "SO", sortable: true, className: "text-right", render: (r) => num(r.so) },
-                { key: "doIssued", header: "DO Issued", sortable: true, className: "text-right", render: (r) => num(r.doIssued) },
-                { key: "lifted", header: "Lifted DO", sortable: true, className: "text-right", render: (r) => num(r.lifted) },
-                { key: "unlifted", header: "Unlifted DO", sortable: true, className: "text-right", render: (r) => r.unlifted ? <span className="text-amber-700">{num(r.unlifted)}</span> : "—" },
-                { key: "warehouseStock", header: "WH Stock", sortable: true, className: "text-right", render: (r) => <span className="font-semibold">{num(r.warehouseStock)}</span> },
-                { key: "balanceSO", header: "Bal. SO", sortable: true, className: "text-right", render: (r) => r.balanceSO ? <span className="text-orange-700">{num(r.balanceSO)}</span> : "—" },
-                { key: "availableForSale", header: "Available", sortable: true, className: "text-right", render: (r) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600" : "text-green-700"}`}>{num(r.availableForSale)}</span> },
+                { key: "packing", header: "Packing", className: "text-right", numeric: true, render: (r) => r.packing ?? "—" },
+                { key: "receivedLocal", header: "Recv Local", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.receivedLocal) },
+                { key: "receivedImport", header: "Recv Import", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.receivedImport) },
+                { key: "so", header: "SO", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.so) },
+                { key: "doIssued", header: "DO Issued", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.doIssued) },
+                { key: "lifted", header: "Lifted DO", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.lifted) },
+                { key: "unlifted", header: "Unlifted DO", sortable: true, className: "text-right", numeric: true, render: (r) => r.unlifted ? <span className="text-amber-700">{num(r.unlifted)}</span> : "—" },
+                { key: "warehouseStock", header: "WH Stock", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="font-semibold">{num(r.warehouseStock)}</span> },
+                { key: "balanceSO", header: "Bal. SO", sortable: true, className: "text-right", numeric: true, render: (r) => r.balanceSO ? <span className="text-orange-700">{num(r.balanceSO)}</span> : "—" },
+                { key: "availableForSale", header: "Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600" : "text-green-700"}`}>{num(r.availableForSale)}</span> },
               ], hidden)} emptyMessage="No stock data" />
             </div>
           )}
@@ -1108,12 +1107,12 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
             <div className="overflow-x-auto">
               <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={vis<StockPositionRow>([
                 { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
-                { key: "receivedLocal", header: "Ctr Recv Local", className: "text-right", render: (r) => inCtr(r.receivedLocal, r) },
-                { key: "receivedImport", header: "Ctr Recv Import", className: "text-right", render: (r) => inCtr(r.receivedImport, r) },
-                { key: "doIssued", header: "Sales (DO Issued)", className: "text-right", render: (r) => inCtr(r.doIssued, r) },
-                { key: "warehouseStock", header: "WH Stock", className: "text-right", render: (r) => <span className="font-semibold">{inCtr(r.warehouseStock, r)}</span> },
-                { key: "balanceSO", header: "Sales Deals (Bal. SO)", className: "text-right", render: (r) => inCtr(r.balanceSO, r) },
-                { key: "availableForSale", header: "Ctr Available", className: "text-right", render: (r) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600" : "text-green-700"}`}>{inCtr(r.availableForSale, r)}</span> },
+                { key: "receivedLocal", header: "Ctr Recv Local", className: "text-right", numeric: true, render: (r) => inCtr(r.receivedLocal, r) },
+                { key: "receivedImport", header: "Ctr Recv Import", className: "text-right", numeric: true, render: (r) => inCtr(r.receivedImport, r) },
+                { key: "doIssued", header: "Sales (DO Issued)", className: "text-right", numeric: true, render: (r) => inCtr(r.doIssued, r) },
+                { key: "warehouseStock", header: "WH Stock", className: "text-right", numeric: true, render: (r) => <span className="font-semibold">{inCtr(r.warehouseStock, r)}</span> },
+                { key: "balanceSO", header: "Sales Deals (Bal. SO)", className: "text-right", numeric: true, render: (r) => inCtr(r.balanceSO, r) },
+                { key: "availableForSale", header: "Ctr Available", className: "text-right", numeric: true, render: (r) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600" : "text-green-700"}`}>{inCtr(r.availableForSale, r)}</span> },
               ], hidden)} emptyMessage="No stock data" />
             </div>
           )}
@@ -1123,11 +1122,11 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
               <div className="overflow-x-auto">
                 <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={vis<StockPositionRow>([
                   { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
-                  { key: "packing", header: "Packing", className: "text-right", render: (r) => r.packing ?? "—" },
-                  { key: "availableForSale", header: "Panels Available", sortable: true, className: "text-right", render: (r) => <span className={r.availableForSale < 0 ? "text-red-600 font-semibold" : ""}>{num(r.availableForSale)}</span> },
-                  { key: "fifoRatePerWatt", header: "Cost Rate/Watt (FIFO)", sortable: true, className: "text-right", render: (r) => r.fifoRatePerWatt ? `Rs ${r.fifoRatePerWatt.toFixed(2)}` : "—" },
-                  { key: "availWatts", header: "Stock in Watts", className: "text-right", value: (r) => availWatts(r), render: (r) => num(availWatts(r)) },
-                  { key: "availValue", header: "Stock Value (Rs)", sortable: true, className: "text-right", value: (r) => availValue(r), render: (r) => <span className={`font-semibold ${availValue(r) < 0 ? "text-red-600" : "text-gray-900"}`}>{formatCurrency(availValue(r))}</span> },
+                  { key: "packing", header: "Packing", className: "text-right", numeric: true, render: (r) => r.packing ?? "—" },
+                  { key: "availableForSale", header: "Panels Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={r.availableForSale < 0 ? "text-red-600 font-semibold" : ""}>{num(r.availableForSale)}</span> },
+                  { key: "fifoRatePerWatt", header: "Cost Rate/Watt (FIFO)", sortable: true, className: "text-right", numeric: true, render: (r) => r.fifoRatePerWatt ? `Rs ${r.fifoRatePerWatt.toFixed(2)}` : "—" },
+                  { key: "availWatts", header: "Stock in Watts", className: "text-right", numeric: true, value: (r) => availWatts(r), render: (r) => num(availWatts(r)) },
+                  { key: "availValue", header: "Stock Value (PKR)", sortable: true, className: "text-right", numeric: true, value: (r) => availValue(r), render: (r) => <span className={`font-semibold ${availValue(r) < 0 ? "text-red-600" : "text-gray-900"}`}>{formatAmount(availValue(r))}</span> },
                 ], hidden)} emptyMessage="No stock data" />
               </div>
               <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-sm">
@@ -1157,7 +1156,7 @@ function POStatusView({ d, rows, sections, hidden }: { d: POStatus; rows: POStat
             { key: "supplier", header: "Supplier", sortable: true },
             { key: "product", header: "Product", sortable: true },
             numCol("noOfPanels", "Ordered"), numCol("receivedPanels", "Received"),
-            moneyCol("poAmountPkr", "PKR Value", true),
+            moneyCol("poAmountPkr", "Value", true),
             { key: "status", header: "Status", render: (r) => <Badge status={r.status} /> },
           ], hidden)} emptyMessage="No purchase orders" />
         </SectionCard>

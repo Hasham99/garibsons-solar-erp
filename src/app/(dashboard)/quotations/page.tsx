@@ -10,11 +10,11 @@ import { Badge } from "@/components/ui/Badge"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
-import { formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
+import { formatAmount, formatCurrency, formatDate, statusRowClass } from "@/lib/utils"
 import { Plus, ArrowRight } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 
 interface Quotation {
@@ -79,8 +79,14 @@ export default function QuotationsPage() {
     router.push(`/sales?quotationId=${quotation.id}`)
   }
 
+  const quotationRowActions = (row: Quotation): RowAction[] =>
+    row.status === "DRAFT" ? [
+      { label: "Convert to SO", icon: <ArrowRight size={15} />, onClick: () => handleConvertToSO(row) },
+    ] : []
+
   const columns = [
     { key: "qNumber", header: "Quotation #", sortable: true },
+    { key: "createdAt", header: "Date", numeric: true, render: (row: Quotation) => formatDate(row.createdAt) },
     { key: "customer", header: "Customer", sortable: true, value: (row: Quotation) => row.customer?.name, render: (row: Quotation) => row.customer?.name },
     {
       key: "lines",
@@ -96,20 +102,16 @@ export default function QuotationsPage() {
     },
     {
       key: "total",
-      header: "Total",
-      render: (row: Quotation) => formatCurrency(row.lines?.reduce((s, l) => s + l.totalAmount, 0) || 0),
+      header: "Total (PKR)",
+      numeric: true,
+      render: (row: Quotation) => formatAmount(row.lines?.reduce((s, l) => s + l.totalAmount, 0) || 0),
     },
     { key: "status", header: "Status", render: (row: Quotation) => <Badge status={row.status} /> },
-    { key: "validUntil", header: "Valid Until", render: (row: Quotation) => row.validUntil ? formatDate(row.validUntil) : "-" },
-    { key: "createdAt", header: "Date", render: (row: Quotation) => formatDate(row.createdAt) },
+    { key: "validUntil", header: "Valid Until", numeric: true, render: (row: Quotation) => row.validUntil ? formatDate(row.validUntil) : "-" },
     {
       key: "actions",
       header: "Actions",
-      render: (row: Quotation) => (
-        <RowActionsMenu actions={row.status === "DRAFT" ? [
-          { label: "Convert to SO", icon: <ArrowRight size={15} />, onClick: () => handleConvertToSO(row) },
-        ] : []} />
-      ),
+      render: (row: Quotation) => <RowActionsMenu actions={quotationRowActions(row)} />,
     },
   ]
 
@@ -117,7 +119,6 @@ export default function QuotationsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -132,6 +133,7 @@ export default function QuotationsPage() {
           { label: "Total", value: <span className="font-bold">{formatCurrency(detailRow.lines?.reduce((s, l) => s + l.totalAmount, 0) || 0)}</span> },
           { label: "Line Items", value: String(detailRow.lines?.length || 0) },
         ] : []}
+        actions={detailRow ? quotationRowActions(detailRow) : []}
       >
         {detailRow?.lines?.length ? (
           <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -147,8 +149,8 @@ export default function QuotationsPage() {
                 {detailRow.lines.map((l, i) => (
                   <tr key={i}>
                     <td className="px-3 py-2.5 text-[13px]">{l.product?.name}</td>
-                    <td className="px-3 py-2.5 text-[13px] text-right">{l.quantity.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-[13px] text-right font-medium">{formatCurrency(l.totalAmount)}</td>
+                    <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.quantity.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-[13px] text-right font-medium tabular-nums">{formatCurrency(l.totalAmount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -167,7 +169,7 @@ export default function QuotationsPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <Table
           columns={columns}
           data={(quotations || [])}

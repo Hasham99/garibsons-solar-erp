@@ -13,11 +13,11 @@ import { Badge } from "@/components/ui/Badge"
 import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatAmount, formatDate } from "@/lib/utils"
 import { Plus, Package, DollarSign, AlertTriangle, SlidersHorizontal, Pencil } from "lucide-react"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 interface StockEntry {
   id: string
@@ -238,6 +238,21 @@ export default function StockPage() {
     return panels.toLocaleString()
   }
 
+  const stockRowActions = (row: StockEntry): RowAction[] =>
+    canAdjust ? [
+      { label: "Edit Entry", icon: <Pencil size={15} />, onClick: () => {
+        setEditingEntry(row)
+        setEditForm({
+          panelQuantity: String(row.panelQuantity),
+          costPerPanel: String(row.costPerPanel.toFixed(2)),
+          costPerWatt: String(row.costPerWatt.toFixed(4)),
+          receivedAt: row.receivedAt.split("T")[0],
+        })
+        setShowEdit(true)
+      } },
+      { label: "Adjust Stock", icon: <SlidersHorizontal size={15} />, onClick: () => { setSelectedEntry(row); setShowAdjust(true) } },
+    ] : []
+
   const columns = [
     {
       key: "product", header: "Product", sortable: true,
@@ -250,6 +265,10 @@ export default function StockPage() {
       )
     },
     {
+      key: "receivedAt", header: "Rcvd Date", numeric: true,
+      render: (row: StockEntry) => <span className="whitespace-nowrap">{formatDate(row.receivedAt)}</span>
+    },
+    {
       key: "warehouse", header: "Warehouse", sortable: true,
       value: (row: StockEntry) => row.warehouse?.name,
       render: (row: StockEntry) => <span className="whitespace-nowrap">{row.warehouse?.name}</span>
@@ -260,7 +279,7 @@ export default function StockPage() {
       render: (row: StockEntry) => <span className="whitespace-nowrap">{row.po?.poNumber || "—"}</span>
     },
     {
-      key: "rcvdSold", header: "Rcvd / Sold",
+      key: "rcvdSold", header: "Rcvd / Sold", numeric: true,
       render: (row: StockEntry) => (
         <div className="whitespace-nowrap">
           <p>{formatQty(row.panelQuantity, row)}</p>
@@ -269,7 +288,7 @@ export default function StockPage() {
       )
     },
     {
-      key: "availableQuantity", header: "Available",
+      key: "availableQuantity", header: "Available", numeric: true,
       render: (row: StockEntry) => {
         const isLow = row.availableQuantity > 0 && row.availableQuantity <= row.product.lowStockThreshold
         return (
@@ -284,7 +303,7 @@ export default function StockPage() {
       }
     },
     {
-      key: "reservedQuantity", header: "Reserved",
+      key: "reservedQuantity", header: "Reserved", numeric: true,
       render: (row: StockEntry) => (
         <span className={row.reservedQuantity > 0 ? "font-semibold text-amber-600" : "text-gray-400"}>
           {formatQty(row.reservedQuantity, row)}
@@ -292,43 +311,25 @@ export default function StockPage() {
       )
     },
     {
-      key: "costPerWatt", header: "Cost/W · GST",
+      key: "costPerWatt", header: "Cost/W · GST (PKR)", numeric: true,
       render: (row: StockEntry) => (
         <div className="whitespace-nowrap">
-          <p>Rs {row.costPerWatt.toFixed(2)}</p>
-          {row.gstPerPanel > 0 && <p className="text-orange-600">{formatCurrency(row.gstPerPanel)} gst</p>}
+          <p>{row.costPerWatt.toFixed(2)}</p>
+          {row.gstPerPanel > 0 && <p className="text-orange-600">{formatAmount(row.gstPerPanel)} gst</p>}
         </div>
       )
     },
     {
-      key: "availableValue", header: "Avail. Value",
-      render: (row: StockEntry) => <span className="whitespace-nowrap">{formatCurrency(row.availableValue)}</span>
+      key: "availableValue", header: "Avail. Value (PKR)", numeric: true,
+      render: (row: StockEntry) => <span className="whitespace-nowrap">{formatAmount(row.availableValue)}</span>
     },
     {
-      key: "agingDays", header: "Age",
+      key: "agingDays", header: "Age", numeric: true,
       render: (row: StockEntry) => agingBadge(row.agingDays)
-    },
-    {
-      key: "receivedAt", header: "Rcvd Date",
-      render: (row: StockEntry) => <span className="whitespace-nowrap">{formatDate(row.receivedAt)}</span>
     },
     ...(canAdjust ? [{
       key: "actions", header: "Actions",
-      render: (row: StockEntry) => (
-        <RowActionsMenu actions={[
-          { label: "Edit Entry", icon: <Pencil size={15} />, onClick: () => {
-            setEditingEntry(row)
-            setEditForm({
-              panelQuantity: String(row.panelQuantity),
-              costPerPanel: String(row.costPerPanel.toFixed(2)),
-              costPerWatt: String(row.costPerWatt.toFixed(4)),
-              receivedAt: row.receivedAt.split("T")[0],
-            })
-            setShowEdit(true)
-          } },
-          { label: "Adjust Stock", icon: <SlidersHorizontal size={15} />, onClick: () => { setSelectedEntry(row); setShowAdjust(true) } },
-        ]} />
-      )
+      render: (row: StockEntry) => <RowActionsMenu actions={stockRowActions(row)} />
     }] : []),
   ]
 
@@ -336,7 +337,6 @@ export default function StockPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <Toaster position="top-right" />
 
       {/* Row details */}
       <DetailsModal
@@ -357,6 +357,7 @@ export default function StockPage() {
           { label: "Current Value", value: formatCurrency(detailRow.currentValue) },
           { label: "Available Value", value: formatCurrency(detailRow.availableValue) },
         ] : []}
+        actions={detailRow ? stockRowActions(detailRow) : []}
       />
       <Header
         title="Stock Register"
@@ -434,7 +435,7 @@ export default function StockPage() {
       {/* By Warehouse & SKU */}
       {dashboard && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
             <h3 className="font-semibold text-gray-900 mb-4">Stock by Warehouse</h3>
             <div className="space-y-3">
               {dashboard.byWarehouse.map((w, i) => (
@@ -452,7 +453,7 @@ export default function StockPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
             <h3 className="font-semibold text-gray-900 mb-4">Stock by SKU</h3>
             <div className="space-y-3">
               {dashboard.bySKU.map((s) => {
@@ -480,7 +481,7 @@ export default function StockPage() {
 
       {/* Awaiting Receipt */}
       {unreceivedPOs.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="font-semibold text-gray-900">Ready to Receive ({unreceivedPOs.length})</h3>
             <p className="text-xs text-gray-400 mt-0.5">POs with costing calculated — pending full goods receipt</p>
@@ -536,7 +537,7 @@ export default function StockPage() {
       )}
 
       {/* Stock Entries Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
           <h3 className="font-semibold text-gray-900">Stock Entries (Batch View)</h3>
           <div className="flex items-center gap-3">

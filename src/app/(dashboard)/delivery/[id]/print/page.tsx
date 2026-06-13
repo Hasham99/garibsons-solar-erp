@@ -132,7 +132,6 @@ export default function DeliveryOrderPrintPage() {
           ctx.save()
           ctx.globalAlpha = 0.05
           ctx.translate(canvasW / 2, canvasH / 2)
-          ctx.rotate((-12 * Math.PI) / 180)
           ctx.drawImage(logo, -wmW / 2, -wmH / 2, wmW, wmH)
           ctx.restore()
           resolve(canvas)
