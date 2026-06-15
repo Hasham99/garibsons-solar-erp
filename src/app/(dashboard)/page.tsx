@@ -2,6 +2,7 @@
 
 import { useFetch } from "@/hooks/useFetch"
 import { useAuth } from "@/hooks/useAuth"
+import { useChartTheme } from "@/hooks/useChartTheme"
 import { motion } from "motion/react"
 import { Stagger, StaggerItem } from "@/components/motion/Motion"
 import { StatCard } from "@/components/ui/Card"
@@ -134,13 +135,13 @@ const SO_STATUS_COLORS: Record<string, string> = {
 
 /* Status-tinted rows for the recent orders list — left stripe + soft wash */
 const SO_ROW_TINTS: Record<string, string> = {
-  DRAFT: "border-slate-300 bg-slate-50/60 hover:bg-slate-100/70",
-  PENDING_PAYMENT: "border-amber-400 bg-amber-50/60 hover:bg-amber-50",
-  PAYMENT_CONFIRMED: "border-teal-400 bg-teal-50/50 hover:bg-teal-50/80",
-  DO_ISSUED: "border-blue-400 bg-blue-50/50 hover:bg-blue-50/80",
-  DELIVERED: "border-indigo-400 bg-indigo-50/50 hover:bg-indigo-50/80",
-  INVOICED: "border-emerald-400 bg-emerald-50/50 hover:bg-emerald-50/80",
-  CANCELLED: "border-rose-400 bg-rose-50/50 hover:bg-rose-50/80",
+  DRAFT: "border-line-strong bg-muted hover:bg-muted",
+  PENDING_PAYMENT: "border-amber-400 bg-amber-50/60 dark:bg-amber-500/10 hover:bg-amber-50 dark:hover:bg-amber-500/10",
+  PAYMENT_CONFIRMED: "border-teal-400 bg-teal-50/50 dark:bg-teal-500/10 hover:bg-teal-50/80 dark:hover:bg-teal-500/10",
+  DO_ISSUED: "border-blue-400 bg-blue-50/50 dark:bg-blue-500/10 hover:bg-blue-50/80 dark:hover:bg-blue-500/10",
+  DELIVERED: "border-indigo-400 bg-indigo-50/50 dark:bg-indigo-500/10 hover:bg-indigo-50/80 dark:hover:bg-indigo-500/10",
+  INVOICED: "border-emerald-400 bg-emerald-50/50 dark:bg-emerald-500/10 hover:bg-emerald-50/80 dark:hover:bg-emerald-500/10",
+  CANCELLED: "border-rose-400 bg-rose-50/50 dark:bg-rose-500/10 hover:bg-rose-50/80 dark:hover:bg-rose-500/10",
 }
 
 /* Compact PKR for chart axes: Rs 12.4M / Rs 850K */
@@ -163,6 +164,7 @@ function statusLabel(s: string) {
 export default function DashboardPage() {
   const { data, loading } = useFetch<DashboardData>("/api/dashboard")
   const { user } = useAuth()
+  const chart = useChartTheme()
 
   if (loading) return <DashboardSkeleton />
 
@@ -315,28 +317,28 @@ export default function DashboardPage() {
       </Stagger>
 
       {/* Secondary stat strip */}
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70 px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+      <div className="bg-surface rounded-xl shadow-card border border-line px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-line">
         <div className="flex items-center gap-3">
-          <span className="p-2 rounded-lg bg-amber-50 text-amber-600"><Lock size={16} /></span>
+          <span className="p-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300"><Lock size={16} /></span>
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">Reserved Stock</p>
-            <p className="text-sm font-semibold text-slate-900 tabular-nums">
+            <p className="text-xs text-secondary">Reserved Stock</p>
+            <p className="text-sm font-semibold text-foreground tabular-nums">
               {summary.reservedPanels.toLocaleString()} panels · {formatCurrency(summary.reservedStockValue)}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3 pt-4 sm:pt-0 sm:pl-4">
-          <span className="p-2 rounded-lg bg-purple-50 text-purple-600"><Landmark size={16} /></span>
+          <span className="p-2 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-300"><Landmark size={16} /></span>
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">Import GST Locked in Stock</p>
-            <p className="text-sm font-semibold text-slate-900 tabular-nums">{formatCurrency(summary.totalGstInStock)}</p>
+            <p className="text-xs text-secondary">Import GST Locked in Stock</p>
+            <p className="text-sm font-semibold text-foreground tabular-nums">{formatCurrency(summary.totalGstInStock)}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 pt-4 sm:pt-0 sm:pl-4">
-          <span className="p-2 rounded-lg bg-blue-50 text-blue-600"><CalendarClock size={16} /></span>
+          <span className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300"><CalendarClock size={16} /></span>
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">Today&rsquo;s Activity</p>
-            <p className="text-sm font-semibold text-slate-900 tabular-nums">
+            <p className="text-xs text-secondary">Today&rsquo;s Activity</p>
+            <p className="text-sm font-semibold text-foreground tabular-nums">
               {summary.todaySalesCount} sales · {summary.todayCollectionsCount} receipts
             </p>
           </div>
@@ -345,10 +347,10 @@ export default function DashboardPage() {
 
       {/* Trend + PO pipeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
+        <div className="lg:col-span-2 bg-surface rounded-xl shadow-card border border-line p-6">
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-900">Sales vs Collections</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Last 6 months</p>
+            <h3 className="font-semibold text-foreground">Sales vs Collections</h3>
+            <p className="text-xs text-secondary mt-0.5">Last 6 months</p>
           </div>
           {trend.some((m) => m.sales > 0 || m.collections > 0) ? (
             <ResponsiveContainer width="100%" height={280}>
@@ -359,12 +361,12 @@ export default function DashboardPage() {
                     <stop offset="100%" stopColor="#818cf8" stopOpacity={0.65} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={fmtCompact} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={52} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: chart.axis }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={fmtCompact} tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} width={52} />
                 <Tooltip
                   formatter={(value, name) => [formatCurrency(Number(value)), name === "sales" ? "Sales" : "Collections"]}
-                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.1)", fontSize: 13 }}
+                  contentStyle={chart.tooltipStyle}
                   cursor={{ fill: "rgba(99,102,241,0.05)" }}
                 />
                 <Legend
@@ -376,14 +378,14 @@ export default function DashboardPage() {
               </ComposedChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">No sales or collection activity yet</div>
+            <div className="h-[280px] flex items-center justify-center text-tertiary text-sm">No sales or collection activity yet</div>
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
+        <div className="bg-surface rounded-xl shadow-card border border-line p-6">
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-900">Purchase Pipeline</h3>
-            <p className="text-xs text-slate-500 mt-0.5">All purchase orders by status</p>
+            <h3 className="font-semibold text-foreground">Purchase Pipeline</h3>
+            <p className="text-xs text-secondary mt-0.5">All purchase orders by status</p>
           </div>
           {poBreakdown.length > 0 ? (
             <>
@@ -407,36 +409,36 @@ export default function DashboardPage() {
                       const payload = item?.payload as DashboardData["poStatusBreakdown"][number] | undefined
                       return [`${value} POs · ${(payload?.panels ?? 0).toLocaleString()} panels`, statusLabel(String(payload?.status ?? ""))]
                     }}
-                    contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)", fontSize: 13 }}
+                    contentStyle={chart.tooltipStyle}
                   />
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-3 space-y-1.5">
                 {poBreakdown.map((g) => (
                   <div key={g.status} className="flex items-center justify-between text-[13px]">
-                    <span className="flex items-center gap-2 text-slate-600">
+                    <span className="flex items-center gap-2 text-secondary">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PO_STATUS_COLORS[g.status] || "#94a3b8" }} />
                       {statusLabel(g.status)}
                     </span>
-                    <span className="font-medium text-slate-900 tabular-nums">{g.count}</span>
+                    <span className="font-medium text-foreground tabular-nums">{g.count}</span>
                   </div>
                 ))}
               </div>
             </>
           ) : (
-            <div className="h-[240px] flex items-center justify-center text-slate-400 text-sm">No purchase orders yet</div>
+            <div className="h-[240px] flex items-center justify-center text-tertiary text-sm">No purchase orders yet</div>
           )}
         </div>
       </div>
 
       {/* Sales order pipeline — segmented bar */}
       {soTotal > 0 && (
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
+        <div className="bg-surface rounded-xl shadow-card border border-line p-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-900">Sales Order Pipeline</h3>
-            <span className="text-xs text-slate-500">{soTotal} active orders</span>
+            <h3 className="font-semibold text-foreground">Sales Order Pipeline</h3>
+            <span className="text-xs text-secondary">{soTotal} active orders</span>
           </div>
-          <div className="flex h-3 w-full rounded-full overflow-hidden bg-slate-100">
+          <div className="flex h-3 w-full rounded-full overflow-hidden bg-muted">
             {soBreakdown.map((g) => (
               <div
                 key={g.status}
@@ -448,9 +450,9 @@ export default function DashboardPage() {
           </div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
             {soBreakdown.map((g) => (
-              <span key={g.status} className="inline-flex items-center gap-1.5 text-[13px] text-slate-600">
+              <span key={g.status} className="inline-flex items-center gap-1.5 text-[13px] text-secondary">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: SO_STATUS_COLORS[g.status] || "#94a3b8" }} />
-                {statusLabel(g.status)} <span className="font-semibold text-slate-900 tabular-nums">{g.count}</span>
+                {statusLabel(g.status)} <span className="font-semibold text-foreground tabular-nums">{g.count}</span>
               </span>
             ))}
           </div>
@@ -459,10 +461,10 @@ export default function DashboardPage() {
 
       {/* Warehouse stock + top outstanding */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
+        <div className="lg:col-span-2 bg-surface rounded-xl shadow-card border border-line p-6">
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-900">Stock by Warehouse</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Available vs reserved panels</p>
+            <h3 className="font-semibold text-foreground">Stock by Warehouse</h3>
+            <p className="text-xs text-secondary mt-0.5">Available vs reserved panels</p>
           </div>
           {data?.warehouseStock && data.warehouseStock.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
@@ -477,12 +479,12 @@ export default function DashboardPage() {
                     <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.7} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={44} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: chart.axis }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} width={44} />
                 <Tooltip
                   formatter={(value, name) => [Number(value).toLocaleString() + " panels", name === "availablePanels" ? "Available" : "Reserved"]}
-                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.1)", fontSize: 13 }}
+                  contentStyle={chart.tooltipStyle}
                   cursor={{ fill: "rgba(59,130,246,0.05)" }}
                 />
                 <Legend formatter={(value) => (value === "availablePanels" ? "Available" : "Reserved")} wrapperStyle={{ fontSize: 13 }} />
@@ -491,24 +493,24 @@ export default function DashboardPage() {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[260px] flex items-center justify-center text-slate-400 text-sm">No stock data available</div>
+            <div className="h-[260px] flex items-center justify-center text-tertiary text-sm">No stock data available</div>
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
+        <div className="bg-surface rounded-xl shadow-card border border-line p-6">
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-900">Top Outstanding Customers</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Highest receivable balances</p>
+            <h3 className="font-semibold text-foreground">Top Outstanding Customers</h3>
+            <p className="text-xs text-secondary mt-0.5">Highest receivable balances</p>
           </div>
           {data?.topOutstanding && data.topOutstanding.length > 0 ? (
             <div className="space-y-3.5">
               {data.topOutstanding.map((c) => (
                 <div key={c.customerId}>
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-[13px] font-medium text-slate-700 truncate" title={c.name}>{c.name}</p>
-                    <p className="text-[13px] font-semibold text-slate-900 tabular-nums shrink-0">{formatCurrency(c.outstanding)}</p>
+                    <p className="text-[13px] font-medium text-secondary truncate" title={c.name}>{c.name}</p>
+                    <p className="text-[13px] font-semibold text-foreground tabular-nums shrink-0">{formatCurrency(c.outstanding)}</p>
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                     <motion.div
                       className="h-full rounded-full bg-gradient-to-r from-rose-400 to-rose-500"
                       initial={{ width: 0 }}
@@ -520,7 +522,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="h-[240px] flex items-center justify-center text-slate-400 text-sm text-center px-4">
+            <div className="h-[240px] flex items-center justify-center text-tertiary text-sm text-center px-4">
               No outstanding balances — all caught up 🎉
             </div>
           )}
@@ -530,81 +532,81 @@ export default function DashboardPage() {
       {/* Recent activity + low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Sales Orders */}
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-semibold text-slate-900">Recent Sales Orders</h3>
+        <div className="bg-surface rounded-xl shadow-card border border-line">
+          <div className="px-6 py-4 border-b border-line">
+            <h3 className="font-semibold text-foreground">Recent Sales Orders</h3>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-line">
             {data?.recentOrders && data.recentOrders.length > 0 ? (
               data.recentOrders.slice(0, 6).map((order) => (
                 <div
                   key={order.id}
-                  className={`px-5 py-3 border-l-4 transition-colors ${SO_ROW_TINTS[order.status] || "border-slate-200 hover:bg-slate-50/70"}`}
+                  className={`px-5 py-3 border-l-4 transition-colors ${SO_ROW_TINTS[order.status] || "border-line hover:bg-muted"}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     {/* left column wraps freely; right column stays fixed and right-aligned */}
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm text-slate-900">{order.soNumber}</p>
-                      <p className="mt-0.5 text-xs text-slate-600">
+                      <p className="font-semibold text-sm text-foreground">{order.soNumber}</p>
+                      <p className="mt-0.5 text-xs text-secondary">
                         {order.customer.name} &middot; {formatDate(order.createdAt)}
                       </p>
                     </div>
                     <div className="shrink-0 flex flex-col items-end gap-1">
-                      <p className="text-sm font-semibold text-slate-900 tabular-nums">{formatCurrency(order.grandTotal)}</p>
+                      <p className="text-sm font-semibold text-foreground tabular-nums">{formatCurrency(order.grandTotal)}</p>
                       <Badge status={order.status} />
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="px-6 py-12 text-center text-slate-400 text-sm">No sales orders yet</div>
+              <div className="px-6 py-12 text-center text-tertiary text-sm">No sales orders yet</div>
             )}
           </div>
         </div>
 
         {/* Recent Collections */}
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-semibold text-slate-900">Recent Collections</h3>
+        <div className="bg-surface rounded-xl shadow-card border border-line">
+          <div className="px-6 py-4 border-b border-line">
+            <h3 className="font-semibold text-foreground">Recent Collections</h3>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-line">
             {data?.recentReceipts && data.recentReceipts.length > 0 ? (
               data.recentReceipts.slice(0, 6).map((r) => (
-                <div key={r.id} className="px-6 py-3 hover:bg-slate-50/70 transition-colors">
+                <div key={r.id} className="px-6 py-3 hover:bg-muted transition-colors">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="font-medium text-sm text-slate-900">{r.customer.name}</p>
-                    <p className="text-sm font-semibold text-emerald-600 tabular-nums shrink-0">
+                    <p className="font-medium text-sm text-foreground">{r.customer.name}</p>
+                    <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-300 tabular-nums shrink-0">
                       +{formatCurrency(r.amount)}
                     </p>
                   </div>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-secondary">
                     {r.receiptNo} &middot; {r.bank.name} &middot; {formatDate(r.valueDate)}
                   </p>
                 </div>
               ))
             ) : (
-              <div className="px-6 py-12 text-center text-slate-400 text-sm">No collections recorded yet</div>
+              <div className="px-6 py-12 text-center text-tertiary text-sm">No collections recorded yet</div>
             )}
           </div>
         </div>
 
         {/* Low Stock Alerts */}
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
-            <AlertTriangle size={16} className="text-amber-500" />
-            <h3 className="font-semibold text-slate-900">Low Stock Alerts</h3>
+        <div className="bg-surface rounded-xl shadow-card border border-line">
+          <div className="px-6 py-4 border-b border-line flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-500 dark:text-amber-400" />
+            <h3 className="font-semibold text-foreground">Low Stock Alerts</h3>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-line">
             {data?.lowStock && data.lowStock.length > 0 ? (
               data.lowStock.map((p) => (
-                <div key={p.code} className="px-6 py-3 flex items-start justify-between gap-2 hover:bg-slate-50/70 transition-colors">
+                <div key={p.code} className="px-6 py-3 flex items-start justify-between gap-2 hover:bg-muted transition-colors">
                   <div className="min-w-0">
-                    <p className="font-medium text-sm text-slate-900">{p.name}</p>
-                    <p className="text-xs text-slate-500">{p.code} &middot; {p.wattage}W &middot; threshold {p.threshold}</p>
+                    <p className="font-medium text-sm text-foreground">{p.name}</p>
+                    <p className="text-xs text-secondary">{p.code} &middot; {p.wattage}W &middot; threshold {p.threshold}</p>
                   </div>
                   <span
                     className={`shrink-0 text-xs font-semibold rounded-full px-2.5 py-1 tabular-nums ${
-                      p.available === 0 ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"
+                      p.available === 0 ? "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300" : "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300"
                     }`}
                   >
                     {p.available.toLocaleString()} left
@@ -612,7 +614,7 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <div className="px-6 py-12 text-center text-slate-400 text-sm">All products are above their stock thresholds</div>
+              <div className="px-6 py-12 text-center text-tertiary text-sm">All products are above their stock thresholds</div>
             )}
           </div>
         </div>

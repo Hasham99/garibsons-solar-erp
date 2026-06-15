@@ -7,6 +7,7 @@ import { Search, ChevronDown, ChevronRight, LogOut, UserRound, PanelLeftClose, P
 import { clsx } from "clsx"
 import { CommandPalette } from "@/components/layout/CommandPalette"
 import { NotificationBell } from "@/components/layout/NotificationBell"
+import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { navSections, NavItem } from "@/components/layout/Sidebar"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { TOPBAR_SURFACE } from "@/lib/surfaces"
@@ -168,6 +169,8 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
               </kbd>
             </button>
 
+            <ThemeToggle />
+
             <NotificationBell />
 
             {/* Profile */}
@@ -203,24 +206,24 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -4, scale: 0.98 }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="absolute right-0 z-40 mt-2 w-72 origin-top-right overflow-hidden rounded-xl border border-slate-200 bg-white shadow-pop"
+                    className="absolute right-0 z-40 mt-2 w-72 origin-top-right overflow-hidden rounded-xl border border-line bg-elevated shadow-pop"
                   >
                     {/* Profile details */}
-                    <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3.5">
+                    <div className="flex items-center gap-3 border-b border-line bg-muted/60 px-4 py-3.5">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white shadow-md">
                         {initials(user.name)}
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
-                        <p className="truncate text-xs text-slate-500">{user.email}</p>
+                        <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
+                        <p className="truncate text-xs text-secondary">{user.email}</p>
                       </div>
                     </div>
-                    <div className="px-4 py-3 flex items-center justify-between gap-2 border-b border-slate-100">
-                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                    <div className="px-4 py-3 flex items-center justify-between gap-2 border-b border-line">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-secondary">
                         <UserRound size={13} />
                         Role
                       </span>
-                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/15 capitalize">
+                      <span className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300 ring-1 ring-inset ring-blue-600/15 dark:ring-blue-500/25 capitalize">
                         {user.role.toLowerCase().replace(/_/g, " ")}
                       </span>
                     </div>
@@ -231,7 +234,7 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
                           setMenuOpen(false)
                           router.push("/profile")
                         }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-muted hover:text-foreground"
                       >
                         <UserRound size={15} />
                         My Profile
@@ -242,7 +245,7 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
                           setMenuOpen(false)
                           setConfirmOpen(true)
                         }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 dark:text-rose-400 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/10"
                       >
                         <LogOut size={15} />
                         Sign out

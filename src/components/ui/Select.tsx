@@ -15,7 +15,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-[13px] font-medium text-slate-700 mb-1">
+          <label className="block text-[13px] font-medium text-secondary mb-1">
             {label}
             {props.required && <span className="text-rose-500 ml-1">*</span>}
           </label>
@@ -23,11 +23,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         <select
           ref={ref}
           className={clsx(
-            "block w-full rounded-lg border px-3 py-1.5 text-[13px] shadow-sm bg-white transition-[border-color,box-shadow] duration-200",
+            "block w-full rounded-lg border px-3 py-1.5 text-[13px] shadow-sm bg-surface transition-[border-color,box-shadow] duration-200",
             "focus:outline-none focus:ring-2",
             error
-              ? "animate-shake border-rose-300 text-rose-900 focus:ring-rose-400/50 focus:border-rose-400"
-              : "border-slate-300 text-slate-900 hover:border-slate-400 focus:ring-blue-500/50 focus:border-blue-500",
+              ? "animate-shake border-rose-300 text-rose-900 focus:ring-rose-400/50 focus:border-rose-400 dark:border-rose-500/50 dark:text-rose-200"
+              : "border-line-strong text-foreground hover:border-line-strong focus:ring-blue-500/50 focus:border-blue-500",
             className
           )}
           {...props}
@@ -40,8 +40,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               ))
             : children}
         </select>
-        {error && <p className="mt-1.5 text-[13px] text-rose-600 animate-slide-down">{error}</p>}
-        {helperText && !error && <p className="mt-1.5 text-[13px] text-slate-500">{helperText}</p>}
+        {error && <p className="mt-1.5 text-[13px] text-rose-600 dark:text-rose-400 animate-slide-down">{error}</p>}
+        {helperText && !error && <p className="mt-1.5 text-[13px] text-secondary">{helperText}</p>}
       </div>
     )
   }

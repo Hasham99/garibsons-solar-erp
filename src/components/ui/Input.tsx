@@ -14,7 +14,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-[13px] font-medium text-slate-700 mb-1">
+          <label className="block text-[13px] font-medium text-secondary mb-1">
             {label}
             {props.required && <span className="text-rose-500 ml-1">*</span>}
           </label>
@@ -25,14 +25,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             "block w-full rounded-lg border px-3 py-1.5 text-[13px] shadow-sm transition-[border-color,box-shadow,background-color] duration-200",
             "focus:outline-none focus:ring-2",
             error
-              ? "animate-shake border-rose-300 bg-rose-50/60 text-rose-900 placeholder-rose-300 focus:ring-rose-400/50 focus:border-rose-400"
-              : "border-slate-300 bg-white text-slate-900 placeholder-slate-400 hover:border-slate-400 focus:ring-blue-500/50 focus:border-blue-500",
+              ? "animate-shake border-rose-300 bg-rose-50/60 text-rose-900 placeholder-rose-300 focus:ring-rose-400/50 focus:border-rose-400 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-200 dark:placeholder-rose-400/60"
+              : "border-line-strong bg-surface text-foreground placeholder-tertiary hover:border-line-strong focus:ring-blue-500/50 focus:border-blue-500",
             className
           )}
           {...props}
         />
-        {error && <p className="mt-1.5 text-[13px] text-rose-600 animate-slide-down">{error}</p>}
-        {helperText && !error && <p className="mt-1.5 text-[13px] text-slate-500">{helperText}</p>}
+        {error && <p className="mt-1.5 text-[13px] text-rose-600 dark:text-rose-400 animate-slide-down">{error}</p>}
+        {helperText && !error && <p className="mt-1.5 text-[13px] text-secondary">{helperText}</p>}
       </div>
     )
   }

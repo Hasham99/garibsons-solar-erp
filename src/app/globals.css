@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: any element inside `.dark` (set on <html>) flips. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Semantic color tokens ──
+ * Utilities (bg-surface, text-foreground, border-line, …) resolve through
+ * runtime CSS variables, so overriding those variables under `.dark` re-themes
+ * the whole app without touching markup. `@theme inline` is required here: it
+ * makes Tailwind emit `var(--surface)` directly instead of baking in a fixed
+ * value, which is what lets the .dark override take effect. */
+@theme inline {
+  /* Backgrounds */
+  --color-surface: var(--surface);       /* cards, white panels */
+  --color-canvas: var(--canvas);         /* page background */
+  --color-elevated: var(--elevated);     /* modals, popovers, dropdowns */
+  --color-muted: var(--muted);           /* subtle fills, hover rows */
+  /* Text */
+  --color-foreground: var(--foreground); /* primary text */
+  --color-secondary: var(--secondary);   /* secondary text */
+  --color-tertiary: var(--tertiary);     /* placeholders, tertiary text */
+  /* Borders */
+  --color-line: var(--line);             /* default borders/dividers */
+  --color-line-strong: var(--line-strong);
+}
+
 @theme {
   /* Brand palette — deep navy sidebar + solar blue accents */
   --color-sidebar: #0e1526;
@@ -57,25 +81,66 @@ html {
   font-size: 15px;
 }
 
+/* ── Light theme (default) ── */
 :root {
-  --background: #f4f6fa;
+  --surface: #ffffff;
+  --canvas: #f4f6fa;
+  --elevated: #ffffff;
+  --muted: #f1f5f9;
   --foreground: #0f172a;
-}
+  --secondary: #475569;
+  --tertiary: #94a3b8;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
 
-/* Soft ambient glow — blue sky top-right, solar amber bottom-left */
-body {
-  background-color: var(--background);
-  background-image:
+  /* Ambient body glow — blue sky top-right, solar amber bottom-left */
+  --body-glow:
     radial-gradient(1100px 700px at 88% -10%, rgb(59 130 246 / 0.08), transparent 60%),
     radial-gradient(900px 650px at -8% 105%, rgb(245 158 11 / 0.07), transparent 60%),
     radial-gradient(800px 600px at 50% 55%, rgb(99 102 241 / 0.04), transparent 65%);
+  --selection-bg: #bfdbfe;
+  --selection-fg: #1e3a8a;
+
+  /* Back-compat aliases for the original variable names */
+  --background: var(--canvas);
+
+  color-scheme: light;
+}
+
+/* ── Dark theme ── */
+.dark {
+  --surface: #131c30;
+  --canvas: #0a0f1d;
+  --elevated: #1a2438;
+  --muted: #1e293b;
+  --foreground: #e8edf5;
+  --secondary: #9aa8bd;
+  --tertiary: #64748b;
+  --line: #283449;
+  --line-strong: #3a4866;
+
+  /* Dimmer, deeper ambient glow on the dark canvas */
+  --body-glow:
+    radial-gradient(1100px 700px at 88% -10%, rgb(59 130 246 / 0.12), transparent 60%),
+    radial-gradient(900px 650px at -8% 105%, rgb(245 158 11 / 0.06), transparent 60%),
+    radial-gradient(800px 600px at 50% 55%, rgb(99 102 241 / 0.08), transparent 65%);
+  --selection-bg: #1e3a8a;
+  --selection-fg: #dbeafe;
+
+  color-scheme: dark;
+}
+
+/* Soft ambient glow over the canvas */
+body {
+  background-color: var(--canvas);
+  background-image: var(--body-glow);
   color: var(--foreground);
 }
 
 /* Brand-tinted text selection */
 ::selection {
-  background: #bfdbfe;
-  color: #1e3a8a;
+  background: var(--selection-bg);
+  color: var(--selection-fg);
 }
 
 /* Numbers align vertically in every table column (amounts, quantities, dates) */
@@ -97,6 +162,11 @@ th {
   background: linear-gradient(90deg, #e9edf3 25%, #f3f6fa 45%, #e9edf3 65%);
   background-size: 400% 100%;
   animation: skeleton-shimmer 1.6s ease infinite;
+}
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(90deg, #1c2740 25%, #25324d 45%, #1c2740 65%);
+  background-size: 400% 100%;
 }
 
 @keyframes skeleton-shimmer {
@@ -145,6 +215,14 @@ main::-webkit-scrollbar-thumb:hover {
   background-color: #94a3b8;
 }
 
+.dark main::-webkit-scrollbar-thumb {
+  background-color: #334155;
+}
+
+.dark main::-webkit-scrollbar-thumb:hover {
+  background-color: #475569;
+}
+
 /* Users who prefer reduced motion get instant transitions everywhere */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -158,6 +236,23 @@ main::-webkit-scrollbar-thumb:hover {
 }
 
 @media print {
+  /* Documents always print on light paper, even when the app is in dark mode —
+     force every semantic token back to its light value so invoices/DOs/reports
+     never render dark ink-on-dark. */
+  :root,
+  .dark {
+    --surface: #ffffff;
+    --canvas: #ffffff;
+    --elevated: #ffffff;
+    --muted: #f1f5f9;
+    --foreground: #0f172a;
+    --secondary: #475569;
+    --tertiary: #94a3b8;
+    --line: #e2e8f0;
+    --line-strong: #cbd5e1;
+    color-scheme: light;
+  }
+
   /* Printed documents (invoices, DOs, reports) keep the normal font — the mono
      numeric treatment is screen-only, never on printed/PDF output. */
   .tabular-nums {

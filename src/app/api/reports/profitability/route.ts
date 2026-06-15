@@ -34,11 +34,26 @@ export async function GET(request: Request) {
       a.cogs += m.quantity * e.costPerPanel
     }
 
-    let rows = [...byProduct.values()].map((a) => ({
-      ...a,
-      grossProfit: a.revenue - a.cogs,
-      marginPct: a.revenue > 0 ? ((a.revenue - a.cogs) / a.revenue) * 100 : 0,
-    }))
+    // Resolve product name/brand by id directly. The revenue loop above seeds
+    // each entry with placeholder "—", and only rows that also had a stock
+    // movement got their real name backfilled — so look every product up here
+    // to guarantee the name/brand columns are populated.
+    const productIds = [...byProduct.keys()]
+    const products = productIds.length
+      ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true, brand: true } })
+      : []
+    const productMap = new Map(products.map((p) => [p.id, p]))
+
+    let rows = [...byProduct.entries()].map(([pid, a]) => {
+      const p = productMap.get(pid)
+      return {
+        ...a,
+        product: p?.name ?? a.product,
+        brand: p?.brand ?? a.brand,
+        grossProfit: a.revenue - a.cogs,
+        marginPct: a.revenue > 0 ? ((a.revenue - a.cogs) / a.revenue) * 100 : 0,
+      }
+    })
     if (f.brand) rows = rows.filter((r) => r.brand === f.brand)
     rows.sort((a, b) => b.grossProfit - a.grossProfit)
 

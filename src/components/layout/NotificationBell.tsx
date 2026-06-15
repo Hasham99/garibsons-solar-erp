@@ -68,23 +68,23 @@ export function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute right-0 z-40 mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-slate-200 bg-white shadow-pop"
+            className="absolute right-0 z-40 mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-line bg-elevated shadow-pop"
           >
-            <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-3">
-              <p className="text-sm font-semibold text-slate-900">Notifications</p>
+            <div className="border-b border-line bg-muted px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">Notifications</p>
             </div>
 
             <div className="max-h-[50vh] overflow-y-auto">
               {count === 0 ? (
                 <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-                  <CheckCircle2 size={22} className="text-emerald-500" />
-                  <p className="text-sm text-slate-500">All clear — no alerts right now</p>
+                  <CheckCircle2 size={22} className="text-emerald-500 dark:text-emerald-400" />
+                  <p className="text-sm text-secondary">All clear — no alerts right now</p>
                 </div>
               ) : (
                 <>
                   {aging.length > 0 && (
                     <div className="py-1.5">
-                      <p className="px-4 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      <p className="px-4 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
                         Aging delivery orders
                       </p>
                       {aging.map((d) => (
@@ -92,16 +92,16 @@ export function NotificationBell() {
                           key={d.id}
                           href="/delivery"
                           onClick={() => setOpen(false)}
-                          className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-amber-50/60"
+                          className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-amber-50/60 dark:hover:bg-amber-500/10"
                         >
-                          <span className="mt-0.5 rounded-lg bg-amber-50 p-1.5 text-amber-600 ring-1 ring-inset ring-amber-100">
+                          <span className="mt-0.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 p-1.5 text-amber-600 dark:text-amber-300 ring-1 ring-inset ring-amber-100 dark:ring-amber-500/25">
                             <Truck size={14} />
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-[13px] font-medium text-slate-800">
+                            <span className="block text-[13px] font-medium text-foreground">
                               {d.doNumber} · {d.customerName}
                             </span>
-                            <span className="block text-xs text-slate-500">
+                            <span className="block text-xs text-secondary">
                               {d.ageDays} days old · {d.quantity.toLocaleString()} panels · {d.soNumber}
                             </span>
                           </span>
@@ -111,8 +111,8 @@ export function NotificationBell() {
                   )}
 
                   {lowStock.length > 0 && (
-                    <div className="border-t border-slate-100 py-1.5">
-                      <p className="px-4 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    <div className="border-t border-line py-1.5">
+                      <p className="px-4 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
                         Low stock
                       </p>
                       {lowStock.map((p) => (
@@ -120,14 +120,14 @@ export function NotificationBell() {
                           key={p.code}
                           href="/stock"
                           onClick={() => setOpen(false)}
-                          className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-rose-50/50"
+                          className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-rose-50/50 dark:hover:bg-rose-500/10"
                         >
-                          <span className="mt-0.5 rounded-lg bg-rose-50 p-1.5 text-rose-600 ring-1 ring-inset ring-rose-100">
+                          <span className="mt-0.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 p-1.5 text-rose-600 dark:text-rose-300 ring-1 ring-inset ring-rose-100 dark:ring-rose-500/25">
                             <PackageMinus size={14} />
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-[13px] font-medium text-slate-800">{p.name}</span>
-                            <span className="block text-xs text-slate-500">
+                            <span className="block text-[13px] font-medium text-foreground">{p.name}</span>
+                            <span className="block text-xs text-secondary">
                               {p.code} · {p.available.toLocaleString()} left (threshold {p.threshold})
                             </span>
                           </span>

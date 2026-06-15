@@ -195,7 +195,7 @@ export default function UsersPage() {
       render: (row: User) => (
         <span
           className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-            row.fullAccess ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+            row.fullAccess ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
           }`}
         >
           {roleLabel(row)}
@@ -208,7 +208,7 @@ export default function UsersPage() {
       render: (row: User) => (
         <span
           className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-            row.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+            row.active ? "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "bg-muted text-secondary"
           }`}
         >
           {row.active ? "Active" : "Inactive"}
@@ -243,7 +243,7 @@ export default function UsersPage() {
         title="Delete User"
         message={
           <>
-            Delete <span className="font-semibold text-slate-800">{deleteTarget?.name}</span> ({deleteTarget?.email})?
+            Delete <span className="font-semibold text-foreground">{deleteTarget?.name}</span> ({deleteTarget?.email})?
             This permanently removes their account and access. Records they created are kept. This cannot be undone.
           </>
         }
@@ -268,7 +268,7 @@ export default function UsersPage() {
           </Button>
         }
       />
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={users || []}
@@ -313,14 +313,14 @@ export default function UsersPage() {
               checked={form.active}
               onChange={(e) => setForm({ ...form, active: e.target.checked })}
             />
-            <label htmlFor="active" className="text-sm text-gray-700">
+            <label htmlFor="active" className="text-sm text-secondary">
               Active
             </label>
           </div>
 
           <div>
-            <p className="text-sm font-medium text-slate-700 mb-1">Permissions</p>
-            <p className="text-xs text-slate-400 mb-2">
+            <p className="text-sm font-medium text-secondary mb-1">Permissions</p>
+            <p className="text-xs text-tertiary mb-2">
               Pre-filled from the selected role. Adjust any checkbox to override this user&apos;s access.
             </p>
             <PermissionMatrix

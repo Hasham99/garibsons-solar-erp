@@ -8,7 +8,7 @@ function IdleNotice() {
   const searchParams = useSearchParams()
   if (searchParams.get("reason") !== "idle") return null
   return (
-    <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 mb-5 animate-fade-in">
+    <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300 mb-5 animate-fade-in">
       <TimerOff size={16} className="shrink-0" />
       You were signed out after 30 minutes of inactivity.
     </div>
@@ -121,29 +121,29 @@ export default function LoginPage() {
         <div className="relative w-full max-w-md animate-fade-in-up">
           {/* Mobile-only logo */}
           <div className="text-center mb-8 lg:hidden">
-            <div className="inline-flex h-14 w-14 rounded-2xl bg-white border border-slate-200 items-center justify-center shadow-lg shadow-slate-200 mb-4 p-2.5">
+            <div className="inline-flex h-14 w-14 rounded-2xl bg-surface border border-line items-center justify-center shadow-lg shadow-slate-200 mb-4 p-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/icon.png" alt="Garibsons" className="h-full w-full object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Garibsons (Pvt) Ltd</h1>
-            <p className="text-slate-500 mt-1 text-sm">Solar ERP</p>
+            <h1 className="text-2xl font-bold text-foreground">Garibsons (Pvt) Ltd</h1>
+            <p className="text-secondary mt-1 text-sm">Solar ERP</p>
           </div>
 
           <div className="mb-7 hidden lg:block">
-            <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-            <p className="text-slate-500 mt-1.5 text-[15px]">Sign in to continue.</p>
+            <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
+            <p className="text-secondary mt-1.5 text-[15px]">Sign in to continue.</p>
           </div>
 
           <Suspense fallback={null}>
             <IdleNotice />
           </Suspense>
 
-          <div className="bg-white/90 backdrop-blur rounded-2xl shadow-pop border border-slate-200/70 p-8">
+          <div className="bg-white/90 backdrop-blur rounded-2xl shadow-pop border border-line p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
+                <label htmlFor="email" className="block text-sm font-medium text-secondary mb-1.5">Email address</label>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none" />
                   <input
                     id="email"
                     type="email"
@@ -152,15 +152,15 @@ export default function LoginPage() {
                     required
                     autoComplete="email"
                     placeholder="you@garibsons.com"
-                    className="block w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
+                    className="block w-full rounded-lg border border-line-strong bg-surface pl-10 pr-3 py-2.5 text-sm text-foreground placeholder-tertiary transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                <label htmlFor="password" className="block text-sm font-medium text-secondary mb-1.5">Password</label>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none" />
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -169,13 +169,13 @@ export default function LoginPage() {
                     required
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className="block w-full rounded-lg border border-slate-300 bg-white pl-10 pr-11 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
+                    className="block w-full rounded-lg border border-line-strong bg-surface pl-10 pr-11 py-2.5 text-sm text-foreground placeholder-tertiary transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiary hover:text-secondary transition-colors"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -183,7 +183,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600 animate-fade-in">
+                <div className="flex items-center gap-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-3 text-sm text-red-600 dark:text-red-300 animate-fade-in">
                   <AlertCircle size={16} className="shrink-0" />
                   {error}
                 </div>
@@ -209,7 +209,7 @@ export default function LoginPage() {
             </form>
           </div>
 
-          <p className="text-center text-sm text-slate-500 mt-6 lg:hidden">
+          <p className="text-center text-sm text-secondary mt-6 lg:hidden">
             Garibsons Private Limited &copy; {new Date().getFullYear()}
           </p>
         </div>

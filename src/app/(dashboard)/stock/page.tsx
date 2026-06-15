@@ -73,10 +73,10 @@ interface POOption {
 }
 
 function agingBadge(days: number) {
-  if (days <= 30) return <span className="text-green-700 text-xs font-medium">{days}d</span>
-  if (days <= 60) return <span className="text-yellow-700 text-xs font-medium">{days}d</span>
-  if (days <= 90) return <span className="text-orange-600 text-xs font-medium">{days}d</span>
-  return <span className="text-red-600 text-xs font-semibold">{days}d ⚠</span>
+  if (days <= 30) return <span className="text-green-700 dark:text-green-300 text-xs font-medium">{days}d</span>
+  if (days <= 60) return <span className="text-yellow-700 dark:text-yellow-300 text-xs font-medium">{days}d</span>
+  if (days <= 90) return <span className="text-orange-600 dark:text-orange-300 text-xs font-medium">{days}d</span>
+  return <span className="text-red-600 dark:text-red-300 text-xs font-semibold">{days}d ⚠</span>
 }
 
 type UnitView = "panel" | "watt" | "container" | "pallet"
@@ -261,7 +261,7 @@ export default function StockPage() {
       render: (row: StockEntry) => (
         <div className="min-w-0">
           <p className="font-medium leading-tight">{row.product?.name}</p>
-          <p className="text-gray-400 leading-tight">{row.product?.code}</p>
+          <p className="text-tertiary leading-tight">{row.product?.code}</p>
         </div>
       )
     },
@@ -284,7 +284,7 @@ export default function StockPage() {
       render: (row: StockEntry) => (
         <div className="whitespace-nowrap">
           <p>{formatQty(row.panelQuantity, row)}</p>
-          <p className="text-gray-400">{formatQty(row.panelsSold, row)} sold</p>
+          <p className="text-tertiary">{formatQty(row.panelsSold, row)} sold</p>
         </div>
       )
     },
@@ -294,9 +294,9 @@ export default function StockPage() {
         const isLow = row.availableQuantity > 0 && row.availableQuantity <= row.product.lowStockThreshold
         return (
           <span className={
-            row.availableQuantity <= 0 ? "text-red-600 font-semibold" :
-            isLow ? "text-orange-600 font-semibold" :
-            "text-green-700 font-semibold"
+            row.availableQuantity <= 0 ? "text-red-600 dark:text-red-300 font-semibold" :
+            isLow ? "text-orange-600 dark:text-orange-300 font-semibold" :
+            "text-green-700 dark:text-green-300 font-semibold"
           }>
             {formatQty(row.availableQuantity, row)}{isLow && " ⚠"}
           </span>
@@ -306,7 +306,7 @@ export default function StockPage() {
     {
       key: "reservedQuantity", header: "Reserved", numeric: true,
       render: (row: StockEntry) => (
-        <span className={row.reservedQuantity > 0 ? "font-semibold text-amber-600" : "text-gray-400"}>
+        <span className={row.reservedQuantity > 0 ? "font-semibold text-amber-600 dark:text-amber-300" : "text-tertiary"}>
           {formatQty(row.reservedQuantity, row)}
         </span>
       )
@@ -316,7 +316,7 @@ export default function StockPage() {
       render: (row: StockEntry) => (
         <div className="whitespace-nowrap">
           <p>{row.costPerWatt.toFixed(2)}</p>
-          {row.gstPerPanel > 0 && <p className="text-orange-600">{formatAmount(row.gstPerPanel)} gst</p>}
+          {row.gstPerPanel > 0 && <p className="text-orange-600 dark:text-orange-300">{formatAmount(row.gstPerPanel)} gst</p>}
         </div>
       )
     },
@@ -351,7 +351,7 @@ export default function StockPage() {
           { label: "Received", value: `${detailRow.panelQuantity.toLocaleString()} panels · ${formatDate(detailRow.receivedAt)}` },
           { label: "Current", value: `${detailRow.currentQuantity.toLocaleString()} panels (${detailRow.currentWatts.toLocaleString()} W)` },
           { label: "Reserved", value: `${detailRow.reservedQuantity.toLocaleString()} panels` },
-          { label: "Available", value: <span className="font-bold text-green-700">{detailRow.availableQuantity.toLocaleString()} panels</span> },
+          { label: "Available", value: <span className="font-bold text-green-700 dark:text-green-300">{detailRow.availableQuantity.toLocaleString()} panels</span> },
           { label: "Age", value: `${detailRow.agingDays} days` },
           { label: "Cost / Panel", value: formatCurrency(detailRow.costPerPanel) },
           { label: "Cost / Watt", value: `Rs ${detailRow.costPerWatt.toFixed(4)}` },
@@ -387,14 +387,14 @@ export default function StockPage() {
 
       {/* Low Stock Alerts */}
       {lowStockEntries.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/30 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={18} className="text-orange-600" />
-            <h3 className="font-semibold text-orange-900">Low Stock Alerts ({lowStockEntries.length})</h3>
+            <AlertTriangle size={18} className="text-orange-600 dark:text-orange-300" />
+            <h3 className="font-semibold text-orange-900 dark:text-orange-300">Low Stock Alerts ({lowStockEntries.length})</h3>
           </div>
           <div className="space-y-1">
             {lowStockEntries.map((e) => (
-              <div key={e.id} className="flex items-center justify-between text-sm text-orange-800">
+              <div key={e.id} className="flex items-center justify-between text-sm text-orange-800 dark:text-orange-300">
                 <span>{e.product.name} @ {e.warehouse.name}</span>
                 <span className="font-semibold">{e.availableQuantity} panels available (threshold: {e.product.lowStockThreshold})</span>
               </div>
@@ -436,45 +436,45 @@ export default function StockPage() {
       {/* By Warehouse & SKU */}
       {dashboard && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Stock by Warehouse</h3>
+          <div className="bg-surface rounded-xl shadow-card border border-line p-6">
+            <h3 className="font-semibold text-foreground mb-4">Stock by Warehouse</h3>
             <div className="space-y-3">
               {dashboard.byWarehouse.map((w, i) => (
-                <div key={`${w.name}-${i}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={`${w.name}-${i}`} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div>
-                    <p className="font-medium text-gray-900">{w.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-medium text-foreground">{w.name}</p>
+                    <p className="text-xs text-secondary">
                       Available {w.availablePanels.toLocaleString()} · Reserved {w.reservedPanels.toLocaleString()} · {formatCurrency(w.value)}
                     </p>
                   </div>
-                  <p className="font-bold text-blue-600">{w.currentPanels.toLocaleString()} panels</p>
+                  <p className="font-bold text-blue-600 dark:text-blue-300">{w.currentPanels.toLocaleString()} panels</p>
                 </div>
               ))}
-              {dashboard.byWarehouse.length === 0 && <p className="text-gray-400 text-center py-4">No stock</p>}
+              {dashboard.byWarehouse.length === 0 && <p className="text-tertiary text-center py-4">No stock</p>}
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Stock by SKU</h3>
+          <div className="bg-surface rounded-xl shadow-card border border-line p-6">
+            <h3 className="font-semibold text-foreground mb-4">Stock by SKU</h3>
             <div className="space-y-3">
               {dashboard.bySKU.map((s) => {
                 const isLow = stock?.some((entry) => entry.product.code === s.code && entry.availableQuantity <= entry.product.lowStockThreshold && entry.availableQuantity > 0)
                 return (
-                  <div key={s.code} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={s.code} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div>
                       <div className="flex items-center gap-1">
-                        <p className="font-medium text-gray-900">{s.name}</p>
-                        {isLow && <AlertTriangle size={12} className="text-orange-500" />}
+                        <p className="font-medium text-foreground">{s.name}</p>
+                        {isLow && <AlertTriangle size={12} className="text-orange-500 dark:text-orange-400" />}
                       </div>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-secondary">
                         {s.code} · Available {s.availablePanels.toLocaleString()} · Reserved {s.reservedPanels.toLocaleString()} · {formatCurrency(s.value)}
                       </p>
                     </div>
-                    <p className={`font-bold ${isLow ? "text-orange-600" : "text-blue-600"}`}>{s.currentPanels.toLocaleString()} panels</p>
+                    <p className={`font-bold ${isLow ? "text-orange-600 dark:text-orange-300" : "text-blue-600 dark:text-blue-300"}`}>{s.currentPanels.toLocaleString()} panels</p>
                   </div>
                 )
               })}
-              {dashboard.bySKU.length === 0 && <p className="text-gray-400 text-center py-4">No stock</p>}
+              {dashboard.bySKU.length === 0 && <p className="text-tertiary text-center py-4">No stock</p>}
             </div>
           </div>
         </div>
@@ -482,12 +482,12 @@ export default function StockPage() {
 
       {/* Awaiting Receipt */}
       {unreceivedPOs.length > 0 && (
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900">Ready to Receive ({unreceivedPOs.length})</h3>
-            <p className="text-xs text-gray-400 mt-0.5">POs with costing calculated — pending full goods receipt</p>
+        <div className="bg-surface rounded-xl shadow-card border border-line">
+          <div className="px-6 py-4 border-b border-line">
+            <h3 className="font-semibold text-foreground">Ready to Receive ({unreceivedPOs.length})</h3>
+            <p className="text-xs text-tertiary mt-0.5">POs with costing calculated — pending full goods receipt</p>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-line">
             {unreceivedPOs.map((po) => {
               const received = receivedPanelsByPO[po.poNumber] || 0
               const remaining = po.noOfPanels - received
@@ -496,10 +496,10 @@ export default function StockPage() {
                 <div key={po.id} className="px-6 py-3 flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-900">{po.poNumber}</p>
-                      {isPartial && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Partial</span>}
+                      <p className="text-sm font-medium text-foreground">{po.poNumber}</p>
+                      {isPartial && <span className="text-xs bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">Partial</span>}
                     </div>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-secondary">
                       {isPartial
                         ? `${received.toLocaleString()} received · ${remaining.toLocaleString()} remaining of ${po.noOfPanels.toLocaleString()} × ${po.panelWattage}W`
                         : `${po.noOfPanels.toLocaleString()} × ${po.panelWattage}W`}
@@ -538,26 +538,26 @@ export default function StockPage() {
       )}
 
       {/* Stock Entries Table */}
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
-          <h3 className="font-semibold text-gray-900">Stock Entries (Batch View)</h3>
+      <div className="bg-surface rounded-xl shadow-card border border-line">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between flex-wrap gap-3">
+          <h3 className="font-semibold text-foreground">Stock Entries (Batch View)</h3>
           <div className="flex items-center gap-3">
             {/* Unit view filter */}
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+            <div className="flex gap-1 bg-muted p-1 rounded-lg">
               {(["panel", "watt", "container", "pallet"] as UnitView[]).map((u) => (
                 <button
                   key={u}
                   type="button"
                   onClick={() => setUnitView(u)}
                   className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
-                    unitView === u ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    unitView === u ? "bg-surface text-foreground shadow-sm" : "text-secondary hover:text-secondary"
                   }`}
                 >
                   {u}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-400">Aging: green ≤30d, yellow ≤60d, orange ≤90d, red 90d+</p>
+            <p className="text-xs text-tertiary">Aging: green ≤30d, yellow ≤60d, orange ≤90d, red 90d+</p>
           </div>
         </div>
         <Table
@@ -639,7 +639,7 @@ export default function StockPage() {
             const po = readyPOs.find((p) => p.id === receiveForm.poId)
             if (!po?.lcNumber) return null
             return (
-              <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-sm text-blue-800">
+              <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/30 rounded-lg px-4 py-2 text-sm text-blue-800 dark:text-blue-300">
                 <span className="font-medium">LC No.: </span>{po.lcNumber}
               </div>
             )
@@ -698,7 +698,7 @@ export default function StockPage() {
             const entering = parseInt(receiveForm.panelQuantity) || 0
             if (received === 0) return null
             return (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300">
                 <p className="font-medium">Partial Delivery</p>
                 <p>Previously received: {received.toLocaleString()} panels · Remaining: {remaining.toLocaleString()} panels</p>
                 {entering < remaining && <p className="text-xs mt-1">Receiving {entering.toLocaleString()} now — {(remaining - entering).toLocaleString()} will remain after this batch.</p>}
@@ -717,9 +717,9 @@ export default function StockPage() {
       <Modal isOpen={showEdit} onClose={() => { setShowEdit(false); setEditingEntry(null) }} title="Edit Stock Entry">
         {editingEntry && (
           <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-3 text-sm">
-              <p className="font-medium text-gray-900">{editingEntry.product.name}</p>
-              <p className="text-gray-500">{editingEntry.warehouse.name} · PO: {editingEntry.po?.poNumber || "—"}</p>
+            <div className="bg-muted rounded-lg p-3 text-sm">
+              <p className="font-medium text-foreground">{editingEntry.product.name}</p>
+              <p className="text-secondary">{editingEntry.warehouse.name} · PO: {editingEntry.po?.poNumber || "—"}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -755,7 +755,7 @@ export default function StockPage() {
               />
             </div>
 
-            <p className="text-xs text-gray-500">Changes will update the stock-in movement record accordingly.</p>
+            <p className="text-xs text-secondary">Changes will update the stock-in movement record accordingly.</p>
 
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={() => { setShowEdit(false); setEditingEntry(null) }}>Cancel</Button>
@@ -769,10 +769,10 @@ export default function StockPage() {
       <Modal isOpen={showAdjust} onClose={() => { setShowAdjust(false); setSelectedEntry(null) }} title="Stock Adjustment">
         {selectedEntry && (
           <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-3 text-sm">
+            <div className="bg-muted rounded-lg p-3 text-sm">
               <p className="font-medium">{selectedEntry.product.name}</p>
-              <p className="text-gray-500">
-                {selectedEntry.warehouse.name} · Available: <span className="font-semibold text-blue-700">{selectedEntry.availableQuantity} panels</span> · Reserved: <span className="font-semibold text-amber-600">{selectedEntry.reservedQuantity} panels</span>
+              <p className="text-secondary">
+                {selectedEntry.warehouse.name} · Available: <span className="font-semibold text-blue-700 dark:text-blue-300">{selectedEntry.availableQuantity} panels</span> · Reserved: <span className="font-semibold text-amber-600 dark:text-amber-300">{selectedEntry.reservedQuantity} panels</span>
               </p>
             </div>
 
@@ -794,17 +794,17 @@ export default function StockPage() {
             />
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reason (required) *</label>
+              <label className="block text-sm font-medium text-secondary mb-1">Reason (required) *</label>
               <textarea
                 value={adjustForm.reason}
                 onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
                 rows={3}
                 placeholder="e.g. Physical count discrepancy, damaged panels, correction..."
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="block w-full rounded-lg border border-line-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secondary">
               This adjustment will be logged with your name and timestamp for audit purposes.
             </p>
 

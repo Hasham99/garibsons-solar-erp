@@ -134,17 +134,17 @@ interface DODetail {
 }
 
 const TYPE_STYLES: Record<string, string> = {
-  SO:      "bg-blue-50 border-l-4 border-l-blue-400",
-  DO:      "bg-green-50 border-l-4 border-l-green-400",
-  PARTIAL: "bg-amber-50 border-l-4 border-l-amber-400",
-  RECEIPT: "bg-purple-50 border-l-4 border-l-purple-400",
+  SO:      "bg-blue-50 dark:bg-blue-500/10 border-l-4 border-l-blue-400",
+  DO:      "bg-green-50 dark:bg-green-500/10 border-l-4 border-l-green-400",
+  PARTIAL: "bg-amber-50 dark:bg-amber-500/10 border-l-4 border-l-amber-400",
+  RECEIPT: "bg-purple-50 dark:bg-purple-500/10 border-l-4 border-l-purple-400",
 }
 
 const TYPE_BADGE: Record<string, string> = {
-  SO:      "bg-blue-100 text-blue-700",
-  DO:      "bg-green-100 text-green-700",
-  PARTIAL: "bg-amber-100 text-amber-700",
-  RECEIPT: "bg-purple-100 text-purple-700",
+  SO:      "bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300",
+  DO:      "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300",
+  PARTIAL: "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  RECEIPT: "bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300",
 }
 
 const TYPE_LABEL = (row: LedgerRow) =>
@@ -534,8 +534,8 @@ export default function LedgerPage() {
   }
 
   const selectionBar = selectMode && (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
-      <p className="text-sm font-medium text-blue-800">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 px-4 py-2.5">
+      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
         Selection mode — {selectedIds.length} collection(s) selected
       </p>
       <div className="flex flex-wrap gap-2">
@@ -583,14 +583,14 @@ export default function LedgerPage() {
       />
 
       {/* Tab Switch */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
         {(["customer", "supplier"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-              tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              tab === t ? "bg-surface text-foreground shadow-sm" : "text-secondary hover:text-secondary"
             }`}
           >
             {t === "customer" ? "Customer (Sales)" : "Supplier (Purchase)"}
@@ -615,9 +615,9 @@ export default function LedgerPage() {
               {!customerId && (
                 <Popover button={<><SlidersHorizontal size={15} />Filters</>} badge={(range.from ? 1 : 0) + (range.to ? 1 : 0)} align="left">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">Date Range</span>
+                    <span className="text-sm font-semibold text-foreground">Date Range</span>
                     {(range.from || range.to) && (
-                      <button type="button" onClick={() => setRange({ from: "", to: "" })} className="text-xs font-medium text-blue-600 hover:text-blue-800">
+                      <button type="button" onClick={() => setRange({ from: "", to: "" })} className="text-xs font-medium text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-300">
                         Clear
                       </button>
                     )}
@@ -633,7 +633,7 @@ export default function LedgerPage() {
                         { l: "All Time", f: () => setRange({ from: "", to: "" }) },
                       ].map((p) => (
                         <button key={p.l} type="button" onClick={p.f}
-                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">
+                          className="rounded-lg border border-line px-3 py-1.5 text-xs text-secondary hover:bg-muted">
                           {p.l}
                         </button>
                       ))}
@@ -642,16 +642,16 @@ export default function LedgerPage() {
                 </Popover>
               )}
               {!customerId && (range.from || range.to) && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1.5 text-xs font-medium text-blue-700 mb-0.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 px-2.5 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 mb-0.5">
                   {range.from ? formatDate(range.from) : "Start"} → {range.to ? formatDate(range.to) : "Today"}
-                  <button type="button" onClick={() => setRange({ from: "", to: "" })} className="hover:text-blue-900" aria-label="Clear date range">
+                  <button type="button" onClick={() => setRange({ from: "", to: "" })} className="hover:text-blue-900 dark:hover:text-blue-300" aria-label="Clear date range">
                     <X size={12} />
                   </button>
                 </span>
               )}
             </div>
             {!customerId && (
-              <p className="mt-3 text-xs text-gray-400">
+              <p className="mt-3 text-xs text-tertiary">
                 Showing all parties combined. Use Filters to pick a date range (e.g. Today) and see total collections received in that period, or select a party for their full statement.
               </p>
             )}
@@ -671,41 +671,41 @@ export default function LedgerPage() {
               {ledgerData && (
                 <div className={`rounded-xl p-4 flex items-center justify-between ${
                   balance <= 0
-                    ? "bg-green-50 border border-green-200"
-                    : "bg-orange-50 border border-orange-200"
+                    ? "bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30"
+                    : "bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/30"
                 }`}>
                   <div className="flex items-center gap-3">
                     {balance <= 0
-                      ? <TrendingUp size={20} className="text-green-600" />
-                      : <TrendingDown size={20} className="text-orange-600" />
+                      ? <TrendingUp size={20} className="text-green-600 dark:text-green-300" />
+                      : <TrendingDown size={20} className="text-orange-600 dark:text-orange-300" />
                     }
                     <div>
-                      <p className={`font-semibold text-sm ${balance <= 0 ? "text-green-900" : "text-orange-900"}`}>
+                      <p className={`font-semibold text-sm ${balance <= 0 ? "text-green-900 dark:text-green-300" : "text-orange-900 dark:text-orange-300"}`}>
                         {balance <= 0
                           ? `Advance Credit: ${formatCurrency(Math.abs(balance))}`
                           : `Pending Receivable: ${formatCurrency(balance)}`
                         }
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-secondary mt-0.5">
                         Total SO value: {formatCurrency(totalDebits)} · Total collected: {formatCurrency(totalCredits)}
                       </p>
                     </div>
                   </div>
-                  <Wallet size={24} className={balance <= 0 ? "text-green-400" : "text-orange-400"} />
+                  <Wallet size={24} className={balance <= 0 ? "text-green-400 dark:text-green-300" : "text-orange-400 dark:text-orange-300"} />
                 </div>
               )}
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-                  <p className="text-sm text-gray-500">Total Debit (SOs)</p>
+                <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+                  <p className="text-sm text-secondary">Total Debit (SOs)</p>
                   <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalDebits)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-                  <p className="text-sm text-gray-500">Total Collected</p>
+                <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+                  <p className="text-sm text-secondary">Total Collected</p>
                   <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalCredits)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-                  <p className={`text-sm ${balance <= 0 ? "text-green-600" : "text-gray-500"}`}>
+                <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+                  <p className={`text-sm ${balance <= 0 ? "text-green-600 dark:text-green-300" : "text-secondary"}`}>
                     {balance <= 0 ? "Advance Credit" : "Net Receivable"}
                   </p>
                   <p className={`text-2xl font-bold mt-1 ${balance <= 0 ? "text-green-600" : "text-orange-600"}`}>
@@ -716,10 +716,10 @@ export default function LedgerPage() {
 
               {selectionBar}
 
-              <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
+              <div className="bg-surface rounded-xl shadow-card border border-line">
+                <div className="px-6 py-4 border-b border-line flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-gray-900">Ledger Entries</h3>
+                    <h3 className="font-semibold text-foreground">Ledger Entries</h3>
                     <Button size="sm" variant="secondary" onClick={() => exportLedger("pdf")}>
                       <FileDown size={14} className="mr-1" />PDF
                     </Button>
@@ -732,12 +732,12 @@ export default function LedgerPage() {
                       </Button>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-4 text-xs text-secondary">
                     {[
-                      { color: "bg-blue-100 text-blue-700",   label: "Sales Order" },
-                      { color: "bg-green-100 text-green-700", label: "Delivery Order" },
-                      { color: "bg-amber-100 text-amber-700", label: "Partial" },
-                      { color: "bg-purple-100 text-purple-700", label: "Collection" },
+                      { color: "bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300",   label: "Sales Order" },
+                      { color: "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300", label: "Delivery Order" },
+                      { color: "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300", label: "Partial" },
+                      { color: "bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300", label: "Collection" },
                     ].map((b) => (
                       <span key={b.label} className={`px-2 py-0.5 rounded-full font-medium ${b.color}`}>{b.label}</span>
                     ))}
@@ -782,15 +782,15 @@ export default function LedgerPage() {
                           </span>
                         ),
                       },
-                      { key: "reference", header: "Reference", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-gray-800 whitespace-nowrap">{row.reference}</span> },
-                      { key: "date", header: "Date", sortable: true, numeric: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</span> },
-                      { key: "description", header: "Description", render: (row: LedgerRow) => <span className="text-xs text-gray-600">{row.description}</span> },
-                      { key: "qtyTotal", header: "Total Qty", numeric: true, render: (row: LedgerRow) => <span className="text-xs text-gray-700">{row.qtyTotal > 0 ? row.qtyTotal.toLocaleString() : "—"}</span> },
-                      { key: "qtyDelivered", header: "Delivered", numeric: true, render: (row: LedgerRow) => <span className="text-xs text-green-700 font-medium">{row.qtyDelivered > 0 ? row.qtyDelivered.toLocaleString() : "—"}</span> },
-                      { key: "qtyRemaining", header: "Remaining", numeric: true, render: (row: LedgerRow) => row.qtyRemaining > 0 ? <span className="text-xs text-amber-700 font-medium">{row.qtyRemaining.toLocaleString()}</span> : <span className="text-xs">—</span> },
+                      { key: "reference", header: "Reference", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-foreground whitespace-nowrap">{row.reference}</span> },
+                      { key: "date", header: "Date", sortable: true, numeric: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-secondary whitespace-nowrap">{formatDate(row.date)}</span> },
+                      { key: "description", header: "Description", render: (row: LedgerRow) => <span className="text-xs text-secondary">{row.description}</span> },
+                      { key: "qtyTotal", header: "Total Qty", numeric: true, render: (row: LedgerRow) => <span className="text-xs text-secondary">{row.qtyTotal > 0 ? row.qtyTotal.toLocaleString() : "—"}</span> },
+                      { key: "qtyDelivered", header: "Delivered", numeric: true, render: (row: LedgerRow) => <span className="text-xs text-green-700 dark:text-green-300 font-medium">{row.qtyDelivered > 0 ? row.qtyDelivered.toLocaleString() : "—"}</span> },
+                      { key: "qtyRemaining", header: "Remaining", numeric: true, render: (row: LedgerRow) => row.qtyRemaining > 0 ? <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">{row.qtyRemaining.toLocaleString()}</span> : <span className="text-xs">—</span> },
                       { key: "debit", header: "Debit (PKR)", sortable: true, numeric: true, render: (row: LedgerRow) => <span className="text-xs text-red-600 font-medium whitespace-nowrap">{row.debit > 0 ? formatAmount(row.debit) : "—"}</span> },
                       { key: "credit", header: "Credit (PKR)", sortable: true, numeric: true, render: (row: LedgerRow) => <span className="text-xs text-green-600 font-medium whitespace-nowrap">{row.credit > 0 ? formatAmount(row.credit) : "—"}</span> },
-                      { key: "runningBalance", header: "Balance (PKR)", numeric: true, render: (row: LedgerRow) => <span className={`text-xs font-bold whitespace-nowrap ${row.runningBalance <= 0 ? "text-green-700" : "text-gray-900"}`}>{formatAmount(row.runningBalance)}</span> },
+                      { key: "runningBalance", header: "Balance (PKR)", numeric: true, render: (row: LedgerRow) => <span className={`text-xs font-bold whitespace-nowrap ${row.runningBalance <= 0 ? "text-green-700 dark:text-green-300" : "text-foreground"}`}>{formatAmount(row.runningBalance)}</span> },
                       actionsCol,
                     ]}
                   />
@@ -811,34 +811,34 @@ export default function LedgerPage() {
           {!customerId && !ledgerLoading && (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
+                <div className="bg-surface rounded-xl shadow-card border border-line p-5">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-500">Total Collections</p>
-                    <Banknote size={18} className="text-green-400" />
+                    <p className="text-sm text-secondary">Total Collections</p>
+                    <Banknote size={18} className="text-green-400 dark:text-green-300" />
                   </div>
                   <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalCredits)}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{receiptCount} receipt(s){rangeQs ? " in period" : " all time"}</p>
+                  <p className="text-xs text-tertiary mt-0.5">{receiptCount} receipt(s){rangeQs ? " in period" : " all time"}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-                  <p className="text-sm text-gray-500">Total Sales (SO Value)</p>
+                <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+                  <p className="text-sm text-secondary">Total Sales (SO Value)</p>
                   <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalDebits)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-                  <p className="text-sm text-gray-500">Net Receivable</p>
+                <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+                  <p className="text-sm text-secondary">Net Receivable</p>
                   <p className={`text-2xl font-bold mt-1 ${balance <= 0 ? "text-green-600" : "text-orange-600"}`}>{formatCurrency(balance)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-                  <p className="text-sm text-gray-500">Entries</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{rows.length.toLocaleString()}</p>
+                <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+                  <p className="text-sm text-secondary">Entries</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">{rows.length.toLocaleString()}</p>
                 </div>
               </div>
 
               {selectionBar}
 
-              <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
+              <div className="bg-surface rounded-xl shadow-card border border-line">
+                <div className="px-6 py-4 border-b border-line flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-gray-900">All Parties — Ledger Entries</h3>
+                    <h3 className="font-semibold text-foreground">All Parties — Ledger Entries</h3>
                     <Button size="sm" variant="secondary" onClick={() => exportLedger("pdf")}>
                       <FileDown size={14} className="mr-1" />PDF
                     </Button>
@@ -851,7 +851,7 @@ export default function LedgerPage() {
                       </Button>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400">Tip: filter Entry Type to “Collection” to see only payments received</p>
+                  <p className="text-xs text-tertiary">Tip: filter Entry Type to “Collection” to see only payments received</p>
                 </div>
                 {(
                   <Table
@@ -888,10 +888,10 @@ export default function LedgerPage() {
                           </span>
                         ),
                       },
-                      { key: "customerName", header: "Party", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-gray-900 whitespace-nowrap">{row.customerName}</span> },
-                      { key: "reference", header: "Reference", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-gray-800 whitespace-nowrap">{row.reference}</span> },
-                      { key: "date", header: "Date", sortable: true, numeric: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-gray-600 whitespace-nowrap">{formatDate(row.date)}</span> },
-                      { key: "description", header: "Description", render: (row: LedgerRow) => <span className="text-xs text-gray-600">{row.description}</span> },
+                      { key: "customerName", header: "Party", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-foreground whitespace-nowrap">{row.customerName}</span> },
+                      { key: "reference", header: "Reference", sortable: true, render: (row: LedgerRow) => <span className="text-xs font-medium text-foreground whitespace-nowrap">{row.reference}</span> },
+                      { key: "date", header: "Date", sortable: true, numeric: true, value: (row: LedgerRow) => row.date, render: (row: LedgerRow) => <span className="text-xs text-secondary whitespace-nowrap">{formatDate(row.date)}</span> },
+                      { key: "description", header: "Description", render: (row: LedgerRow) => <span className="text-xs text-secondary">{row.description}</span> },
                       { key: "debit", header: "Debit (PKR)", sortable: true, numeric: true, render: (row: LedgerRow) => <span className="text-xs text-red-600 font-medium whitespace-nowrap">{row.debit > 0 ? formatAmount(row.debit) : "—"}</span> },
                       { key: "credit", header: "Credit (PKR)", sortable: true, numeric: true, render: (row: LedgerRow) => <span className="text-xs text-green-600 font-medium whitespace-nowrap">{row.credit > 0 ? formatAmount(row.credit) : "—"}</span> },
                       actionsCol,
@@ -958,9 +958,9 @@ export default function LedgerPage() {
       >
         {editReceiptRow && (
           <div className="space-y-4">
-            <div className="rounded-lg bg-gray-50 p-3 text-sm">
-              <p className="font-medium text-gray-900">{editReceiptRow.customerName}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Receipt {editReceiptRow.receipt?.receiptNo}</p>
+            <div className="rounded-lg bg-muted p-3 text-sm">
+              <p className="font-medium text-foreground">{editReceiptRow.customerName}</p>
+              <p className="text-xs text-secondary mt-0.5">Receipt {editReceiptRow.receipt?.receiptNo}</p>
             </div>
             <Select label="Bank *" required value={editForm.bankId} onChange={(e) => setEditForm((p) => ({ ...p, bankId: e.target.value }))}>
               <option value="">Select bank...</option>
@@ -1036,14 +1036,14 @@ export default function LedgerPage() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="font-semibold text-gray-900">{soDetail.customer?.name}</p>
-                <p className="text-xs text-gray-500">Order date: {formatDate(soDetail.orderDate || soDetail.createdAt)}</p>
+                <p className="font-semibold text-foreground">{soDetail.customer?.name}</p>
+                <p className="text-xs text-secondary">Order date: {formatDate(soDetail.orderDate || soDetail.createdAt)}</p>
               </div>
               <Badge status={soDetail.status} />
             </div>
-            <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <div className="rounded-lg border border-line overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                <thead className="bg-muted text-[11px] font-semibold text-secondary uppercase tracking-wide">
                   <tr>
                     <th className="px-3 py-2.5 text-left">Product</th>
                     <th className="px-3 py-2.5 text-right">Panels</th>
@@ -1051,10 +1051,10 @@ export default function LedgerPage() {
                     <th className="px-3 py-2.5 text-right">Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-line">
                   {soDetail.lines?.map((l) => (
                     <tr key={l.id}>
-                      <td className="px-3 py-2.5 text-[13px]">{l.product?.name} <span className="text-xs text-gray-400">({l.product?.wattage}W)</span></td>
+                      <td className="px-3 py-2.5 text-[13px]">{l.product?.name} <span className="text-xs text-tertiary">({l.product?.wattage}W)</span></td>
                       <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.quantity.toLocaleString()}</td>
                       <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.ratePerWatt.toFixed(2)}</td>
                       <td className="px-3 py-2.5 text-[13px] text-right font-medium tabular-nums">{formatCurrency(l.totalAmount)}</td>
@@ -1064,34 +1064,34 @@ export default function LedgerPage() {
               </table>
             </div>
             <div className="grid grid-cols-3 gap-3 text-sm">
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-xs text-gray-500">Sub Total</p>
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-xs text-secondary">Sub Total</p>
                 <p className="font-semibold tabular-nums">{formatCurrency(soDetail.subTotal)}</p>
               </div>
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-xs text-gray-500">GST {soDetail.gstRate > 0 ? `(${soDetail.gstRate}%)` : ""}</p>
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-xs text-secondary">GST {soDetail.gstRate > 0 ? `(${soDetail.gstRate}%)` : ""}</p>
                 <p className="font-semibold tabular-nums">{soDetail.gstAmount > 0 ? formatCurrency(soDetail.gstAmount) : "—"}</p>
               </div>
-              <div className="rounded-lg bg-blue-50 p-3">
-                <p className="text-xs text-blue-700">Grand Total</p>
-                <p className="font-bold text-blue-900 tabular-nums">{formatCurrency(soDetail.grandTotal)}</p>
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-500/10 p-3">
+                <p className="text-xs text-blue-700 dark:text-blue-300">Grand Total</p>
+                <p className="font-bold text-blue-900 dark:text-blue-300 tabular-nums">{formatCurrency(soDetail.grandTotal)}</p>
               </div>
             </div>
             {soDetail.deliveryOrders?.length > 0 && (
               <div className="text-sm">
-                <p className="text-xs font-medium text-gray-500 mb-1.5">Delivery Orders</p>
+                <p className="text-xs font-medium text-secondary mb-1.5">Delivery Orders</p>
                 <div className="flex flex-wrap gap-2">
                   {soDetail.deliveryOrders.map((d) => (
-                    <span key={d.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs">
+                    <span key={d.id} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs">
                       <span className="font-medium">{d.doNumber}</span>
-                      <span className="text-gray-500 tabular-nums">{d.quantity.toLocaleString()} pnl</span>
+                      <span className="text-secondary tabular-nums">{d.quantity.toLocaleString()} pnl</span>
                       <Badge status={d.status} />
                     </span>
                   ))}
                 </div>
               </div>
             )}
-            {soDetail.notes && <p className="text-xs text-gray-500">Notes: {soDetail.notes}</p>}
+            {soDetail.notes && <p className="text-xs text-secondary">Notes: {soDetail.notes}</p>}
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={() => setViewSOId(null)}>Close</Button>
               <Button onClick={() => (window.location.href = `/sales?editId=${soDetail.id}`)}>
@@ -1110,34 +1110,34 @@ export default function LedgerPage() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="font-semibold text-gray-900">{doDetail.salesOrder?.customer?.name}</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-semibold text-foreground">{doDetail.salesOrder?.customer?.name}</p>
+                <p className="text-xs text-secondary">
                   SO {doDetail.salesOrder?.soNumber} · {doDetail.warehouse?.name} · Created {formatDate(doDetail.createdAt)}
                   {doDetail.dispatchedAt ? ` · Dispatched ${formatDate(doDetail.dispatchedAt)}` : ""}
                 </p>
               </div>
               <Badge status={doDetail.status} />
             </div>
-            <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <div className="rounded-lg border border-line overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                <thead className="bg-muted text-[11px] font-semibold text-secondary uppercase tracking-wide">
                   <tr>
                     <th className="px-3 py-2.5 text-left">Product</th>
                     <th className="px-3 py-2.5 text-right">Panels</th>
                     <th className="px-3 py-2.5 text-right">Watts</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-line">
                   {(doDetail.lines?.length ? doDetail.lines : []).map((l) => (
                     <tr key={l.id}>
-                      <td className="px-3 py-2.5 text-[13px]">{l.product?.name} <span className="text-xs text-gray-400">({l.product?.wattage}W)</span></td>
+                      <td className="px-3 py-2.5 text-[13px]">{l.product?.name} <span className="text-xs text-tertiary">({l.product?.wattage}W)</span></td>
                       <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.quantity.toLocaleString()}</td>
                       <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{l.watts.toLocaleString()}</td>
                     </tr>
                   ))}
                   {!doDetail.lines?.length && (
                     <tr>
-                      <td className="px-3 py-2.5 text-[13px] text-gray-500">All products</td>
+                      <td className="px-3 py-2.5 text-[13px] text-secondary">All products</td>
                       <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{doDetail.quantity.toLocaleString()}</td>
                       <td className="px-3 py-2.5 text-[13px] text-right tabular-nums">{doDetail.watts.toLocaleString()}</td>
                     </tr>
@@ -1145,7 +1145,7 @@ export default function LedgerPage() {
                 </tbody>
               </table>
             </div>
-            {doDetail.notes && <p className="text-xs text-gray-500">Notes: {doDetail.notes}</p>}
+            {doDetail.notes && <p className="text-xs text-secondary">Notes: {doDetail.notes}</p>}
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={() => setViewDOId(null)}>Close</Button>
               <Button variant="secondary" onClick={() => window.open(`/delivery/${doDetail.id}/print`, "_blank")}>Print</Button>
@@ -1173,25 +1173,25 @@ export default function LedgerPage() {
           </Card>
 
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-              <p className="text-sm text-gray-500">Total PO Value (PKR)</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(supplierTotalPkr)}</p>
+            <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+              <p className="text-sm text-secondary">Total PO Value (PKR)</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(supplierTotalPkr)}</p>
             </div>
-            <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-              <p className="text-sm text-gray-500">Total Landed Cost (PKR)</p>
-              <p className="text-2xl font-bold text-blue-700 mt-1">{formatCurrency(supplierTotalLanded)}</p>
+            <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+              <p className="text-sm text-secondary">Total Landed Cost (PKR)</p>
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">{formatCurrency(supplierTotalLanded)}</p>
             </div>
-            <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-              <p className="text-sm text-gray-500">Active POs</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+            <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+              <p className="text-sm text-secondary">Active POs</p>
+              <p className="text-2xl font-bold text-foreground mt-1">
                 {filteredPOs.filter((p) => !["RECEIVED", "CANCELLED"].includes(p.status)).length}
               </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
-              <h3 className="font-semibold text-gray-900">Purchase Orders</h3>
+          <div className="bg-surface rounded-xl shadow-card border border-line">
+            <div className="px-6 py-4 border-b border-line flex items-center gap-3">
+              <h3 className="font-semibold text-foreground">Purchase Orders</h3>
               <Button size="sm" variant="secondary" onClick={exportSupplierPdf}>
                 <FileDown size={14} className="mr-1" />Export PDF
               </Button>
@@ -1217,7 +1217,7 @@ export default function LedgerPage() {
                   { key: "noOfPanels", header: "Panels", sortable: true, numeric: true, value: (po: PO) => po.noOfPanels, render: (po: PO) => `${po.noOfPanels.toLocaleString()} × ${po.panelWattage}W` },
                   { key: "totalValueUsd", header: "USD Value", sortable: true, numeric: true, render: (po: PO) => `$${po.totalValueUsd.toLocaleString()}` },
                   { key: "poAmountPkr", header: "PKR Amount", sortable: true, numeric: true, render: (po: PO) => <span className="font-medium text-red-600">{formatAmount(po.poAmountPkr)}</span> },
-                  { key: "totalLandedCost", header: "Landed Cost (PKR)", numeric: true, render: (po: PO) => po.totalLandedCost ? <span className="text-blue-700">{formatAmount(po.totalLandedCost)}</span> : <span className="text-gray-400">—</span> },
+                  { key: "totalLandedCost", header: "Landed Cost (PKR)", numeric: true, render: (po: PO) => po.totalLandedCost ? <span className="text-blue-700 dark:text-blue-300">{formatAmount(po.totalLandedCost)}</span> : <span className="text-tertiary">—</span> },
                   { key: "status", header: "Status", render: (po: PO) => <Badge status={po.status} /> },
                 ]}
               />

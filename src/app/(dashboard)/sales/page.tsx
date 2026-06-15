@@ -517,9 +517,9 @@ export default function SalesPage() {
       value: (row: SalesOrder) => row.lines?.[0]?.ratePerWatt ?? 0,
       render: (row: SalesOrder) => {
         const rates = [...new Set((row.lines || []).map((l) => l.ratePerWatt))].sort((a, b) => a - b)
-        if (rates.length === 0) return <span className="text-gray-400">—</span>
+        if (rates.length === 0) return <span className="text-tertiary">—</span>
         return (
-          <span className="font-medium text-blue-700 whitespace-nowrap">
+          <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">
             {rates.length === 1 ? rates[0].toFixed(2) : `${rates[0].toFixed(2)}–${rates[rates.length - 1].toFixed(2)}`}
           </span>
         )
@@ -568,7 +568,7 @@ export default function SalesPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={orders || []}
@@ -610,9 +610,9 @@ export default function SalesPage() {
         actions={detailRow ? soRowActions(detailRow) : []}
       >
         {detailRow?.lines?.length ? (
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <div className="rounded-lg border border-line overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+              <thead className="bg-muted text-xs text-secondary uppercase">
                 <tr>
                   <th className="px-3 py-2 text-left">Product</th>
                   <th className="px-3 py-2 text-right">Panels</th>
@@ -621,7 +621,7 @@ export default function SalesPage() {
                   <th className="px-3 py-2 text-right">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {detailRow.lines.map((l, i) => (
                   <tr key={i}>
                     <td className="px-3 py-2">{l.product?.brand} ({l.product?.wattage}W)</td>
@@ -638,10 +638,10 @@ export default function SalesPage() {
 
         {detailRow?.deliveryOrders && detailRow.deliveryOrders.length > 0 ? (
           <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Delivery Orders</p>
-            <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <p className="text-xs font-semibold uppercase tracking-wide text-tertiary mb-1.5">Delivery Orders</p>
+            <div className="rounded-lg border border-line overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                <thead className="bg-muted text-xs text-secondary uppercase">
                   <tr>
                     <th className="px-3 py-2 text-left">DO #</th>
                     <th className="px-3 py-2 text-left">Status</th>
@@ -650,24 +650,24 @@ export default function SalesPage() {
                     <th className="px-3 py-2 text-right">Balance</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-line">
                   {detailRow.deliveryOrders.map((d) => (
                     <tr key={d.id}>
-                      <td className="px-3 py-2 font-medium text-gray-800">{d.doNumber}</td>
+                      <td className="px-3 py-2 font-medium text-foreground">{d.doNumber}</td>
                       <td className="px-3 py-2"><Badge status={d.status} /></td>
                       <td className="px-3 py-2 text-right tabular-nums">{d.quantity.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{d.liftedQuantity.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-amber-700">{d.balanceQuantity.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-emerald-700 dark:text-emerald-300">{d.liftedQuantity.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-amber-700 dark:text-amber-300">{d.balanceQuantity.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-secondary">
               Remaining to deliver:{" "}
-              <span className="font-semibold text-gray-800">{(detailRow.remainingPanels ?? 0).toLocaleString()} panels</span>
+              <span className="font-semibold text-foreground">{(detailRow.remainingPanels ?? 0).toLocaleString()} panels</span>
               {(detailRow.balanceCancelledQty ?? 0) > 0 && (
-                <span className="text-gray-400"> · {detailRow.balanceCancelledQty!.toLocaleString()} closed</span>
+                <span className="text-tertiary"> · {detailRow.balanceCancelledQty!.toLocaleString()} closed</span>
               )}
             </p>
           </div>
@@ -722,7 +722,7 @@ export default function SalesPage() {
             ) : (
               <iframe src={viewProof.url} className="h-96 w-full rounded-lg border" title="Payment proof" />
             )}
-            <a href={viewProof.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+            <a href={viewProof.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
               Open in new tab
             </a>
           </div>
@@ -737,8 +737,8 @@ export default function SalesPage() {
         size="xl"
       >
         <div className="space-y-5">
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <p className="text-sm font-semibold text-blue-900 mb-3">Customer</p>
+          <div className="rounded-xl border border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 p-4">
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3">Customer</p>
             <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr]">
               <div className="relative">
                 <Input
@@ -752,19 +752,19 @@ export default function SalesPage() {
                   }}
                 />
                 {customerResults.length > 0 && form.customerId === "" && (
-                  <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                  <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-line bg-elevated shadow-lg">
                     {customerResults.slice(0, 8).map((c) => (
                       <button
                         key={c.id}
                         type="button"
-                        className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50"
+                        className="flex w-full items-start justify-between gap-3 border-b border-line px-3 py-2 text-left last:border-b-0 hover:bg-muted"
                         onMouseDown={(e) => { e.preventDefault(); selectCustomer(c) }}
                       >
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{c.name}</p>
-                          <p className="text-xs text-gray-500">{c.contactPhone || c.type.replace(/_/g, " ")}</p>
+                          <p className="text-sm font-medium text-foreground">{c.name}</p>
+                          <p className="text-xs text-secondary">{c.contactPhone || c.type.replace(/_/g, " ")}</p>
                         </div>
-                        <span className="text-xs text-gray-400">{c.paymentTerms.replace(/_/g, " ")}</span>
+                        <span className="text-xs text-tertiary">{c.paymentTerms.replace(/_/g, " ")}</span>
                       </button>
                     ))}
                   </div>
@@ -793,15 +793,15 @@ export default function SalesPage() {
             </div>
 
             {selectedCustomer && (
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-blue-900">
-                <span className="rounded-full bg-white px-2.5 py-1 font-medium">{selectedCustomer.name}</span>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-blue-900 dark:text-blue-300">
+                <span className="rounded-full bg-surface px-2.5 py-1 font-medium">{selectedCustomer.name}</span>
                 <span>Terms: {selectedCustomer.paymentTerms.replace(/_/g, " ")}</span>
                 {selectedCustomer.creditLimit && <span>Credit limit: {formatCurrency(selectedCustomer.creditLimit)}</span>}
                 {customerBalance !== null && (
                   <span className={`rounded-full px-2.5 py-1 font-semibold ${
                     customerBalance.balance >= 0
-                      ? "bg-green-100 text-green-800"
-                      : "bg-orange-100 text-orange-800"
+                      ? "bg-green-100 dark:bg-green-500/10 text-green-800 dark:text-green-300"
+                      : "bg-orange-100 dark:bg-orange-500/10 text-orange-800 dark:text-orange-300"
                   }`}>
                     {customerBalance.balance >= 0
                       ? `Advance: ${formatCurrency(customerBalance.balance)}`
@@ -817,8 +817,8 @@ export default function SalesPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">Order Lines</p>
-                <p className="text-xs text-gray-500">Select SKU — wattage and panels auto-fill from master data.</p>
+                <p className="text-sm font-semibold text-foreground">Order Lines</p>
+                <p className="text-xs text-secondary">Select SKU — wattage and panels auto-fill from master data.</p>
               </div>
               <Button size="sm" variant="ghost" onClick={addLine}>+ Add Line</Button>
             </div>
@@ -826,7 +826,7 @@ export default function SalesPage() {
             {lines.map((line, index) => {
               const computedLine = computedLines[index]
               return (
-                <div key={`${index}-${line.productId}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div key={`${index}-${line.productId}`} className="rounded-xl border border-line bg-muted p-4">
                   <div className="grid gap-3 lg:grid-cols-[2fr_0.8fr_0.8fr_0.9fr_auto]">
                     <SearchableSelect
                       label="SKU / Product"
@@ -871,32 +871,32 @@ export default function SalesPage() {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-3 rounded-lg bg-white p-3 text-sm md:grid-cols-4">
+                  <div className="mt-3 grid gap-3 rounded-lg bg-surface p-3 text-sm md:grid-cols-4">
                     <div>
-                      <p className="text-xs text-gray-500">Panels</p>
-                      <p className="font-semibold text-gray-900">{computedLine.quantity.toLocaleString()}</p>
+                      <p className="text-xs text-secondary">Panels</p>
+                      <p className="font-semibold text-foreground">{computedLine.quantity.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Watts</p>
-                      <p className="font-semibold text-gray-900">{computedLine.watts.toLocaleString()}</p>
+                      <p className="text-xs text-secondary">Watts</p>
+                      <p className="font-semibold text-foreground">{computedLine.watts.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Rate / Panel</p>
-                      <p className="font-semibold text-gray-900">{formatCurrency(computedLine.ratePerPanel)}</p>
+                      <p className="text-xs text-secondary">Rate / Panel</p>
+                      <p className="font-semibold text-foreground">{formatCurrency(computedLine.ratePerPanel)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Line Total</p>
-                      <p className="font-semibold text-gray-900">{formatCurrency(computedLine.totalAmount)}</p>
+                      <p className="text-xs text-secondary">Line Total</p>
+                      <p className="font-semibold text-foreground">{formatCurrency(computedLine.totalAmount)}</p>
                     </div>
                   </div>
 
                   {computedLine.product && computedLine.panelsPerPallet > 0 && (
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-secondary">
                       Packing: {formatNumber(computedLine.panelsPerPallet, 0)} panels/pallet · {computedLine.product.panelsPerContainer?.toLocaleString() || "—"} panels/container
                     </p>
                   )}
                   {computedLine.invalidPallets && (
-                    <p className="mt-2 text-xs font-medium text-red-600">This SKU needs container/pallet packing configured in product master.</p>
+                    <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-300">This SKU needs container/pallet packing configured in product master.</p>
                   )}
                 </div>
               )
@@ -905,7 +905,7 @@ export default function SalesPage() {
 
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
             <div className="space-y-3">
-              <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+              <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-line p-3 hover:bg-muted">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded accent-blue-600"
@@ -913,8 +913,8 @@ export default function SalesPage() {
                   onChange={(e) => setForm((cur) => ({ ...cur, gstInvoice: e.target.checked }))}
                 />
                 <div>
-                  <p className="text-sm font-medium text-gray-800">GST Invoice Required</p>
-                  <p className="text-xs text-gray-500">Customer requests FBR GST invoice (exclusive GST)</p>
+                  <p className="text-sm font-medium text-foreground">GST Invoice Required</p>
+                  <p className="text-xs text-secondary">Customer requests FBR GST invoice (exclusive GST)</p>
                 </div>
               </label>
               {form.gstInvoice && (
@@ -942,12 +942,12 @@ export default function SalesPage() {
               />
             </div>
 
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
-              <div className="mb-2 flex items-center justify-between text-xs text-blue-800">
+            <div className="rounded-xl border border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 p-4 text-sm">
+              <div className="mb-2 flex items-center justify-between text-xs text-blue-800 dark:text-blue-300">
                 <span>Total Panels</span>
                 <span className="font-semibold">{totalPanels.toLocaleString()}</span>
               </div>
-              <div className="mb-2 flex items-center justify-between text-xs text-blue-800">
+              <div className="mb-2 flex items-center justify-between text-xs text-blue-800 dark:text-blue-300">
                 <span>Total Watts</span>
                 <span className="font-semibold">{totalWatts.toLocaleString()}</span>
               </div>
@@ -956,12 +956,12 @@ export default function SalesPage() {
                 <span className="font-semibold">{formatCurrency(subTotal)}</span>
               </div>
               {form.gstInvoice && (
-                <div className="mt-1 flex items-center justify-between text-orange-700">
+                <div className="mt-1 flex items-center justify-between text-orange-700 dark:text-orange-300">
                   <span>GST ({gstRate}%)</span>
                   <span className="font-semibold">+ {formatCurrency(gstAmount)}</span>
                 </div>
               )}
-              <div className="mt-2 flex items-center justify-between border-t border-blue-200 pt-2 text-base font-bold text-blue-900">
+              <div className="mt-2 flex items-center justify-between border-t border-blue-200 dark:border-blue-500/30 pt-2 text-base font-bold text-blue-900 dark:text-blue-300">
                 <span>Grand Total</span>
                 <span>{formatCurrency(grandTotal)}</span>
               </div>
@@ -969,7 +969,7 @@ export default function SalesPage() {
           </div>
 
           {creditWarning && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">
               {creditWarning}
             </div>
           )}

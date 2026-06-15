@@ -57,17 +57,17 @@ interface LedgerResponse {
 }
 
 const TYPE_CHIPS: Record<string, string> = {
-  SO: "bg-blue-50 text-blue-700 ring-blue-600/15",
-  DO: "bg-indigo-50 text-indigo-700 ring-indigo-600/15",
-  PARTIAL: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  RECEIPT: "bg-emerald-50 text-emerald-700 ring-emerald-600/15",
+  SO: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-blue-600/15 dark:ring-blue-500/25",
+  DO: "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 ring-indigo-600/15 dark:ring-indigo-500/25",
+  PARTIAL: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-600/20 dark:ring-amber-500/25",
+  RECEIPT: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-600/15 dark:ring-emerald-500/25",
 }
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-2 border-b border-slate-50 last:border-0">
-      <span className="text-[13px] text-slate-500 shrink-0">{label}</span>
-      <span className="text-[13px] font-medium text-slate-800 text-right">{value || "—"}</span>
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-line last:border-0">
+      <span className="text-[13px] text-secondary shrink-0">{label}</span>
+      <span className="text-[13px] font-medium text-foreground text-right">{value || "—"}</span>
     </div>
   )
 }
@@ -88,7 +88,7 @@ export default function CustomerProfilePage() {
       key: "type",
       header: "Type",
       render: (r) => (
-        <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${TYPE_CHIPS[r.type] || "bg-slate-50 text-slate-600 ring-slate-500/15"}`}>
+        <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${TYPE_CHIPS[r.type] || "bg-muted text-secondary ring-line"}`}>
           {r.type}
         </span>
       ),
@@ -101,14 +101,14 @@ export default function CustomerProfilePage() {
       header: "Debit (PKR)",
       numeric: true,
       className: "text-right",
-      render: (r) => (r.debit ? <span className="text-slate-900">{formatAmount(r.debit)}</span> : "—"),
+      render: (r) => (r.debit ? <span className="text-foreground">{formatAmount(r.debit)}</span> : "—"),
     },
     {
       key: "credit",
       header: "Credit (PKR)",
       numeric: true,
       className: "text-right",
-      render: (r) => (r.credit ? <span className="text-emerald-600 font-medium">{formatAmount(r.credit)}</span> : "—"),
+      render: (r) => (r.credit ? <span className="text-emerald-600 dark:text-emerald-300 font-medium">{formatAmount(r.credit)}</span> : "—"),
     },
     {
       key: "runningBalance",
@@ -134,8 +134,8 @@ export default function CustomerProfilePage() {
   if (!customer) {
     return (
       <div className="py-16 text-center">
-        <p className="text-slate-500">Customer not found.</p>
-        <Link href="/masters/customers" className="mt-3 inline-block text-sm font-medium text-blue-600 hover:text-blue-800">
+        <p className="text-secondary">Customer not found.</p>
+        <Link href="/masters/customers" className="mt-3 inline-block text-sm font-medium text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-300">
           ← Back to customers
         </Link>
       </div>
@@ -208,16 +208,16 @@ export default function CustomerProfilePage() {
             <DetailRow label="Credit limit" value={customer.creditLimit ? formatCurrency(customer.creditLimit) : null} />
           </div>
           {customer.contacts.length > 0 && (
-            <div className="mt-4 border-t border-slate-100 pt-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Contacts</p>
+            <div className="mt-4 border-t border-line pt-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary">Contacts</p>
               <div className="space-y-1.5">
                 {customer.contacts.map((c) => (
                   <div key={c.id} className="flex items-center justify-between gap-2 text-[13px]">
-                    <span className="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                    <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                       {c.isPrimary && <Star size={11} className="fill-amber-400 text-amber-400" />}
                       {c.name}
                     </span>
-                    <span className="text-slate-500 tabular-nums">{c.whatsapp}</span>
+                    <span className="text-secondary tabular-nums">{c.whatsapp}</span>
                   </div>
                 ))}
               </div>

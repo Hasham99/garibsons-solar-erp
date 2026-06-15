@@ -65,18 +65,18 @@ export function DetailsModal({
             return (
               <div
                 key={f.label}
-                className={`rounded-xl border border-slate-200/70 bg-slate-50/70 px-3.5 py-2.5 min-w-0 ${f.wide ? "sm:col-span-2" : ""}`}
+                className={`rounded-xl border border-line bg-muted px-3.5 py-2.5 min-w-0 ${f.wide ? "sm:col-span-2" : ""}`}
               >
-                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{f.label}</p>
-                <div className={`mt-1 text-[15px] font-semibold leading-snug text-slate-800 break-words ${mono ? "tabular-nums" : ""}`}>
-                  {f.value ?? <span className="text-slate-300">—</span>}
+                <p className="text-[11px] font-medium uppercase tracking-wide text-tertiary">{f.label}</p>
+                <div className={`mt-1 text-[15px] font-semibold leading-snug text-foreground break-words ${mono ? "tabular-nums" : ""}`}>
+                  {f.value ?? <span className="text-tertiary">—</span>}
                 </div>
               </div>
             )
           })}
         </div>
         {children}
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
           {actions.map((a) => (
             <Button
               key={a.label}

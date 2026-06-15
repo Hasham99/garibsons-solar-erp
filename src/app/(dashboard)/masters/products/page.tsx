@@ -169,49 +169,49 @@ export default function ProductsPage() {
       />
 
       {/* Brand selector */}
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-600">Brand</span>
+            <span className="text-sm font-medium text-secondary">Brand</span>
             {/* Custom styled dropdown */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setBrandDropdownOpen((v) => !v)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-900 hover:border-blue-400 hover:bg-blue-50 transition-colors min-w-[180px] justify-between"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-line-strong bg-surface text-sm font-medium text-foreground hover:border-blue-400 dark:hover:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors min-w-[180px] justify-between"
               >
                 <span>{selectedBrand || "Select brand..."}</span>
-                <ChevronDown size={14} className={`text-gray-400 transition-transform ${brandDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown size={14} className={`text-tertiary transition-transform ${brandDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {brandDropdownOpen && (
-                <div className="absolute z-20 mt-1 w-full min-w-[200px] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute z-20 mt-1 w-full min-w-[200px] bg-elevated border border-line rounded-lg shadow-lg overflow-hidden">
                   {sortedBrands.map((brand) => (
                     <button
                       key={brand}
                       type="button"
                       onClick={() => { setSelectedBrand(brand); setBrandDropdownOpen(false) }}
-                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left hover:bg-blue-50 transition-colors ${
-                        selectedBrand === brand ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-700"
+                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors ${
+                        selectedBrand === brand ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold" : "text-secondary"
                       }`}
                     >
                       <span>{brand}</span>
-                      <span className="text-xs text-gray-400">{brandGroups[brand].length} SKU{brandGroups[brand].length !== 1 ? "s" : ""}</span>
+                      <span className="text-xs text-tertiary">{brandGroups[brand].length} SKU{brandGroups[brand].length !== 1 ? "s" : ""}</span>
                     </button>
                   ))}
                   {sortedBrands.length === 0 && (
-                    <p className="px-4 py-3 text-sm text-gray-400">No brands yet</p>
+                    <p className="px-4 py-3 text-sm text-tertiary">No brands yet</p>
                   )}
                 </div>
               )}
             </div>
 
             {selectedBrand && (
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">
+              <div className="flex items-center gap-2 text-xs text-secondary">
+                <span className="bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium px-2 py-0.5 rounded-full">
                   {visibleProducts.length} SKU{visibleProducts.length !== 1 ? "s" : ""}
                 </span>
-                <span className="text-gray-400">
+                <span className="text-tertiary">
                   {visibleProducts.filter((p) => p.active).length} active
                 </span>
               </div>
@@ -232,13 +232,13 @@ export default function ProductsPage() {
               { key: "active", label: "Status", value: (p: Product) => (p.active ? "Active" : "Inactive") },
             ]}
             columns={[
-              { key: "code", header: "Code", sortable: true, render: (p: Product) => <span className="font-mono text-gray-600">{p.code}</span> },
+              { key: "code", header: "Code", sortable: true, render: (p: Product) => <span className="font-mono text-secondary">{p.code}</span> },
               {
                 key: "name", header: "Name / SKU", sortable: true,
                 render: (p: Product) => (
                   <div>
-                    <p className="font-medium text-gray-900">{p.name}</p>
-                    {p.skuName && <p className="text-xs text-gray-400">{p.skuName}</p>}
+                    <p className="font-medium text-foreground">{p.name}</p>
+                    {p.skuName && <p className="text-xs text-tertiary">{p.skuName}</p>}
                   </div>
                 ),
               },
@@ -247,15 +247,15 @@ export default function ProductsPage() {
                 key: "packing", header: "Packing",
                 render: (p: Product) => {
                   const ppp = p.panelsPerContainer && p.palletsPerContainer ? p.panelsPerContainer / p.palletsPerContainer : null
-                  return <span className="text-gray-500">{p.panelsPerContainer ? `${p.panelsPerContainer}/ctr${ppp ? ` · ${ppp.toFixed(0)}/pallet` : ""}` : "—"}</span>
+                  return <span className="text-secondary">{p.panelsPerContainer ? `${p.panelsPerContainer}/ctr${ppp ? ` · ${ppp.toFixed(0)}/pallet` : ""}` : "—"}</span>
                 },
               },
-              { key: "category", header: "Category", render: (p: Product) => <span className="text-gray-500">{p.category}</span> },
-              { key: "supplier", header: "Supplier", value: (p: Product) => p.defaultSupplier?.name || "—", render: (p: Product) => <span className="text-gray-500">{p.defaultSupplier?.name || "—"}</span> },
+              { key: "category", header: "Category", render: (p: Product) => <span className="text-secondary">{p.category}</span> },
+              { key: "supplier", header: "Supplier", value: (p: Product) => p.defaultSupplier?.name || "—", render: (p: Product) => <span className="text-secondary">{p.defaultSupplier?.name || "—"}</span> },
               {
                 key: "active", header: "Status",
                 render: (p: Product) => (
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.active ? "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "bg-muted text-secondary"}`}>
                     {p.active ? "Active" : "Inactive"}
                   </span>
                 ),
@@ -269,7 +269,7 @@ export default function ProductsPage() {
             ]}
           />
         ) : (
-          <div className="p-12 text-center text-gray-400 text-sm">
+          <div className="p-12 text-center text-tertiary text-sm">
             No products yet. Add a product to get started.
           </div>
         )}
@@ -331,18 +331,18 @@ export default function ProductsPage() {
           </Select>
 
           {(panelsPerPallet > 0 || totalWattsPerContainer > 0) && (
-            <div className="grid grid-cols-3 gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
+            <div className="grid grid-cols-3 gap-3 rounded-xl border border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 p-4 text-sm">
               <div>
-                <p className="text-xs text-blue-700">Panels / Pallet</p>
-                <p className="font-semibold text-blue-900">{panelsPerPallet > 0 ? panelsPerPallet.toFixed(0) : "—"}</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">Panels / Pallet</p>
+                <p className="font-semibold text-blue-900 dark:text-blue-300">{panelsPerPallet > 0 ? panelsPerPallet.toFixed(0) : "—"}</p>
               </div>
               <div>
-                <p className="text-xs text-blue-700">Watts / Pallet</p>
-                <p className="font-semibold text-blue-900">{wattsPerPallet > 0 ? wattsPerPallet.toLocaleString() : "—"}</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">Watts / Pallet</p>
+                <p className="font-semibold text-blue-900 dark:text-blue-300">{wattsPerPallet > 0 ? wattsPerPallet.toLocaleString() : "—"}</p>
               </div>
               <div>
-                <p className="text-xs text-blue-700">Watts / Container</p>
-                <p className="font-semibold text-blue-900">{totalWattsPerContainer > 0 ? totalWattsPerContainer.toLocaleString() : "—"}</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">Watts / Container</p>
+                <p className="font-semibold text-blue-900 dark:text-blue-300">{totalWattsPerContainer > 0 ? totalWattsPerContainer.toLocaleString() : "—"}</p>
               </div>
             </div>
           )}

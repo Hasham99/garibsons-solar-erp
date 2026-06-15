@@ -32,7 +32,7 @@ export function Popover({ button, badge, children, width = "w-80", align = "righ
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors cursor-pointer ${
-          (badge || 0) > 0 ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          (badge || 0) > 0 ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300" : "border-line-strong bg-surface text-secondary hover:bg-muted"
         }`}
       >
         {button}
@@ -41,7 +41,7 @@ export function Popover({ button, badge, children, width = "w-80", align = "righ
         )}
       </button>
       {open && (
-        <div className={`absolute ${align === "right" ? "right-0" : "left-0"} z-30 mt-2 ${width} rounded-xl border border-gray-200 bg-white p-4 shadow-lg`}>
+        <div className={`absolute ${align === "right" ? "right-0" : "left-0"} z-30 mt-2 ${width} rounded-xl border border-line bg-elevated p-4 shadow-lg`}>
           {children}
         </div>
       )}

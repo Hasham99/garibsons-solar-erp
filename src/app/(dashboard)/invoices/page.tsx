@@ -105,7 +105,7 @@ export default function InvoicesPage() {
     { key: "salesOrder", header: "Customer", sortable: true, value: (row: Invoice) => row.salesOrder?.customer?.name, render: (row: Invoice) => (
       <div>
         <p className="font-medium">{row.salesOrder?.customer?.name}</p>
-        <p className="text-xs text-gray-500">{row.salesOrder?.soNumber}</p>
+        <p className="text-xs text-secondary">{row.salesOrder?.soNumber}</p>
       </div>
     )},
     { key: "subTotal", header: "Sub Total (PKR)", numeric: true, render: (row: Invoice) => formatAmount(row.subTotal) },
@@ -127,7 +127,7 @@ export default function InvoicesPage() {
       render: (row: Invoice) => {
         const paid = row.payments?.reduce((s, p) => s + p.amount, 0) || 0
         const outstanding = row.grandTotal - paid
-        return <span className={outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>{formatAmount(outstanding)}</span>
+        return <span className={outstanding > 0 ? "text-red-600 dark:text-red-300 font-medium" : "text-green-600 dark:text-green-300"}>{formatAmount(outstanding)}</span>
       },
     },
     { key: "status", header: "Status", render: (row: Invoice) => <Badge status={row.status} /> },
@@ -174,7 +174,7 @@ export default function InvoicesPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={(invoices || [])}
@@ -212,7 +212,7 @@ export default function InvoicesPage() {
             if (!so) return null
             const gst = so.subTotal * (so.gstRate / 100)
             return (
-              <div className="bg-blue-50 rounded-lg p-4 text-sm space-y-1">
+              <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg p-4 text-sm space-y-1">
                 <div className="flex justify-between"><span>Sub Total:</span><span>{formatCurrency(so.subTotal)}</span></div>
                 <div className="flex justify-between"><span>GST ({so.gstRate}%):</span><span>{formatCurrency(gst)}</span></div>
                 <div className="flex justify-between font-bold border-t pt-1"><span>Total:</span><span>{formatCurrency(so.subTotal + gst)}</span></div>
@@ -230,10 +230,10 @@ export default function InvoicesPage() {
       <Modal isOpen={showPayment} onClose={() => setShowPayment(false)} title={`Record Payment - ${selectedInvoice?.invoiceNumber}`}>
         <div className="space-y-4">
           {selectedInvoice && (
-            <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-1">
+            <div className="bg-muted rounded-lg p-4 text-sm space-y-1">
               <div className="flex justify-between"><span>Invoice Total:</span><span className="font-medium">{formatCurrency(selectedInvoice.grandTotal)}</span></div>
               <div className="flex justify-between"><span>Paid:</span><span>{formatCurrency(selectedInvoice.payments?.reduce((s, p) => s + p.amount, 0) || 0)}</span></div>
-              <div className="flex justify-between font-bold text-red-600"><span>Outstanding:</span>
+              <div className="flex justify-between font-bold text-red-600 dark:text-red-300"><span>Outstanding:</span>
                 <span>{formatCurrency(selectedInvoice.grandTotal - (selectedInvoice.payments?.reduce((s, p) => s + p.amount, 0) || 0))}</span>
               </div>
             </div>

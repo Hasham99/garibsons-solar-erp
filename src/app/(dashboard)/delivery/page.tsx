@@ -360,7 +360,7 @@ export default function DeliveryPage() {
   const columns = [
     { key: "doNumber", header: "DO Number", sortable: true, render: (row: DeliveryOrder) => <span className="font-medium">{row.doNumber}</span> },
     { key: "createdAt", header: "Date", sortable: true, numeric: true, value: (row: DeliveryOrder) => row.createdAt, render: (row: DeliveryOrder) => <span className="whitespace-nowrap">{formatDate(row.createdAt)}</span> },
-    { key: "referenceNo", header: "Ref. DO #", sortable: true, value: (row: DeliveryOrder) => row.referenceNo || "", render: (row: DeliveryOrder) => row.referenceNo ? <span className="text-gray-700">{row.referenceNo}</span> : <span className="text-gray-300">—</span> },
+    { key: "referenceNo", header: "Ref. DO #", sortable: true, value: (row: DeliveryOrder) => row.referenceNo || "", render: (row: DeliveryOrder) => row.referenceNo ? <span className="text-secondary">{row.referenceNo}</span> : <span className="text-tertiary">—</span> },
     { key: "soNumber", header: "SO Number", sortable: true, value: (row: DeliveryOrder) => row.salesOrder.soNumber, render: (row: DeliveryOrder) => row.salesOrder.soNumber },
     { key: "party", header: "Party", sortable: true, value: (row: DeliveryOrder) => row.salesOrder.customer.name, render: (row: DeliveryOrder) => <span className="font-medium">{row.salesOrder.customer.name}</span> },
     {
@@ -368,12 +368,12 @@ export default function DeliveryPage() {
       value: (row: DeliveryOrder) => row.salesOrder.lines?.[0]?.ratePerWatt ?? 0,
       render: (row: DeliveryOrder) => {
         const r = rateDisplay(row)
-        return r ? <span className="font-medium text-blue-700 whitespace-nowrap">{r}</span> : <span className="text-gray-400">—</span>
+        return r ? <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r}</span> : <span className="text-tertiary">—</span>
       },
     },
     { key: "quantity", header: "Ordered", numeric: true, render: (row: DeliveryOrder) => row.quantity.toLocaleString() },
-    { key: "liftedQuantity", header: "Lifted", numeric: true, render: (row: DeliveryOrder) => <span className={row.liftedQuantity > 0 ? "text-emerald-700 font-medium" : "text-gray-400"}>{row.liftedQuantity.toLocaleString()}</span> },
-    { key: "balanceQuantity", header: "Balance", numeric: true, render: (row: DeliveryOrder) => <span className={row.balanceQuantity > 0 ? "text-amber-700 font-medium" : "text-gray-400"}>{row.balanceQuantity.toLocaleString()}</span> },
+    { key: "liftedQuantity", header: "Lifted", numeric: true, render: (row: DeliveryOrder) => <span className={row.liftedQuantity > 0 ? "text-emerald-700 dark:text-emerald-300 font-medium" : "text-tertiary"}>{row.liftedQuantity.toLocaleString()}</span> },
+    { key: "balanceQuantity", header: "Balance", numeric: true, render: (row: DeliveryOrder) => <span className={row.balanceQuantity > 0 ? "text-amber-700 dark:text-amber-300 font-medium" : "text-tertiary"}>{row.balanceQuantity.toLocaleString()}</span> },
     { key: "agingDays", header: "Age", numeric: true, render: (row: DeliveryOrder) => `${row.agingDays}d` },
     { key: "status", header: "Status", render: (row: DeliveryOrder) => <Badge status={row.status} /> },
     { key: "authorizedBy", header: "Authorized By", render: (row: DeliveryOrder) => row.authorizedBy || "-" },
@@ -400,7 +400,7 @@ export default function DeliveryPage() {
         actions={<Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-2" />New DO</Button>}
       />
 
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={dos || []}
@@ -457,19 +457,19 @@ export default function DeliveryPage() {
         size="lg"
       >
         <div className="space-y-4">
-          <div className={`rounded-xl border p-4 ${editDO ? "border-amber-100 bg-amber-50" : "border-blue-100 bg-blue-50"}`}>
+          <div className={`rounded-xl border p-4 ${editDO ? "border-amber-100 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10" : "border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10"}`}>
             {editDO ? (
               <>
-                <p className="text-sm font-semibold text-amber-900">Editing re-plans the stock reservation</p>
-                <p className="mt-1 text-xs text-amber-700">
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">Editing re-plans the stock reservation</p>
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
                   The current reservation is released and stock is re-reserved for the new quantities/warehouse.
                   An authorized DO goes back to PENDING and needs re-authorization.
                 </p>
               </>
             ) : (
               <>
-                <p className="text-sm font-semibold text-blue-900">Reserve stock from a payment-confirmed sales order</p>
-                <p className="mt-1 text-xs text-blue-700">
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">Reserve stock from a payment-confirmed sales order</p>
+                <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
                   You can create multiple delivery orders for one sales order — useful for partial shipments.
                   Stock is reserved immediately and held until dispatch or cancellation.
                 </p>
@@ -478,9 +478,9 @@ export default function DeliveryPage() {
           </div>
 
           {editDO ? (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
-              <p className="text-xs text-gray-500">Sales Order</p>
-              <p className="text-sm font-semibold text-gray-900">
+            <div className="rounded-lg border border-line bg-muted px-3 py-2.5">
+              <p className="text-xs text-secondary">Sales Order</p>
+              <p className="text-sm font-semibold text-foreground">
                 {selectedOrder ? `${selectedOrder.soNumber} — ${selectedOrder.customer.name}` : editDO.salesOrder.soNumber}
               </p>
             </div>
@@ -496,44 +496,44 @@ export default function DeliveryPage() {
           )}
 
           {selectedOrder && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+            <div className="rounded-xl border border-line bg-muted p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-gray-900">{selectedOrder.soNumber}</p>
-                  <p className="text-sm text-gray-500">{selectedOrder.customer.name}</p>
+                  <p className="font-semibold text-foreground">{selectedOrder.soNumber}</p>
+                  <p className="text-sm text-secondary">{selectedOrder.customer.name}</p>
                 </div>
                 <Badge status={selectedOrder.status} />
               </div>
 
               <div className="grid gap-3 md:grid-cols-4">
-                <div className="rounded-lg bg-white p-3">
-                  <p className="text-xs text-gray-500">Total Panels</p>
-                  <p className="text-xl font-semibold text-gray-900">{orderTotalPanels.toLocaleString()}</p>
+                <div className="rounded-lg bg-surface p-3">
+                  <p className="text-xs text-secondary">Total Panels</p>
+                  <p className="text-xl font-semibold text-foreground">{orderTotalPanels.toLocaleString()}</p>
                 </div>
-                <div className="rounded-lg bg-white p-3">
-                  <p className="text-xs text-gray-500">Committed / Closed</p>
-                  <p className="text-xl font-semibold text-orange-600">{Math.max(0, orderTotalPanels - remainingPanels).toLocaleString()}</p>
+                <div className="rounded-lg bg-surface p-3">
+                  <p className="text-xs text-secondary">Committed / Closed</p>
+                  <p className="text-xl font-semibold text-orange-600 dark:text-orange-300">{Math.max(0, orderTotalPanels - remainingPanels).toLocaleString()}</p>
                 </div>
-                <div className="rounded-lg bg-white border-2 border-green-200 p-3">
-                  <p className="text-xs text-gray-500">Remaining</p>
-                  <p className="text-xl font-semibold text-green-700">{remainingPanels.toLocaleString()}</p>
+                <div className="rounded-lg bg-surface border-2 border-green-200 dark:border-green-500/30 p-3">
+                  <p className="text-xs text-secondary">Remaining</p>
+                  <p className="text-xl font-semibold text-green-700 dark:text-green-300">{remainingPanels.toLocaleString()}</p>
                 </div>
-                <div className="rounded-lg bg-white border-2 border-blue-200 p-3">
-                  <p className="text-xs text-gray-500">Rate / Watt</p>
-                  <p className="text-xl font-semibold text-blue-700">{soRateDisplay(selectedOrder) || "—"}</p>
+                <div className="rounded-lg bg-surface border-2 border-blue-200 dark:border-blue-500/30 p-3">
+                  <p className="text-xs text-secondary">Rate / Watt</p>
+                  <p className="text-xl font-semibold text-blue-700 dark:text-blue-300">{soRateDisplay(selectedOrder) || "—"}</p>
                 </div>
               </div>
 
               <div className="space-y-1">
                 {selectedOrder.lines.map((line, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm">
+                  <div key={i} className="flex items-center justify-between rounded-lg bg-surface px-3 py-2 text-sm">
                     <div>
-                      <p className="font-medium text-gray-900">{line.product.name}</p>
-                      <p className="text-xs text-gray-500">{line.product.wattage}W · Rs {line.ratePerWatt?.toFixed(2)}/W</p>
+                      <p className="font-medium text-foreground">{line.product.name}</p>
+                      <p className="text-xs text-secondary">{line.product.wattage}W · Rs {line.ratePerWatt?.toFixed(2)}/W</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">{line.quantity.toLocaleString()} panels</p>
-                      <p className="text-xs text-gray-500">{line.watts.toLocaleString()} W</p>
+                      <p className="font-semibold text-foreground">{line.quantity.toLocaleString()} panels</p>
+                      <p className="text-xs text-secondary">{line.watts.toLocaleString()} W</p>
                     </div>
                   </div>
                 ))}
@@ -554,15 +554,15 @@ export default function DeliveryPage() {
           {/* Per-line quantity inputs */}
           {selectedOrder && selectedOrder.lines.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-secondary">
                 Panels to Deliver — per product
-                {remainingPanels > 0 && <span className="text-gray-400 font-normal"> (max {remainingPanels} remaining)</span>}
+                {remainingPanels > 0 && <span className="text-tertiary font-normal"> (max {remainingPanels} remaining)</span>}
               </p>
               {selectedOrder.lines.map((line, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-line bg-muted px-3 py-2">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{line.product.name}</p>
-                    <p className="text-xs text-gray-500">{line.product.wattage}W · ordered {line.quantity.toLocaleString()} panels</p>
+                    <p className="text-sm font-medium text-foreground">{line.product.name}</p>
+                    <p className="text-xs text-secondary">{line.product.wattage}W · ordered {line.quantity.toLocaleString()} panels</p>
                   </div>
                   <input
                     type="number"
@@ -571,21 +571,21 @@ export default function DeliveryPage() {
                     value={lineQtys[i] ?? ""}
                     onChange={(e) => setLineQtys((prev) => ({ ...prev, [i]: e.target.value }))}
                     placeholder="0"
-                    className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-24 rounded-lg border border-line-strong px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               ))}
               {requestedQty > 0 && (
-                <div className="flex items-center justify-between rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm">
-                  <span className="text-blue-700 font-medium">Total panels this DO:</span>
-                  <span className="font-bold text-blue-900">{requestedQty.toLocaleString()}</span>
+                <div className="flex items-center justify-between rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 px-3 py-2 text-sm">
+                  <span className="text-blue-700 dark:text-blue-300 font-medium">Total panels this DO:</span>
+                  <span className="font-bold text-blue-900 dark:text-blue-300">{requestedQty.toLocaleString()}</span>
                 </div>
               )}
             </div>
           )}
 
           {selectedOrder && requestedQty > 0 && requestedQty < remainingPanels && (
-            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+            <div className="rounded-lg border border-yellow-200 dark:border-yellow-500/30 bg-yellow-50 dark:bg-yellow-500/10 p-3 text-sm text-yellow-800 dark:text-yellow-300">
               Partial delivery: {requestedQty.toLocaleString()} of {remainingPanels.toLocaleString()} remaining panels.
               {" "}{(remainingPanels - requestedQty).toLocaleString()} panels will require a further delivery order.
             </div>
@@ -641,20 +641,20 @@ export default function DeliveryPage() {
           <div className="space-y-5">
             {/* Delivery progress */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Delivery Progress</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-tertiary mb-2">Delivery Progress</p>
               <div className="grid grid-cols-3 gap-2.5">
                 {[
-                  { label: "Ordered", value: selectedDelivery.quantity, tone: "text-slate-800" },
-                  { label: "Lifted", value: selectedDelivery.liftedQuantity, tone: "text-emerald-600" },
-                  { label: "Balance", value: selectedDelivery.balanceQuantity, tone: "text-amber-600" },
+                  { label: "Ordered", value: selectedDelivery.quantity, tone: "text-foreground" },
+                  { label: "Lifted", value: selectedDelivery.liftedQuantity, tone: "text-emerald-600 dark:text-emerald-300" },
+                  { label: "Balance", value: selectedDelivery.balanceQuantity, tone: "text-amber-600 dark:text-amber-300" },
                 ].map((s) => (
-                  <div key={s.label} className="rounded-xl border border-slate-200/70 bg-slate-50/70 px-3 py-2.5 text-center">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{s.label}</p>
+                  <div key={s.label} className="rounded-xl border border-line bg-muted px-3 py-2.5 text-center">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-tertiary">{s.label}</p>
                     <p className={`mt-0.5 text-xl font-bold tabular-nums ${s.tone}`}>{s.value.toLocaleString()}</p>
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-gray-400">
+              <p className="mt-2 text-xs text-tertiary">
                 {selectedDelivery.totalPallets.toLocaleString()} pallets · {selectedDelivery.watts.toLocaleString()} watts ·{" "}
                 {selectedDelivery.reservedBatches} reserved batch{selectedDelivery.reservedBatches === 1 ? "" : "es"} ·{" "}
                 {selectedDelivery.agingDays}d old
@@ -664,10 +664,10 @@ export default function DeliveryPage() {
             {/* Line items */}
             {selectedDelivery.lines?.length ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Line Items</p>
-                <div className="rounded-lg border border-gray-200 overflow-hidden">
+                <p className="text-xs font-semibold uppercase tracking-wide text-tertiary mb-1.5">Line Items</p>
+                <div className="rounded-lg border border-line overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <thead className="bg-muted text-xs text-secondary uppercase">
                       <tr>
                         <th className="px-3 py-2 text-left">Product</th>
                         <th className="px-3 py-2 text-right">Panels</th>
@@ -675,12 +675,12 @@ export default function DeliveryPage() {
                         <th className="px-3 py-2 text-right">Pallets</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-line">
                       {selectedDelivery.lines.map((l, i) => (
                         <tr key={i}>
                           <td className="px-3 py-2">
                             {l.product?.name ?? "—"}
-                            {l.product?.wattage ? <span className="text-gray-400"> ({l.product.wattage}W)</span> : null}
+                            {l.product?.wattage ? <span className="text-tertiary"> ({l.product.wattage}W)</span> : null}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">{l.quantity.toLocaleString()}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{l.watts.toLocaleString()}</td>
@@ -706,16 +706,16 @@ export default function DeliveryPage() {
         size="lg"
       >
         {!dispatchProgress ? (
-          <div className="py-10 text-center text-sm text-slate-400">Loading delivery order…</div>
+          <div className="py-10 text-center text-sm text-tertiary">Loading delivery order…</div>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+            <div className="rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 p-3 text-sm text-blue-800 dark:text-blue-300">
               Enter how many panels are being lifted now. Leave the defaults to dispatch the full balance, or reduce them
               for a partial lift — the remaining balance stays reserved for a later lift.
             </div>
 
-            <div className="rounded-lg border border-slate-200 overflow-hidden">
-              <div className="grid grid-cols-[1fr_72px_72px_96px] items-center bg-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <div className="rounded-lg border border-line overflow-hidden">
+              <div className="grid grid-cols-[1fr_72px_72px_96px] items-center bg-muted px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-secondary">
                 <span>Product</span>
                 <span className="text-right">Ordered</span>
                 <span className="text-right">Balance</span>
@@ -724,14 +724,14 @@ export default function DeliveryPage() {
               {dispatchProgress.map((p) => (
                 <div
                   key={p.productId}
-                  className="grid grid-cols-[1fr_72px_72px_96px] items-center border-t border-slate-100 px-3 py-2 text-sm"
+                  className="grid grid-cols-[1fr_72px_72px_96px] items-center border-t border-line px-3 py-2 text-sm"
                 >
-                  <span className="text-slate-700">
-                    {p.productName} <span className="text-slate-400">({p.wattage}W)</span>
-                    {p.lifted > 0 && <span className="ml-1 text-xs text-emerald-600">· {p.lifted.toLocaleString()} lifted</span>}
+                  <span className="text-secondary">
+                    {p.productName} <span className="text-tertiary">({p.wattage}W)</span>
+                    {p.lifted > 0 && <span className="ml-1 text-xs text-emerald-600 dark:text-emerald-300">· {p.lifted.toLocaleString()} lifted</span>}
                   </span>
-                  <span className="text-right tabular-nums text-slate-500">{p.ordered.toLocaleString()}</span>
-                  <span className="text-right tabular-nums text-amber-700">{p.balance.toLocaleString()}</span>
+                  <span className="text-right tabular-nums text-secondary">{p.ordered.toLocaleString()}</span>
+                  <span className="text-right tabular-nums text-amber-700 dark:text-amber-300">{p.balance.toLocaleString()}</span>
                   <span className="flex justify-end">
                     <Input
                       type="number"
@@ -747,15 +747,15 @@ export default function DeliveryPage() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200/70 px-3 py-2 text-sm">
-              <span className="text-slate-500">Total lifting now</span>
-              <span className="font-semibold text-slate-800 tabular-nums">
+            <div className="flex items-center justify-between rounded-lg bg-muted border border-line px-3 py-2 text-sm">
+              <span className="text-secondary">Total lifting now</span>
+              <span className="font-semibold text-foreground tabular-nums">
                 {liftTotal.toLocaleString()} / {liftBalanceTotal.toLocaleString()} balance
               </span>
             </div>
 
             {liftTotal > 0 && liftTotal < liftBalanceTotal && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
                 Partial lift: {(liftBalanceTotal - liftTotal).toLocaleString()} panels will remain as balance on this DO.
               </div>
             )}

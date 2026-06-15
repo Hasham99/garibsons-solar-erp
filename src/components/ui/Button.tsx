@@ -23,9 +23,9 @@ export function Button({
 
   const variants = {
     primary: "bg-blue-600 text-white shadow-sm shadow-blue-600/25 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/20 hover:-translate-y-px focus-visible:ring-blue-500",
-    secondary: "bg-white text-slate-700 border border-slate-300 shadow-sm hover:bg-slate-50 hover:border-slate-400/60 focus-visible:ring-slate-400",
+    secondary: "bg-surface text-foreground border border-line-strong shadow-sm hover:bg-muted hover:border-line-strong focus-visible:ring-slate-400",
     danger: "bg-rose-600 text-white shadow-sm shadow-rose-600/25 hover:bg-rose-700 hover:shadow-md hover:shadow-rose-600/20 hover:-translate-y-px focus-visible:ring-rose-500",
-    ghost: "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900 focus-visible:ring-slate-400",
+    ghost: "bg-surface text-secondary border border-line hover:bg-muted hover:border-line-strong hover:text-foreground focus-visible:ring-slate-400",
     success: "bg-emerald-600 text-white shadow-sm shadow-emerald-600/25 hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-600/20 hover:-translate-y-px focus-visible:ring-emerald-500",
   }
 

@@ -149,21 +149,21 @@ export function CsvImport({
       <Modal isOpen={open} onClose={close} title={title} size="lg">
         <div className="space-y-4">
           {/* Sample download */}
-          <div className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 p-3">
+          <div className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 p-3 dark:border-blue-500/30 dark:bg-blue-500/10">
             <div className="text-sm">
-              <p className="font-medium text-blue-900">Need the format?</p>
-              <p className="text-xs text-blue-700">Download the sample, fill it in, then upload.</p>
+              <p className="font-medium text-blue-900 dark:text-blue-300">Need the format?</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">Download the sample, fill it in, then upload.</p>
             </div>
             <Button size="sm" variant="ghost" onClick={downloadSample}>
               <Download size={14} className="mr-1" />Sample CSV
             </Button>
           </div>
 
-          {guide && <p className="text-xs text-gray-500">{guide}</p>}
+          {guide && <p className="text-xs text-secondary">{guide}</p>}
 
           {/* Uploader */}
           {!result && (
-            <div className="rounded-xl border-2 border-dashed border-gray-300 p-6 text-center">
+            <div className="rounded-xl border-2 border-dashed border-line-strong p-6 text-center">
               <input
                 ref={inputRef}
                 type="file"
@@ -171,17 +171,17 @@ export function CsvImport({
                 className="hidden"
                 onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
               />
-              <FileSpreadsheet size={28} className="mx-auto text-gray-400" />
+              <FileSpreadsheet size={28} className="mx-auto text-tertiary" />
               {fileName ? (
-                <p className="mt-2 text-sm font-medium text-gray-800">{fileName}</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{fileName}</p>
               ) : (
-                <p className="mt-2 text-sm text-gray-500">Upload a .csv or .xlsx file</p>
+                <p className="mt-2 text-sm text-secondary">Upload a .csv or .xlsx file</p>
               )}
               <Button size="sm" variant="secondary" className="mt-3" onClick={() => inputRef.current?.click()} loading={parsing}>
                 Choose File
               </Button>
               {fileName && (
-                <button onClick={reset} className="ml-2 text-xs text-gray-400 hover:text-gray-600">
+                <button onClick={reset} className="ml-2 text-xs text-tertiary hover:text-secondary">
                   <X size={13} className="inline" /> clear
                 </button>
               )}
@@ -189,7 +189,7 @@ export function CsvImport({
           )}
 
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
               <AlertTriangle size={15} />{error}
             </div>
           )}
@@ -197,23 +197,23 @@ export function CsvImport({
           {/* Preview */}
           {rows.length > 0 && !result && (
             <div>
-              <p className="mb-2 text-sm font-medium text-gray-700">
+              <p className="mb-2 text-sm font-medium text-secondary">
                 {rows.length.toLocaleString()} rows found — preview:
               </p>
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <div className="overflow-x-auto rounded-lg border border-line">
                 <table className="w-full text-xs">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
                       {previewCols.map((c) => (
-                        <th key={c} className="px-2 py-1.5 text-left font-medium text-gray-500">{c}</th>
+                        <th key={c} className="px-2 py-1.5 text-left font-medium text-secondary">{c}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-line">
                     {rows.slice(0, 5).map((r, i) => (
                       <tr key={i}>
                         {previewCols.map((c) => (
-                          <td key={c} className="px-2 py-1.5 text-gray-700 whitespace-nowrap">{String(r[c] ?? "")}</td>
+                          <td key={c} className="px-2 py-1.5 text-secondary whitespace-nowrap">{String(r[c] ?? "")}</td>
                         ))}
                       </tr>
                     ))}
@@ -226,17 +226,17 @@ export function CsvImport({
           {/* Result */}
           {result && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
                 <CheckCircle2 size={16} />
                 Imported <strong>{result.inserted.toLocaleString()}</strong> records
                 {result.skipped > 0 && <span>· skipped {result.skipped.toLocaleString()} duplicate(s)</span>}
               </div>
               {result.errors.length > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <p className="mb-1 text-sm font-medium text-amber-800">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <p className="mb-1 text-sm font-medium text-amber-800 dark:text-amber-300">
                     {result.errors.length.toLocaleString()} row(s) could not be imported:
                   </p>
-                  <div className="max-h-48 overflow-y-auto text-xs text-amber-700">
+                  <div className="max-h-48 overflow-y-auto text-xs text-amber-700 dark:text-amber-300">
                     {result.errors.slice(0, 200).map((e, i) => (
                       <p key={i}>Row {e.row}: {e.message}</p>
                     ))}

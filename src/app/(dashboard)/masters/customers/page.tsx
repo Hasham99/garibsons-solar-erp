@@ -11,6 +11,7 @@ import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatCurrency, formatAmount } from "@/lib/utils"
 import { Plus, Pencil, Trash2, Receipt, UserRound } from "lucide-react"
@@ -64,6 +65,8 @@ export default function CustomersPage() {
   const [form, setForm] = useState(emptyForm)
   const [contacts, setContacts] = useState<CustomerContact[]>([{ ...emptyContact }])
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const addContact = () => setContacts((prev) => [...prev, { ...emptyContact }])
   const removeContact = (idx: number) => setContacts((prev) => prev.filter((_, i) => i !== idx))
@@ -118,15 +121,21 @@ export default function CustomersPage() {
     setShowModal(true)
   }
 
-  const handleDelete = async (c: Customer) => {
-    if (!confirm(`Delete customer "${c.name}"?\n\nThis is only possible if the party has no sales orders, collections or quotations.`)) return
-    const res = await fetch(`/api/customers/${c.id}`, { method: "DELETE" })
-    const data = await res.json().catch(() => ({}))
-    if (res.ok) {
-      toast.success(`"${c.name}" deleted`)
-      refetch()
-    } else {
-      toast.error(data.error || "Failed to delete customer")
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/customers/${deleteTarget.id}`, { method: "DELETE" })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(`"${deleteTarget.name}" deleted`)
+        setDeleteTarget(null)
+        refetch()
+      } else {
+        toast.error(data.error || "Failed to delete customer")
+      }
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -134,7 +143,7 @@ export default function CustomersPage() {
     { label: "View Profile", icon: <UserRound size={15} />, onClick: () => router.push(`/masters/customers/${row.id}`) },
     { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
     { label: "View Receipts", icon: <Receipt size={15} />, onClick: () => router.push(`/masters/customers/${row.id}/receipts`) },
-    { label: "Delete Customer", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(row) },
+    { label: "Delete Customer", icon: <Trash2 size={15} />, danger: true, onClick: () => setDeleteTarget(row) },
   ]
 
   const columns = [
@@ -146,16 +155,16 @@ export default function CustomersPage() {
       key: "contacts",
       header: "WhatsApp Contacts",
       render: (row: Customer) => {
-        if (!row.contacts?.length) return <span className="text-gray-400">-</span>
+        if (!row.contacts?.length) return <span className="text-tertiary">-</span>
         return (
           <div className="space-y-0.5">
             {row.contacts.slice(0, 2).map((c, i) => (
               <div key={i} className="text-xs">
                 <span className="font-medium">{c.name}</span>
-                <span className="text-gray-500 ml-1">{c.whatsapp}</span>
+                <span className="text-secondary ml-1">{c.whatsapp}</span>
               </div>
             ))}
-            {row.contacts.length > 2 && <p className="text-xs text-gray-400">+{row.contacts.length - 2} more</p>}
+            {row.contacts.length > 2 && <p className="text-xs text-tertiary">+{row.contacts.length - 2} more</p>}
           </div>
         )
       },
@@ -164,7 +173,7 @@ export default function CustomersPage() {
     { key: "paymentTerms", header: "Payment Terms", render: (row: Customer) => row.paymentTerms.replace(/_/g, " ") },
     {
       key: "active", header: "Status", render: (row: Customer) => (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.active ? "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "bg-muted text-secondary"}`}>
           {row.active ? "Active" : "Inactive"}
         </span>
       ),
@@ -223,7 +232,7 @@ export default function CustomersPage() {
           </div>
         }
       />
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={customers || []}
@@ -271,14 +280,14 @@ export default function CustomersPage() {
           {/* WhatsApp Contacts */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700">WhatsApp Contacts</label>
+              <label className="text-sm font-medium text-secondary">WhatsApp Contacts</label>
               <Button size="sm" variant="ghost" onClick={addContact}>
                 <Plus size={14} className="mr-1" />Add Contact
               </Button>
             </div>
             <div className="space-y-2">
               {contacts.map((contact, idx) => (
-                <div key={idx} className="flex items-end gap-2 p-3 bg-gray-50 rounded-lg">
+                <div key={idx} className="flex items-end gap-2 p-3 bg-muted rounded-lg">
                   <div className="flex-1">
                     <Input
                       label={idx === 0 ? "Name *" : "Name"}
@@ -311,6 +320,17 @@ export default function CustomersPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        title="Delete Customer"
+        message={<>Delete customer <span className="font-semibold text-foreground">&ldquo;{deleteTarget?.name}&rdquo;</span>? This is only possible if the party has no sales orders, collections or quotations.</>}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

@@ -98,7 +98,7 @@ export default function QuotationsPage() {
           {row.lines?.slice(0, 2).map((l, i) => (
             <p key={i} className="text-xs">{l.product?.name} × {l.quantity}</p>
           ))}
-          {row.lines?.length > 2 && <p className="text-xs text-gray-400">+{row.lines.length - 2} more</p>}
+          {row.lines?.length > 2 && <p className="text-xs text-tertiary">+{row.lines.length - 2} more</p>}
         </div>
       ),
     },
@@ -138,16 +138,16 @@ export default function QuotationsPage() {
         actions={detailRow ? quotationRowActions(detailRow) : []}
       >
         {detailRow?.lines?.length ? (
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <div className="rounded-lg border border-line overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+              <thead className="bg-muted text-[11px] font-semibold text-secondary uppercase tracking-wide">
                 <tr>
                   <th className="px-3 py-2.5 text-left">Product</th>
                   <th className="px-3 py-2.5 text-right">Panels</th>
                   <th className="px-3 py-2.5 text-right">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {detailRow.lines.map((l, i) => (
                   <tr key={i}>
                     <td className="px-3 py-2.5 text-[13px]">{l.product?.name}</td>
@@ -171,7 +171,7 @@ export default function QuotationsPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={(quotations || [])}
@@ -198,7 +198,7 @@ export default function QuotationsPage() {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700">Line Items</label>
+              <label className="text-sm font-medium text-secondary">Line Items</label>
               <Button size="sm" variant="ghost" onClick={addLine}>+ Add Line</Button>
             </div>
             <div className="space-y-3">
@@ -209,7 +209,7 @@ export default function QuotationsPage() {
                 const ratePerPanel = ratePerWatt * (product?.wattage || 0)
                 const total = ratePerPanel * qty
                 return (
-                  <div key={idx} className="flex items-end gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div key={idx} className="flex items-end gap-3 p-3 bg-muted rounded-lg">
                     <Select
                       label="Product"
                       value={line.productId}
@@ -238,7 +238,7 @@ export default function QuotationsPage() {
                       }}
                     />
                     <div className="min-w-[120px]">
-                      <p className="text-xs text-gray-500 mb-1">Total</p>
+                      <p className="text-xs text-secondary mb-1">Total</p>
                       <p className="font-medium text-sm">{formatCurrency(total)}</p>
                     </div>
                     {lines.length > 1 && (

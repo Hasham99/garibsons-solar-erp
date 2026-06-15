@@ -376,22 +376,22 @@ export default function ProcurementPage() {
   const columns = [
     { key: "poNumber", header: "PO Number", sortable: true },
     { key: "createdAt", header: "Date", numeric: true, render: (row: PO) => formatDate(row.createdAt) },
-    { key: "product", header: "Product", sortable: true, value: (row: PO) => row.product?.name, render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-gray-400">{row.product?.code}</p></div> },
+    { key: "product", header: "Product", sortable: true, value: (row: PO) => row.product?.name, render: (row: PO) => <div><p className="font-medium text-sm">{row.product?.name}</p><p className="text-xs text-tertiary">{row.product?.code}</p></div> },
     { key: "supplier", header: "Supplier", sortable: true, value: (row: PO) => row.supplier?.name || "—", render: (row: PO) => row.supplier?.name || "—" },
     { key: "lcNumber", header: "LC No.", render: (row: PO) => (
       row.lcNumber
-        ? <span className="text-xs font-medium text-gray-800">{row.lcNumber}</span>
-        : <span className="text-gray-400 text-xs">—</span>
+        ? <span className="text-xs font-medium text-foreground">{row.lcNumber}</span>
+        : <span className="text-tertiary text-xs">—</span>
     )},
     { key: "noOfPanels", header: "Quantity", numeric: true, render: (row: PO) => `${row.noOfPanels.toLocaleString()} × ${row.panelWattage}W` },
     {
       key: "totalValueUsd", header: "Value (USD)", numeric: true,
       render: (row: PO) => row.totalValueUsd > 0
         ? row.totalValueUsd.toLocaleString()
-        : <span className="text-gray-400">—</span>
+        : <span className="text-tertiary">—</span>
     },
     { key: "poAmountPkr", header: "PKR Amount (PKR)", numeric: true, render: (row: PO) => formatAmount(row.poAmountPkr) },
-    { key: "landedCostPerPanel", header: "Landed/Panel (PKR)", numeric: true, render: (row: PO) => row.landedCostPerPanel ? formatAmount(row.landedCostPerPanel) : <span className="text-gray-400">—</span> },
+    { key: "landedCostPerPanel", header: "Landed/Panel (PKR)", numeric: true, render: (row: PO) => row.landedCostPerPanel ? formatAmount(row.landedCostPerPanel) : <span className="text-tertiary">—</span> },
     { key: "status", header: "Status", render: (row: PO) => <Badge status={row.status} /> },
     {
       key: "actions",
@@ -435,7 +435,7 @@ export default function ProcurementPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={pos || []}
@@ -460,71 +460,71 @@ export default function ProcurementPage() {
 
             {/* ── Section: Basic Info ── */}
             <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Purchase Order Info</p>
+              <p className="text-xs font-semibold text-tertiary uppercase tracking-wide mb-2">Purchase Order Info</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 <div>
-                  <p className="text-xs text-gray-500">PO Number</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.poNumber}</p>
+                  <p className="text-xs text-secondary">PO Number</p>
+                  <p className="font-semibold text-foreground">{selectedPO.poNumber}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Status</p>
+                  <p className="text-xs text-secondary">Status</p>
                   <Badge status={selectedPO.status} />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Product</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.product?.name}</p>
-                  <p className="text-xs text-gray-400">{selectedPO.product?.code} · {selectedPO.product?.wattage}W</p>
+                  <p className="text-xs text-secondary">Product</p>
+                  <p className="font-semibold text-foreground">{selectedPO.product?.name}</p>
+                  <p className="text-xs text-tertiary">{selectedPO.product?.code} · {selectedPO.product?.wattage}W</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Supplier</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.supplier?.name}</p>
+                  <p className="text-xs text-secondary">Supplier</p>
+                  <p className="font-semibold text-foreground">{selectedPO.supplier?.name}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">LC Type</p>
-                  <p className="font-semibold text-gray-900">
+                  <p className="text-xs text-secondary">LC Type</p>
+                  <p className="font-semibold text-foreground">
                     {selectedPO.lcType}
                     {selectedPO.lcType === "USANCE" && selectedPO.usanceDays ? ` — ${selectedPO.usanceDays} days usance` : ""}
                   </p>
-                  {selectedPO.lcNumber && <p className="text-xs text-gray-400">LC#: {selectedPO.lcNumber}</p>}
+                  {selectedPO.lcNumber && <p className="text-xs text-tertiary">LC#: {selectedPO.lcNumber}</p>}
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Bank</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.bank?.name || "—"}</p>
+                  <p className="text-xs text-secondary">Bank</p>
+                  <p className="font-semibold text-foreground">{selectedPO.bank?.name || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Destination Warehouse</p>
-                  <p className="font-semibold text-gray-900">{selectedPO.warehouse?.name || "—"}</p>
-                  {selectedPO.warehouse?.location && <p className="text-xs text-gray-400">{selectedPO.warehouse.location}</p>}
+                  <p className="text-xs text-secondary">Destination Warehouse</p>
+                  <p className="font-semibold text-foreground">{selectedPO.warehouse?.name || "—"}</p>
+                  {selectedPO.warehouse?.location && <p className="text-xs text-tertiary">{selectedPO.warehouse.location}</p>}
                 </div>
                 {selectedPO.leadTimeDays && (
                   <div>
-                    <p className="text-xs text-gray-500">Lead Time</p>
-                    <p className="font-semibold text-gray-900 tabular-nums">{selectedPO.leadTimeDays} days</p>
+                    <p className="text-xs text-secondary">Lead Time</p>
+                    <p className="font-semibold text-foreground tabular-nums">{selectedPO.leadTimeDays} days</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-xs text-gray-500">Created</p>
-                  <p className="font-semibold text-gray-900 tabular-nums">{formatDate(selectedPO.createdAt)}</p>
+                  <p className="text-xs text-secondary">Created</p>
+                  <p className="font-semibold text-foreground tabular-nums">{formatDate(selectedPO.createdAt)}</p>
                 </div>
               </div>
             </div>
 
             {/* ── Section: Quantity & Pricing ── */}
             <div className="border-t pt-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Quantity & Pricing</p>
+              <p className="text-xs font-semibold text-tertiary uppercase tracking-wide mb-2">Quantity & Pricing</p>
               <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                 <div>
-                  <p className="text-xs text-gray-500">No. of Panels</p>
-                  <p className="font-semibold text-gray-900 tabular-nums">{selectedPO.noOfPanels.toLocaleString()}</p>
+                  <p className="text-xs text-secondary">No. of Panels</p>
+                  <p className="font-semibold text-foreground tabular-nums">{selectedPO.noOfPanels.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Panel Wattage</p>
-                  <p className="font-semibold text-gray-900 tabular-nums">{selectedPO.panelWattage}W</p>
+                  <p className="text-xs text-secondary">Panel Wattage</p>
+                  <p className="font-semibold text-foreground tabular-nums">{selectedPO.panelWattage}W</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Total Watts</p>
-                  <p className="font-semibold text-gray-900 tabular-nums">{(selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage).toLocaleString()} W</p>
-                  <p className="text-xs text-gray-400 tabular-nums">{((selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage) / 1000).toFixed(1)} kW</p>
+                  <p className="text-xs text-secondary">Total Watts</p>
+                  <p className="font-semibold text-foreground tabular-nums">{(selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage).toLocaleString()} W</p>
+                  <p className="text-xs text-tertiary tabular-nums">{((selectedPO.totalWatts || selectedPO.noOfPanels * selectedPO.panelWattage) / 1000).toFixed(1)} kW</p>
                 </div>
                 {(() => {
                   const ppc = selectedPO.product?.panelsPerContainer
@@ -532,13 +532,13 @@ export default function ProcurementPage() {
                   return computed ? (
                     <>
                       <div>
-                        <p className="text-xs text-gray-500">No. of Containers</p>
-                        <p className="font-semibold text-blue-700 tabular-nums">{computed}</p>
+                        <p className="text-xs text-secondary">No. of Containers</p>
+                        <p className="font-semibold text-blue-700 dark:text-blue-300 tabular-nums">{computed}</p>
                       </div>
                       {selectedPO.noOfPallets && (
                         <div>
-                          <p className="text-xs text-gray-500">No. of Pallets</p>
-                          <p className="font-semibold text-gray-900 tabular-nums">{selectedPO.noOfPallets}</p>
+                          <p className="text-xs text-secondary">No. of Pallets</p>
+                          <p className="font-semibold text-foreground tabular-nums">{selectedPO.noOfPallets}</p>
                         </div>
                       )}
                     </>
@@ -546,26 +546,26 @@ export default function ProcurementPage() {
                 })()}
                 {selectedPO.lcType !== "LOCAL" && (
                   <div>
-                    <p className="text-xs text-gray-500">USD per Watt</p>
-                    <p className="font-semibold text-gray-900 tabular-nums">${selectedPO.usdPerWatt?.toFixed(4)}</p>
+                    <p className="text-xs text-secondary">USD per Watt</p>
+                    <p className="font-semibold text-foreground tabular-nums">${selectedPO.usdPerWatt?.toFixed(4)}</p>
                   </div>
                 )}
                 {selectedPO.exchangeRate && (
                   <div>
-                    <p className="text-xs text-gray-500">Exchange Rate</p>
-                    <p className="font-semibold text-gray-900 tabular-nums">Rs {selectedPO.exchangeRate.rate}</p>
-                    <p className="text-xs text-gray-400">{selectedPO.exchangeRate.source}{selectedPO.exchangeRate.notes ? ` · ${selectedPO.exchangeRate.notes}` : ""}</p>
+                    <p className="text-xs text-secondary">Exchange Rate</p>
+                    <p className="font-semibold text-foreground tabular-nums">Rs {selectedPO.exchangeRate.rate}</p>
+                    <p className="text-xs text-tertiary">{selectedPO.exchangeRate.source}{selectedPO.exchangeRate.notes ? ` · ${selectedPO.exchangeRate.notes}` : ""}</p>
                   </div>
                 )}
                 {selectedPO.totalValueUsd > 0 && (
                   <div>
-                    <p className="text-xs text-gray-500">Total USD Value</p>
-                    <p className="font-semibold text-gray-900 tabular-nums">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-secondary">Total USD Value</p>
+                    <p className="font-semibold text-foreground tabular-nums">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-xs text-gray-500">PKR Amount (at booking)</p>
-                  <p className="font-semibold text-gray-900 tabular-nums">{formatCurrency(selectedPO.poAmountPkr)}</p>
+                  <p className="text-xs text-secondary">PKR Amount (at booking)</p>
+                  <p className="font-semibold text-foreground tabular-nums">{formatCurrency(selectedPO.poAmountPkr)}</p>
                 </div>
               </div>
             </div>
@@ -573,19 +573,19 @@ export default function ProcurementPage() {
             {/* ── Section: Linked Costing ── */}
             {selectedPO.costing && (
               <div className="border-t pt-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Linked Costing</p>
+                <p className="text-xs font-semibold text-tertiary uppercase tracking-wide mb-2">Linked Costing</p>
                 <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                   <div>
-                    <p className="text-xs text-gray-500">Costing Reference</p>
-                    <p className="font-semibold text-gray-900">{selectedPO.costing.reference}</p>
+                    <p className="text-xs text-secondary">Costing Reference</p>
+                    <p className="font-semibold text-foreground">{selectedPO.costing.reference}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Landed Cost/Watt</p>
-                    <p className="font-semibold text-blue-700 tabular-nums">Rs {selectedPO.costing.landedCostPerWatt?.toFixed(2)}</p>
+                    <p className="text-xs text-secondary">Landed Cost/Watt</p>
+                    <p className="font-semibold text-blue-700 dark:text-blue-300 tabular-nums">Rs {selectedPO.costing.landedCostPerWatt?.toFixed(2)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Landed Cost/Panel</p>
-                    <p className="font-semibold text-blue-700 tabular-nums">{formatCurrency(selectedPO.costing.landedCostPerPanel)}</p>
+                    <p className="text-xs text-secondary">Landed Cost/Panel</p>
+                    <p className="font-semibold text-blue-700 dark:text-blue-300 tabular-nums">{formatCurrency(selectedPO.costing.landedCostPerPanel)}</p>
                   </div>
                 </div>
               </div>
@@ -594,27 +594,27 @@ export default function ProcurementPage() {
             {/* ── Section: Clearing Charges ── */}
             {selectedPO.totalLandedCost != null && (
               <div className="border-t pt-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Clearing Charges</p>
+                <p className="text-xs font-semibold text-tertiary uppercase tracking-wide mb-2">Clearing Charges</p>
 
                 {/* Exchange rate comparison */}
                 {selectedPO.lcType !== "LOCAL" && (selectedPO.exchangeRate || selectedPO.clearingExchangeRate) && (
-                  <div className="grid grid-cols-3 gap-3 mb-3 p-3 bg-amber-50 rounded-lg border border-amber-100 text-sm">
+                  <div className="grid grid-cols-3 gap-3 mb-3 p-3 bg-amber-50 dark:bg-amber-500/10 rounded-lg border border-amber-100 dark:border-amber-500/30 text-sm">
                     {selectedPO.totalValueUsd > 0 && (
                       <div>
-                        <p className="text-xs text-amber-700">PO USD Value</p>
-                        <p className="font-semibold text-gray-900 tabular-nums">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300">PO USD Value</p>
+                        <p className="font-semibold text-foreground tabular-nums">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                       </div>
                     )}
                     {selectedPO.exchangeRate && (
                       <div>
-                        <p className="text-xs text-amber-700">Rate at Booking</p>
-                        <p className="font-semibold text-gray-900 tabular-nums">Rs {selectedPO.exchangeRate.rate}</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300">Rate at Booking</p>
+                        <p className="font-semibold text-foreground tabular-nums">Rs {selectedPO.exchangeRate.rate}</p>
                       </div>
                     )}
                     {selectedPO.clearingExchangeRate && (
                       <div>
-                        <p className="text-xs text-amber-700">Rate at Clearing</p>
-                        <p className="font-semibold text-gray-900 tabular-nums">Rs {selectedPO.clearingExchangeRate}</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300">Rate at Clearing</p>
+                        <p className="font-semibold text-foreground tabular-nums">Rs {selectedPO.clearingExchangeRate}</p>
                       </div>
                     )}
                   </div>
@@ -634,27 +634,27 @@ export default function ProcurementPage() {
                     { label: "Transportation",         value: selectedPO.containerTransport },
                     { label: "GST Paid at Import",     value: selectedPO.gstInputAmount },
                   ].filter(({ value }) => value != null && value > 0).map(({ label, value }) => (
-                    <div key={label} className="flex items-center justify-between py-1 border-b border-gray-100">
-                      <span className="text-gray-500">{label}</span>
-                      <span className="font-medium text-gray-900 tabular-nums">{formatCurrency(value!)}</span>
+                    <div key={label} className="flex items-center justify-between py-1 border-b border-line">
+                      <span className="text-secondary">{label}</span>
+                      <span className="font-medium text-foreground tabular-nums">{formatCurrency(value!)}</span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 bg-blue-50 rounded-lg p-3 grid grid-cols-3 gap-3">
+                <div className="mt-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg p-3 grid grid-cols-3 gap-3">
                   <div>
-                    <p className="text-xs text-blue-600">Total Landed Cost</p>
-                    <p className="font-bold text-blue-900 tabular-nums">{formatCurrency(selectedPO.totalLandedCost)}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-300">Total Landed Cost</p>
+                    <p className="font-bold text-blue-900 dark:text-blue-300 tabular-nums">{formatCurrency(selectedPO.totalLandedCost)}</p>
                   </div>
                   {selectedPO.landedCostPerPanel && (
                     <div>
-                      <p className="text-xs text-blue-600">Per Panel</p>
-                      <p className="font-bold text-blue-900 tabular-nums">{formatCurrency(selectedPO.landedCostPerPanel)}</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">Per Panel</p>
+                      <p className="font-bold text-blue-900 dark:text-blue-300 tabular-nums">{formatCurrency(selectedPO.landedCostPerPanel)}</p>
                     </div>
                   )}
                   {selectedPO.landedCostPerWatt && (
                     <div>
-                      <p className="text-xs text-blue-600">Per Watt</p>
-                      <p className="font-bold text-blue-900 tabular-nums">Rs {selectedPO.landedCostPerWatt.toFixed(2)}</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">Per Watt</p>
+                      <p className="font-bold text-blue-900 dark:text-blue-300 tabular-nums">Rs {selectedPO.landedCostPerWatt.toFixed(2)}</p>
                     </div>
                   )}
                 </div>
@@ -664,13 +664,13 @@ export default function ProcurementPage() {
             {/* ── Notes ── */}
             {selectedPO.notes && (
               <div className="border-t pt-3">
-                <p className="text-xs text-gray-500 mb-1">Notes</p>
-                <p className="text-gray-700 whitespace-pre-line">{selectedPO.notes}</p>
+                <p className="text-xs text-secondary mb-1">Notes</p>
+                <p className="text-secondary whitespace-pre-line">{selectedPO.notes}</p>
               </div>
             )}
 
             {/* ── Actions ── */}
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
               {poRowActions(selectedPO).map((a) => (
                 <Button
                   key={a.label}
@@ -764,8 +764,8 @@ export default function ProcurementPage() {
           <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
 
           {form.noOfPanels && form.panelWattage && (isLocal ? form.rsPerWatt : form.usdPerWatt) && (
-            <div className="bg-blue-50 rounded-lg p-4 text-sm space-y-1">
-              <p className="font-medium text-blue-900">Summary</p>
+            <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg p-4 text-sm space-y-1">
+              <p className="font-medium text-blue-900 dark:text-blue-300">Summary</p>
               {(() => {
                 const panels = parseInt(form.noOfPanels) || 0
                 const wattage = parseInt(form.panelWattage) || 0
@@ -783,9 +783,9 @@ export default function ProcurementPage() {
                   const totalPKR = panels * wattage * rsPW
                   const totalUSD = effectiveRate > 0 ? totalPKR / effectiveRate : null
                   return (
-                    <div className="text-blue-700 space-y-0.5">
+                    <div className="text-blue-700 dark:text-blue-300 space-y-0.5">
                       <p>{panels.toLocaleString()} panels × {wattage}W = {totalKW} kW</p>
-                      {containers !== null && <p className="font-medium text-blue-800">Containers: {containers} · {panelsPerContainer} panels/container{pallets !== null ? ` · Pallets: ${pallets}` : ""}</p>}
+                      {containers !== null && <p className="font-medium text-blue-800 dark:text-blue-300">Containers: {containers} · {panelsPerContainer} panels/container{pallets !== null ? ` · Pallets: ${pallets}` : ""}</p>}
                       <p>Rs/Watt: Rs {rsPW}</p>
                       <p className="font-semibold">Total PKR: Rs {totalPKR.toLocaleString()}</p>
                       {totalUSD !== null && (
@@ -798,9 +798,9 @@ export default function ProcurementPage() {
                 const totalUSD = (panels * wattage * usdPW).toLocaleString()
                 const totalPKR = effectiveRate > 0 ? (panels * wattage * usdPW * effectiveRate).toLocaleString() : "—"
                 return (
-                  <div className="text-blue-700 space-y-0.5">
+                  <div className="text-blue-700 dark:text-blue-300 space-y-0.5">
                     <p>{panels.toLocaleString()} panels × {wattage}W = {totalKW} kW</p>
-                    {containers !== null && <p className="font-medium text-blue-800">Containers: {containers} · {panelsPerContainer} panels/container{pallets !== null ? ` · Pallets: ${pallets}` : ""}</p>}
+                    {containers !== null && <p className="font-medium text-blue-800 dark:text-blue-300">Containers: {containers} · {panelsPerContainer} panels/container{pallets !== null ? ` · Pallets: ${pallets}` : ""}</p>}
                     <p>Total USD: ${totalUSD}</p>
                     <p>Total PKR @ Rs{effectiveRate || "?"}: Rs {totalPKR}</p>
                   </div>
@@ -819,7 +819,7 @@ export default function ProcurementPage() {
       {/* ── Costing / Clearing Charges Modal ── */}
       <Modal isOpen={showClear} onClose={() => setShowClear(false)} title={`${selectedPO?.lcType === "LOCAL" ? "Calculate Costing" : "Clearing Charges"} — ${selectedPO?.poNumber}`} size="lg">
         <div className="space-y-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-secondary">
             {selectedPO?.lcType === "LOCAL"
               ? "Enter the total cost breakdown for this local purchase. All amounts in PKR."
               : "Enter all charges as per vendor bills. All amounts in PKR unless noted."}
@@ -827,21 +827,21 @@ export default function ProcurementPage() {
 
           {/* PO reference values */}
           {selectedPO && selectedPO.lcType !== "LOCAL" && selectedPO.totalValueUsd > 0 && (
-            <div className="bg-gray-50 rounded-lg p-3 grid grid-cols-3 gap-3 text-sm border border-gray-200">
+            <div className="bg-muted rounded-lg p-3 grid grid-cols-3 gap-3 text-sm border border-line">
               <div>
-                <p className="text-xs text-gray-500">PO USD Value</p>
-                <p className="font-semibold text-gray-900">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                <p className="text-xs text-secondary">PO USD Value</p>
+                <p className="font-semibold text-foreground">${selectedPO.totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Rate at PO Booking</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-xs text-secondary">Rate at PO Booking</p>
+                <p className="font-semibold text-foreground">
                   {selectedPO.exchangeRate ? `Rs ${selectedPO.exchangeRate.rate}` : "—"}
                 </p>
-                {selectedPO.exchangeRate?.source && <p className="text-xs text-gray-400">{selectedPO.exchangeRate.source}</p>}
+                {selectedPO.exchangeRate?.source && <p className="text-xs text-tertiary">{selectedPO.exchangeRate.source}</p>}
               </div>
               <div>
-                <p className="text-xs text-gray-500">PKR at Booking</p>
-                <p className="font-semibold text-gray-900">{formatCurrency(selectedPO.poAmountPkr)}</p>
+                <p className="text-xs text-secondary">PKR at Booking</p>
+                <p className="font-semibold text-foreground">{formatCurrency(selectedPO.poAmountPkr)}</p>
               </div>
             </div>
           )}
@@ -849,7 +849,7 @@ export default function ProcurementPage() {
           {/* FOB / CNF toggle for non-local POs */}
           {selectedPO?.lcType !== "LOCAL" && (
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-700">Shipping Terms:</span>
+              <span className="text-sm font-medium text-secondary">Shipping Terms:</span>
               {(["FOB", "CNF"] as const).map((t) => (
                 <button
                   key={t}
@@ -858,13 +858,13 @@ export default function ProcurementPage() {
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                     incoterm === t
                       ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
+                      : "bg-surface text-secondary border-line-strong hover:border-line-strong"
                   }`}
                 >
                   {t}
                 </button>
               ))}
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-tertiary">
                 {incoterm === "FOB" ? "Freight charged separately" : "Freight included in price — skip freight"}
               </span>
             </div>
@@ -898,8 +898,8 @@ export default function ProcurementPage() {
 
             {/* Import Shipping Freight — USD inputs for non-local FOB; hidden for CNF */}
             {selectedPO?.lcType !== "LOCAL" && incoterm === "FOB" ? (
-              <div className="col-span-2 bg-gray-50 rounded-lg p-3 space-y-3 border border-gray-200">
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Import Shipping Freight (USD → PKR)</p>
+              <div className="col-span-2 bg-muted rounded-lg p-3 space-y-3 border border-line">
+                <p className="text-xs font-semibold text-secondary uppercase tracking-wide">Import Shipping Freight (USD → PKR)</p>
                 <div className="grid grid-cols-2 gap-3">
                   <Input
                     label="Freight (USD $)"
@@ -965,18 +965,18 @@ export default function ProcurementPage() {
             ))}
           </div>
 
-          <div className="bg-blue-50 rounded-lg p-4 space-y-1 text-sm">
-            <div className="flex justify-between font-semibold text-blue-900">
+          <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg p-4 space-y-1 text-sm">
+            <div className="flex justify-between font-semibold text-blue-900 dark:text-blue-300">
               <span>Total Landed Cost:</span>
               <span>{formatCurrency(clearTotal)}</span>
             </div>
             {selectedPO && clearTotal > 0 && (
               <>
-                <div className="flex justify-between text-blue-700">
+                <div className="flex justify-between text-blue-700 dark:text-blue-300">
                   <span>Per Panel ({selectedPO.noOfPanels.toLocaleString()} panels):</span>
                   <span>{formatCurrency(clearTotal / selectedPO.noOfPanels)}</span>
                 </div>
-                <div className="flex justify-between text-blue-700">
+                <div className="flex justify-between text-blue-700 dark:text-blue-300">
                   <span>Avg/W ({selectedPO.panelWattage}W):</span>
                   <span>Rs {(clearTotal / (selectedPO.noOfPanels * selectedPO.panelWattage)).toFixed(2)}</span>
                 </div>
@@ -996,15 +996,15 @@ export default function ProcurementPage() {
       {/* ── Documents Modal ── */}
       <Modal isOpen={showDocs} onClose={() => { setShowDocs(false); setPoDocs([]) }} title={`Documents — ${selectedPO?.poNumber}`} size="lg">
         <div className="space-y-4">
-          <div className="flex items-end gap-3 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-end gap-3 p-4 bg-muted rounded-lg">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
+              <label className="block text-sm font-medium text-secondary mb-1">Document Type</label>
               <select
                 aria-label="Document Type"
                 title="Document Type"
                 value={docType}
                 onChange={(e) => setDocType(e.target.value)}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="block w-full rounded-lg border border-line-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {DOC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -1015,19 +1015,19 @@ export default function ProcurementPage() {
           </div>
 
           {poDocs.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-sm">No documents uploaded yet.</div>
+            <div className="text-center py-8 text-tertiary text-sm">No documents uploaded yet.</div>
           ) : (
             <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Uploaded Documents</div>
+              <div className="text-xs font-medium text-secondary uppercase tracking-wide mb-3">Uploaded Documents</div>
               {poDocs.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                <div key={doc.id} className="flex items-center justify-between p-3 bg-surface border border-line rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                      <Paperclip size={14} className="text-blue-600" />
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/10 rounded-lg flex items-center justify-center shrink-0">
+                      <Paperclip size={14} className="text-blue-600 dark:text-blue-300" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{doc.docType}</p>
-                      <p className="text-xs text-gray-500">{doc.fileName} · {doc.uploadedBy} · {formatDate(doc.uploadedAt)}</p>
+                      <p className="text-sm font-medium text-foreground">{doc.docType}</p>
+                      <p className="text-xs text-secondary">{doc.fileName} · {doc.uploadedBy} · {formatDate(doc.uploadedAt)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1035,7 +1035,7 @@ export default function ProcurementPage() {
                       <Button size="sm" variant="ghost"><ExternalLink size={14} /></Button>
                     </a>
                     <Button size="sm" variant="ghost" onClick={() => handleDeleteDoc(doc.id)}>
-                      <Trash2 size={14} className="text-red-500" />
+                      <Trash2 size={14} className="text-red-500 dark:text-red-400" />
                     </Button>
                   </div>
                 </div>
@@ -1044,12 +1044,12 @@ export default function ProcurementPage() {
           )}
 
           <div className="border-t pt-4">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Required Document Checklist</p>
+            <p className="text-xs font-medium text-secondary uppercase tracking-wide mb-2">Required Document Checklist</p>
             <div className="grid grid-cols-2 gap-1">
               {DOC_TYPES.slice(0, 6).map((type) => {
                 const uploaded = poDocs.some((d) => d.docType === type)
                 return (
-                  <div key={type} className={`flex items-center gap-2 text-xs p-1.5 rounded ${uploaded ? "text-green-700" : "text-gray-400"}`}>
+                  <div key={type} className={`flex items-center gap-2 text-xs p-1.5 rounded ${uploaded ? "text-green-700 dark:text-green-300" : "text-tertiary"}`}>
                     <span>{uploaded ? "✓" : "○"}</span>
                     <span>{type}</span>
                   </div>

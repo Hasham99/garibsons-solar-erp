@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatAmount, formatCurrency, formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2, Settings2 } from "lucide-react"
@@ -18,16 +19,16 @@ import toast from "react-hot-toast"
 
 // Color palette for categories (auto-assigned by index)
 const PALETTE = [
-  "bg-blue-100 text-blue-700",
-  "bg-purple-100 text-purple-700",
-  "bg-orange-100 text-orange-700",
-  "bg-yellow-100 text-yellow-700",
-  "bg-cyan-100 text-cyan-700",
-  "bg-pink-100 text-pink-700",
-  "bg-gray-100 text-gray-700",
-  "bg-slate-100 text-slate-700",
-  "bg-green-100 text-green-700",
-  "bg-red-100 text-red-700",
+  "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
+  "bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300",
+  "bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300",
+  "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-300",
+  "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300",
+  "bg-pink-100 text-pink-700 dark:bg-pink-500/10 dark:text-pink-300",
+  "bg-muted text-secondary",
+  "bg-muted text-secondary",
+  "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300",
+  "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300",
 ]
 
 interface ExpenseCategoryDef {
@@ -76,6 +77,10 @@ export default function ExpensesPage() {
   const [filterCategory, setFilterCategory] = useState("")
   const [filterMonth, setFilterMonth] = useState("")
   const [detailRow, setDetailRow] = useState<Expense | null>(null)
+  const [deleteExpenseTarget, setDeleteExpenseTarget] = useState<Expense | null>(null)
+  const [deletingExpense, setDeletingExpense] = useState(false)
+  const [deactivateCategoryTarget, setDeactivateCategoryTarget] = useState<ExpenseCategoryDef | null>(null)
+  const [deactivatingCategory, setDeactivatingCategory] = useState(false)
 
   // Map category name → color (stable by index)
   const catColorMap = useMemo(() => {
@@ -128,11 +133,16 @@ export default function ExpensesPage() {
     setShowModal(true)
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this expense?")) return
-    const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" })
-    if (res.ok) { toast.success("Deleted"); refetch() }
-    else toast.error("Failed to delete")
+  const confirmDeleteExpense = async () => {
+    if (!deleteExpenseTarget) return
+    setDeletingExpense(true)
+    try {
+      const res = await fetch(`/api/expenses/${deleteExpenseTarget.id}`, { method: "DELETE" })
+      if (res.ok) { toast.success("Deleted"); setDeleteExpenseTarget(null); refetch() }
+      else toast.error("Failed to delete")
+    } finally {
+      setDeletingExpense(false)
+    }
   }
 
   const handleNew = () => {
@@ -163,11 +173,16 @@ export default function ExpensesPage() {
     }
   }
 
-  const handleDeactivateCat = async (id: string) => {
-    if (!confirm("Deactivate this category? Existing expenses will keep it.")) return
-    const res = await fetch(`/api/expense-categories/${id}`, { method: "DELETE" })
-    if (res.ok) { toast.success("Category deactivated"); refetchCats() }
-    else toast.error("Failed to deactivate")
+  const confirmDeactivateCategory = async () => {
+    if (!deactivateCategoryTarget) return
+    setDeactivatingCategory(true)
+    try {
+      const res = await fetch(`/api/expense-categories/${deactivateCategoryTarget.id}`, { method: "DELETE" })
+      if (res.ok) { toast.success("Category deactivated"); setDeactivateCategoryTarget(null); refetchCats() }
+      else toast.error("Failed to deactivate")
+    } finally {
+      setDeactivatingCategory(false)
+    }
   }
 
   const filtered = useMemo(() => {
@@ -194,7 +209,7 @@ export default function ExpensesPage() {
 
   const expenseRowActions = (row: Expense): RowAction[] => [
     { label: "Edit", icon: <Pencil size={15} />, onClick: () => handleEdit(row) },
-    { label: "Delete Expense", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(row.id) },
+    { label: "Delete Expense", icon: <Trash2 size={15} />, danger: true, onClick: () => setDeleteExpenseTarget(row) },
   ]
 
   const columns = [
@@ -204,16 +219,16 @@ export default function ExpensesPage() {
       render: (row: Expense) => {
         const name = displayCategory(row)
         return (
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${catColorMap[row.categoryName || ""] || "bg-gray-100 text-gray-600"}`}>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${catColorMap[row.categoryName || ""] || "bg-muted text-secondary"}`}>
             {name}
           </span>
         )
       },
     },
     { key: "description", header: "Description" },
-    { key: "paidTo", header: "Paid To", render: (row: Expense) => row.paidTo || <span className="text-gray-400">-</span> },
-    { key: "reference", header: "Ref #", render: (row: Expense) => row.reference || <span className="text-gray-400">-</span> },
-    { key: "amount", header: "Amount (PKR)", numeric: true, render: (row: Expense) => <span className="font-semibold text-red-700">{formatAmount(row.amount)}</span> },
+    { key: "paidTo", header: "Paid To", render: (row: Expense) => row.paidTo || <span className="text-tertiary">-</span> },
+    { key: "reference", header: "Ref #", render: (row: Expense) => row.reference || <span className="text-tertiary">-</span> },
+    { key: "amount", header: "Amount (PKR)", numeric: true, render: (row: Expense) => <span className="font-semibold text-red-700 dark:text-red-300">{formatAmount(row.amount)}</span> },
     { key: "createdBy", header: "Entered By", render: (row: Expense) => row.createdBy?.name || "-" },
     {
       key: "actions", header: "Actions",
@@ -234,7 +249,7 @@ export default function ExpensesPage() {
         fields={detailRow ? [
           { label: "Date", value: formatDate(detailRow.date) },
           { label: "Category", value: detailRow.categoryName || detailRow.category },
-          { label: "Amount", value: <span className="font-bold text-red-700">{formatCurrency(detailRow.amount)}</span> },
+          { label: "Amount", value: <span className="font-bold text-red-700 dark:text-red-300">{formatCurrency(detailRow.amount)}</span> },
           { label: "Paid To", value: detailRow.paidTo || "—" },
           { label: "Reference", value: detailRow.reference || "—" },
           { label: "Entered By", value: detailRow.createdBy?.name || "—" },
@@ -276,20 +291,20 @@ export default function ExpensesPage() {
       {byCategory.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {byCategory.map((c, i) => (
-            <div key={`${c.name}-${i}`} className="bg-white rounded-xl shadow-card border border-slate-200/70 p-4">
-              <p className="text-xs text-gray-500">{c.name}</p>
-              <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(c.total)}</p>
+            <div key={`${c.name}-${i}`} className="bg-surface rounded-xl shadow-card border border-line p-4">
+              <p className="text-xs text-secondary">{c.name}</p>
+              <p className="text-lg font-bold text-foreground mt-1">{formatCurrency(c.total)}</p>
             </div>
           ))}
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-            <p className="text-xs text-red-700 font-medium">Total Expenses</p>
-            <p className="text-lg font-bold text-red-800 mt-1">{formatCurrency(grandTotal)}</p>
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-4">
+            <p className="text-xs text-red-700 dark:text-red-300 font-medium">Total Expenses</p>
+            <p className="text-lg font-bold text-red-800 dark:text-red-300 mt-1">{formatCurrency(grandTotal)}</p>
           </div>
         </div>
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table columns={columns} data={filtered} emptyMessage="No expenses recorded yet" searchPlaceholder="Search description, paid to, ref #…" onRowClick={(row: Expense) => setDetailRow(row)} />
       </div>
 
@@ -336,27 +351,27 @@ export default function ExpensesPage() {
           </div>
 
           {/* List */}
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
+          <div className="border border-line rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-line">
+              <thead className="bg-muted">
                 <tr>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Category</th>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Type</th>
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-secondary uppercase tracking-wide">Category</th>
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-secondary uppercase tracking-wide">Type</th>
                   <th className="px-3 py-2.5"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {(categories || []).map((c, i) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
+                  <tr key={c.id} className="hover:bg-muted">
                     <td className="px-3 py-2.5 text-[13px]">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PALETTE[i % PALETTE.length]}`}>
                         {c.name}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-xs text-gray-500">{c.isSystem ? "System" : "Custom"}</td>
+                    <td className="px-3 py-2.5 text-xs text-secondary">{c.isSystem ? "System" : "Custom"}</td>
                     <td className="px-3 py-2.5 text-right">
                       {!c.isSystem && (
-                        <Button size="sm" variant="danger" onClick={() => handleDeactivateCat(c.id)}>
+                        <Button size="sm" variant="danger" onClick={() => setDeactivateCategoryTarget(c)}>
                           <Trash2 size={12} />
                         </Button>
                       )}
@@ -372,6 +387,28 @@ export default function ExpensesPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!deleteExpenseTarget}
+        title="Delete Expense"
+        message={<>Delete this expense? This cannot be undone.</>}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deletingExpense}
+        onConfirm={confirmDeleteExpense}
+        onClose={() => setDeleteExpenseTarget(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deactivateCategoryTarget}
+        title="Deactivate Category"
+        message={<>Deactivate category <span className="font-semibold text-foreground">&ldquo;{deactivateCategoryTarget?.name}&rdquo;</span>? Existing expenses will keep it.</>}
+        confirmLabel="Deactivate"
+        variant="primary"
+        loading={deactivatingCategory}
+        onConfirm={confirmDeactivateCategory}
+        onClose={() => setDeactivateCategoryTarget(null)}
+      />
     </div>
   )
 }
