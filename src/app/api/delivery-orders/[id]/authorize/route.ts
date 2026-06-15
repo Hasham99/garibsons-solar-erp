@@ -1,19 +1,13 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const session = await getSession()
-
-    if (!session.isLoggedIn) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    if (session.role !== "ADMIN") {
-      return Response.json({ error: "Only admin can authorize delivery orders" }, { status: 403 })
-    }
+    const auth = await requireModule("delivery", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
     const existing = await prisma.deliveryOrder.findUnique({ where: { id } })
     if (!existing) return Response.json({ error: "Not found" }, { status: 404 })

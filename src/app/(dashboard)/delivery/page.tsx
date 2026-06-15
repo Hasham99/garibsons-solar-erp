@@ -18,7 +18,8 @@ import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatDate, statusRowClass } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth, accessOf } from "@/hooks/useAuth"
+import { can } from "@/lib/permissions/modules"
 
 interface DeliveryOrder {
   id: string
@@ -257,16 +258,17 @@ export default function DeliveryPage() {
     const actions: RowAction[] = [
       { label: "Print", icon: <Printer size={15} />, onClick: () => window.open(`/delivery/${row.id}/print`, "_blank") },
     ]
-    if (["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "")) {
+    const canWriteDelivery = can(accessOf(user), "delivery", "write")
+    if (["PENDING", "AUTHORIZED"].includes(row.status) && canWriteDelivery) {
       actions.push({ label: "Edit DO", icon: <Pencil size={15} />, onClick: () => openEditModal(row) })
     }
-    if (row.status === "PENDING" && user?.role === "ADMIN") {
+    if (row.status === "PENDING" && canWriteDelivery) {
       actions.push({ label: "Authorize", icon: <CheckCircle size={15} />, onClick: () => handleAuthorize(row.id) })
     }
-    if (row.status === "AUTHORIZED" && ["ADMIN", "WAREHOUSE"].includes(user?.role || "")) {
+    if (row.status === "AUTHORIZED" && canWriteDelivery) {
       actions.push({ label: "Dispatch", icon: <Truck size={15} />, onClick: () => handleDispatch(row.id) })
     }
-    if (["PENDING", "AUTHORIZED"].includes(row.status) && ["ADMIN", "WAREHOUSE", "SALES"].includes(user?.role || "")) {
+    if (["PENDING", "AUTHORIZED"].includes(row.status) && canWriteDelivery) {
       actions.push({ label: "Cancel DO", icon: <XCircle size={15} />, danger: true, onClick: () => setCancelDO(row) })
     }
     return actions

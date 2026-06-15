@@ -47,7 +47,7 @@ function findTrail(pathname: string, currentView: string | null): string[] {
 }
 
 interface TopBarProps {
-  user: { name: string; email: string; role: string } | null
+  user: { name: string; email: string; role: string; fullAccess?: boolean; perms?: import("@/lib/permissions/modules").PermMap } | null
   sidebarCollapsed: boolean
   onToggleSidebar: () => void
 }

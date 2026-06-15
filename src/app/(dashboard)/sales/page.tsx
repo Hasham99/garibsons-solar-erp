@@ -20,7 +20,8 @@ import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatAmount, formatCurrency, formatDate, formatNumber, statusRowClass } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth, accessOf } from "@/hooks/useAuth"
+import { can } from "@/lib/permissions/modules"
 
 interface SalesOrder {
   id: string
@@ -440,7 +441,7 @@ export default function SalesPage() {
     if (row.paymentProofUrl) {
       actions.push({ label: "View Payment Proof", icon: <Eye size={15} />, onClick: () => setViewProof({ url: row.paymentProofUrl!, soNumber: row.soNumber }) })
     }
-    if (row.status === "PENDING_PAYMENT" && ["ADMIN", "ACCOUNTS"].includes(user?.role || "")) {
+    if (row.status === "PENDING_PAYMENT" && can(accessOf(user), "sales", "write")) {
       actions.push({ label: "Verify Payment", icon: <CheckCircle size={15} />, onClick: () => handleVerifyPayment(row.id) })
     }
     if (row.status === "PAYMENT_CONFIRMED") {

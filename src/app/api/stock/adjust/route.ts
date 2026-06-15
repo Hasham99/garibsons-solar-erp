@@ -1,15 +1,13 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 import { summarizeStockEntry } from "@/lib/stock"
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession()
-    if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
-    if (!["ADMIN", "WAREHOUSE"].includes(session.role || "")) {
-      return Response.json({ error: "Only Admin or Warehouse Manager can adjust stock" }, { status: 403 })
-    }
+    const auth = await requireModule("stock", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
     const data = await request.json()
     const { stockEntryId, adjustmentType, quantity, reason } = data

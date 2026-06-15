@@ -1,14 +1,12 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string; rid: string }> }) {
   try {
-    const session = await getSession()
-    if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.role !== "ADMIN") {
-      return Response.json({ error: "Only admins can edit receipts" }, { status: 403 })
-    }
+    const auth = await requireModule("ledger", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
     const { id: customerId, rid: receiptId } = await params
     const data = await request.json()
@@ -58,11 +56,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string; rid: string }> }) {
   try {
-    const session = await getSession()
-    if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
-    if (!["ADMIN", "ACCOUNTS"].includes(session.role || "")) {
-      return Response.json({ error: "Only admin or accounts can delete collections" }, { status: 403 })
-    }
+    const auth = await requireModule("ledger", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
     const { id: customerId, rid: receiptId } = await params
     const existing = await prisma.customerReceipt.findUnique({ where: { id: receiptId } })

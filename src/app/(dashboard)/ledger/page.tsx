@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useFetch } from "@/hooks/useFetch"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth, accessOf } from "@/hooks/useAuth"
+import { can } from "@/lib/permissions/modules"
 import { Header } from "@/components/layout/Header"
 import { Select } from "@/components/ui/Select"
 import { Card } from "@/components/ui/Card"
@@ -159,7 +160,7 @@ const emptyReceiptForm = {
 
 export default function LedgerPage() {
   const { user } = useAuth()
-  const canDelete = ["ADMIN", "ACCOUNTS"].includes(user?.role || "")
+  const canDelete = can(accessOf(user), "ledger", "write")
 
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<"customer" | "supplier">("customer")

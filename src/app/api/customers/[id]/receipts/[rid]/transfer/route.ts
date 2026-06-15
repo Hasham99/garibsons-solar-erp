@@ -1,16 +1,14 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 
 /** Transfers a collection receipt to another party (fixes wrong-party entries).
  *  The receipt keeps its number, amount, bank, and dates — only the party changes. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string; rid: string }> }) {
   try {
-    const session = await getSession()
-    if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
-    if (!["ADMIN", "ACCOUNTS", "OPERATIONS"].includes(session.role || "")) {
-      return Response.json({ error: "Only admin, accounts or operations can transfer collections" }, { status: 403 })
-    }
+    const auth = await requireModule("ledger", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
     const { id, rid } = await params
     const { toCustomerId } = await request.json()

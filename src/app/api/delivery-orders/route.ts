@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { getNextRef } from "@/lib/counter"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 import { buildReservationPlan, getOutstandingReservations } from "@/lib/stock"
 
@@ -58,13 +58,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json()
-    const session = await getSession()
+    const auth = await requireModule("delivery", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
-    if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
-    if (!["ADMIN", "WAREHOUSE", "SALES"].includes(session.role || "")) {
-      return Response.json({ error: "Only admin, warehouse, or sales can create delivery orders" }, { status: 403 })
-    }
+    const data = await request.json()
+
     if (!data.soId || !data.warehouseId) {
       return Response.json({ error: "Sales order and warehouse are required" }, { status: 400 })
     }

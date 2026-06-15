@@ -12,7 +12,8 @@ import { Table } from "@/components/ui/Table"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatCurrency, formatAmount, formatDate } from "@/lib/utils"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth, accessOf } from "@/hooks/useAuth"
+import { can } from "@/lib/permissions/modules"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
@@ -65,7 +66,7 @@ export default function CustomerReceiptsPage() {
   const { id: customerId } = useParams<{ id: string }>()
   const router = useRouter()
   const { user } = useAuth()
-  const canDelete = ["ADMIN", "ACCOUNTS"].includes(user?.role || "")
+  const canDelete = can(accessOf(user), "ledger", "write")
 
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)

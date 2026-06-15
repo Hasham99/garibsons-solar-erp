@@ -8,6 +8,7 @@ import { Search, CornerDownLeft, Users, TrendingUp, Package, Truck, ShoppingCart
 import { clsx } from "clsx"
 import { navSections, NavItem } from "@/components/layout/Sidebar"
 import { formatCurrency } from "@/lib/utils"
+import { can, type Access, type PermMap } from "@/lib/permissions/modules"
 
 interface Command {
   label: string
@@ -17,11 +18,15 @@ interface Command {
   path: string
 }
 
-function flattenNav(user: { role: string } | null): Command[] {
+type PaletteUser = { name: string; email: string; role: string; fullAccess?: boolean; perms?: PermMap } | null
+
+function flattenNav(user: PaletteUser): Command[] {
+  const access: Access | null = user ? { fullAccess: Boolean(user.fullAccess), perms: user.perms ?? {} } : null
   const commands: Command[] = []
   const walk = (items: NavItem[], trail: string[]) => {
     for (const item of items) {
-      if (item.roles && user && !item.roles.includes(user.role)) continue
+      // Skip modules the user can't read (and their descendants).
+      if (item.module && !can(access, item.module, "read")) continue
       if (item.children) {
         walk(item.children, [...trail, item.label])
       } else if (item.href) {
@@ -41,7 +46,7 @@ function flattenNav(user: { role: string } | null): Command[] {
 interface CommandPaletteProps {
   isOpen: boolean
   onClose: () => void
-  user: { name: string; email: string; role: string } | null
+  user: PaletteUser
 }
 
 export function CommandPalette({ isOpen, onClose, user }: CommandPaletteProps) {
@@ -116,55 +121,74 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
           return
         }
         const d: SearchResponse = await res.json()
+        // Only surface records for modules the user can read.
+        const access: Access = { fullAccess: Boolean(user?.fullAccess), perms: user?.perms ?? {} }
+        const show = (m: Parameters<typeof can>[1]) => can(access, m, "read")
         const hits: Command[] = [
-          ...d.customers.map((c) => ({
-            label: c.name,
-            href: `/masters/customers/${c.id}`,
-            icon: <Users size={16} />,
-            path: `Customer${c.contactPhone ? ` · ${c.contactPhone}` : ""}`,
-          })),
-          ...d.salesOrders.map((s) => ({
-            label: s.soNumber,
-            href: `/masters/customers/${s.customer.id}`,
-            icon: <TrendingUp size={16} />,
-            path: `Sales Order · ${s.customer.name} · ${formatCurrency(s.grandTotal)}`,
-          })),
-          ...d.deliveryOrders.map((o) => ({
-            label: o.doNumber,
-            href: "/delivery",
-            icon: <Truck size={16} />,
-            path: `Delivery Order · ${o.salesOrder.customer.name} · ${o.quantity.toLocaleString()} panels · ${o.status.replace(/_/g, " ")}`,
-          })),
-          ...d.purchaseOrders.map((o) => ({
-            label: o.poNumber,
-            href: "/procurement",
-            icon: <ShoppingCart size={16} />,
-            path: `Purchase Order · ${o.supplier.name} · ${o.status.replace(/_/g, " ")}`,
-          })),
-          ...d.quotations.map((o) => ({
-            label: o.qNumber,
-            href: "/quotations",
-            icon: <FileText size={16} />,
-            path: `Quotation · ${o.customer.name} · ${o.status.replace(/_/g, " ")}`,
-          })),
-          ...d.invoices.map((o) => ({
-            label: o.invoiceNumber,
-            href: "/invoices",
-            icon: <Receipt size={16} />,
-            path: `Invoice · ${o.salesOrder.customer.name} · ${formatCurrency(o.grandTotal)}`,
-          })),
-          ...d.receipts.map((r) => ({
-            label: r.receiptNo,
-            href: `/masters/customers/${r.customer.id}/receipts`,
-            icon: <Banknote size={16} />,
-            path: `Receipt · ${r.customer.name} · ${formatCurrency(r.amount)}`,
-          })),
-          ...d.products.map((p) => ({
-            label: p.name,
-            href: "/masters/products",
-            icon: <Package size={16} />,
-            path: `Product · ${p.code}`,
-          })),
+          ...(show("masters.customers")
+            ? d.customers.map((c) => ({
+                label: c.name,
+                href: `/masters/customers/${c.id}`,
+                icon: <Users size={16} />,
+                path: `Customer${c.contactPhone ? ` · ${c.contactPhone}` : ""}`,
+              }))
+            : []),
+          ...(show("sales")
+            ? d.salesOrders.map((s) => ({
+                label: s.soNumber,
+                href: `/masters/customers/${s.customer.id}`,
+                icon: <TrendingUp size={16} />,
+                path: `Sales Order · ${s.customer.name} · ${formatCurrency(s.grandTotal)}`,
+              }))
+            : []),
+          ...(show("delivery")
+            ? d.deliveryOrders.map((o) => ({
+                label: o.doNumber,
+                href: "/delivery",
+                icon: <Truck size={16} />,
+                path: `Delivery Order · ${o.salesOrder.customer.name} · ${o.quantity.toLocaleString()} panels · ${o.status.replace(/_/g, " ")}`,
+              }))
+            : []),
+          ...(show("procurement")
+            ? d.purchaseOrders.map((o) => ({
+                label: o.poNumber,
+                href: "/procurement",
+                icon: <ShoppingCart size={16} />,
+                path: `Purchase Order · ${o.supplier.name} · ${o.status.replace(/_/g, " ")}`,
+              }))
+            : []),
+          ...(show("quotations")
+            ? d.quotations.map((o) => ({
+                label: o.qNumber,
+                href: "/quotations",
+                icon: <FileText size={16} />,
+                path: `Quotation · ${o.customer.name} · ${o.status.replace(/_/g, " ")}`,
+              }))
+            : []),
+          ...(show("invoices")
+            ? d.invoices.map((o) => ({
+                label: o.invoiceNumber,
+                href: "/invoices",
+                icon: <Receipt size={16} />,
+                path: `Invoice · ${o.salesOrder.customer.name} · ${formatCurrency(o.grandTotal)}`,
+              }))
+            : []),
+          ...(show("ledger")
+            ? d.receipts.map((r) => ({
+                label: r.receiptNo,
+                href: `/masters/customers/${r.customer.id}/receipts`,
+                icon: <Banknote size={16} />,
+                path: `Receipt · ${r.customer.name} · ${formatCurrency(r.amount)}`,
+              }))
+            : []),
+          ...(show("masters.products")
+            ? d.products.map((p) => ({
+                label: p.name,
+                href: "/masters/products",
+                icon: <Package size={16} />,
+                path: `Product · ${p.code}`,
+              }))
+            : []),
         ]
         setRecordData({ q, hits })
       } catch {
@@ -173,7 +197,7 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
       }
     }, 250)
     return () => clearTimeout(t)
-  }, [query])
+  }, [query, user?.fullAccess, user?.perms])
 
   const records = query.trim().length >= 2 && recordData?.q === query.trim() ? recordData.hits : []
   // A record search is in flight whenever the shown results don't answer the current query yet

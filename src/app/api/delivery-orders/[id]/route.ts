@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 import { buildReservationPlan, getOutstandingReservations } from "@/lib/stock"
 
@@ -73,17 +73,15 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireModule("delivery", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
+
     const { id } = await params
     const data = await request.json()
 
     // Full edit: re-plans stock reservations (release old, reserve new)
     if (data.editLines) {
-      const session = await getSession()
-      if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
-      if (!["ADMIN", "WAREHOUSE", "SALES"].includes(session.role || "")) {
-        return Response.json({ error: "Only admin, warehouse, or sales can edit delivery orders" }, { status: 403 })
-      }
-
       const updated = await prisma.$transaction(async (tx) => {
         const existing = await tx.deliveryOrder.findUnique({
           where: { id },

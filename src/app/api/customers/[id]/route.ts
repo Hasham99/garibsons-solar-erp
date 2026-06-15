@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -19,6 +19,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireModule("masters.customers", "write")
+    if (auth instanceof Response) return auth
     const { id } = await params
     const data = await request.json()
     const contacts: { name: string; whatsapp: string; isPrimary?: boolean }[] = data.contacts || []
@@ -59,11 +61,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSession()
-    if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.role !== "ADMIN") {
-      return Response.json({ error: "Only admins can delete customers" }, { status: 403 })
-    }
+    const auth = await requireModule("masters.customers", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
     const { id } = await params
     const customer = await prisma.customer.findUnique({

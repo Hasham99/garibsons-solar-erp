@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 import { useFetch } from "@/hooks/useFetch"
+import { useAuth, accessOf } from "@/hooks/useAuth"
+import { can, REPORT_VIEW_TO_MODULE } from "@/lib/permissions/modules"
 import { Header } from "@/components/layout/Header"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
@@ -313,7 +315,13 @@ export default function ReportsPage() {
   // The active report is driven by the sidebar via ?view=<key>
   const searchParams = useSearchParams()
   const viewParam = searchParams.get("view")
-  const active = ALL_ITEMS.some((i) => i.key === viewParam) ? viewParam! : DEFAULT_REPORT
+  // Only reports the user can read are selectable; default to the first one
+  // they have access to (falls back to the historical default while auth loads).
+  const { user } = useAuth()
+  const access = accessOf(user)
+  const accessibleKeys = ALL_ITEMS.map((i) => i.key).filter((k) => can(access, REPORT_VIEW_TO_MODULE[k], "read"))
+  const fallbackReport = accessibleKeys.includes(DEFAULT_REPORT) ? DEFAULT_REPORT : accessibleKeys[0] ?? DEFAULT_REPORT
+  const active = viewParam && accessibleKeys.includes(viewParam) ? viewParam : fallbackReport
   const today = new Date().toISOString().slice(0, 10)
   const [from, setFrom] = useState("2026-05-01")
   const [to, setTo] = useState(today)

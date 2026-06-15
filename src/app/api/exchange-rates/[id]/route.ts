@@ -1,15 +1,14 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireModule("settings.exchangeRates", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
     const { id } = await params
     const data = await request.json()
-    const session = await getSession()
-    if (session.role !== "ADMIN" && session.role !== "PROCUREMENT") {
-      return Response.json({ error: "Unauthorized" }, { status: 403 })
-    }
 
     const rate = await prisma.exchangeRate.update({
       where: { id },
@@ -38,11 +37,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireModule("settings.exchangeRates", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
     const { id } = await params
-    const session = await getSession()
-    if (session.role !== "ADMIN") {
-      return Response.json({ error: "Unauthorized" }, { status: 403 })
-    }
 
     // Check if in use
     const inUse = await prisma.purchaseOrder.count({ where: { exchangeRateId: id } })

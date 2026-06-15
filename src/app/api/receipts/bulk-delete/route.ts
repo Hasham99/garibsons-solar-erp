@@ -1,15 +1,13 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 
 /** Deletes a batch of collection receipts (party ledger / receipts checkboxes). */
 export async function POST(request: Request) {
   try {
-    const session = await getSession()
-    if (!session.isLoggedIn) return Response.json({ error: "Unauthorized" }, { status: 401 })
-    if (!["ADMIN", "ACCOUNTS"].includes(session.role || "")) {
-      return Response.json({ error: "Only admin or accounts can delete collections" }, { status: 403 })
-    }
+    const auth = await requireModule("ledger", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
     const { ids } = await request.json()
     if (!Array.isArray(ids) || ids.length === 0) {

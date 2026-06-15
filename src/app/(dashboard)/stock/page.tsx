@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useFetch } from "@/hooks/useFetch"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth, accessOf } from "@/hooks/useAuth"
+import { can } from "@/lib/permissions/modules"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -223,7 +224,7 @@ export default function StockPage() {
     (entry) => entry.availableQuantity > 0 && entry.availableQuantity <= entry.product.lowStockThreshold
   ) || []
 
-  const canAdjust = ["ADMIN", "WAREHOUSE"].includes(user?.role || "")
+  const canAdjust = can(accessOf(user), "stock", "write")
 
   const formatQty = (panels: number, entry: StockEntry): string => {
     const panelsPerContainer = (entry.product as unknown as { panelsPerContainer?: number }).panelsPerContainer

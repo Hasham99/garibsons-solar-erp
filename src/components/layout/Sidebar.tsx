@@ -28,15 +28,18 @@ import {
   Boxes,
   Clock,
   ClipboardList,
+  ShieldCheck,
 } from "lucide-react"
 import { clsx } from "clsx"
+import { can, type Access, type ModuleKey, type PermMap } from "@/lib/permissions/modules"
 
 export interface NavItem {
   label: string
   href?: string
   icon: React.ReactNode
   children?: NavItem[]
-  roles?: string[]
+  /** Module this item belongs to. Items without a module are visible to everyone. */
+  module?: ModuleKey
 }
 
 export interface NavSection {
@@ -44,61 +47,59 @@ export interface NavSection {
   items: NavItem[]
 }
 
-const MASTER_DATA_ROLES = ["ADMIN", "PROCUREMENT", "WAREHOUSE", "SALES", "ACCOUNTS", "VIEWER"]
-
 /* Shared with the command palette (TopBar) so search results mirror the menu */
 export const navSections: NavSection[] = [
   {
     label: "Overview",
     items: [
       { label: "Dashboard", href: "/", icon: <LayoutDashboard size={18} /> },
-      { label: "Costing Calculator", href: "/costing", icon: <Calculator size={18} /> },
+      { label: "Costing Calculator", href: "/costing", icon: <Calculator size={18} />, module: "costing" },
     ],
   },
   {
     label: "Procurement",
     items: [
-      { label: "Purchase Orders", href: "/procurement", icon: <ShoppingCart size={18} />, roles: ["ADMIN", "PROCUREMENT", "OPERATIONS", "CUSTOMER_MANAGER"] },
-      { label: "Stock Register", href: "/stock", icon: <Warehouse size={18} />, roles: ["ADMIN", "PROCUREMENT", "WAREHOUSE", "OPERATIONS", "CUSTOMER_MANAGER"] },
+      { label: "Purchase Orders", href: "/procurement", icon: <ShoppingCart size={18} />, module: "procurement" },
+      { label: "Stock Register", href: "/stock", icon: <Warehouse size={18} />, module: "stock" },
     ],
   },
   {
     label: "Sales",
     items: [
-      { label: "Quotations", href: "/quotations", icon: <FileText size={18} />, roles: ["ADMIN", "SALES", "OPERATIONS", "CUSTOMER_MANAGER"] },
-      { label: "Sales Orders", href: "/sales", icon: <TrendingUp size={18} />, roles: ["ADMIN", "SALES", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
-      { label: "Delivery Orders", href: "/delivery", icon: <Truck size={18} />, roles: ["ADMIN", "WAREHOUSE", "SALES", "OPERATIONS", "CUSTOMER_MANAGER"] },
-      { label: "Invoices", href: "/invoices", icon: <Receipt size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
+      { label: "Quotations", href: "/quotations", icon: <FileText size={18} />, module: "quotations" },
+      { label: "Sales Orders", href: "/sales", icon: <TrendingUp size={18} />, module: "sales" },
+      { label: "Delivery Orders", href: "/delivery", icon: <Truck size={18} />, module: "delivery" },
+      { label: "Invoices", href: "/invoices", icon: <Receipt size={18} />, module: "invoices" },
     ],
   },
   {
     label: "Finance",
     items: [
-      { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
-      { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, roles: ["ADMIN", "ACCOUNTS", "OPERATIONS", "CUSTOMER_MANAGER"] },
+      { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, module: "ledger" },
+      { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, module: "expenses" },
       {
         label: "Reports",
         icon: <BarChart3 size={18} />,
         children: [
-          { label: "Sales", href: "/reports?view=sales", icon: <TrendingUp size={16} /> },
-          { label: "Receivables", href: "/reports?view=outstanding", icon: <Wallet size={16} /> },
-          { label: "Collections", href: "/reports?view=collections", icon: <Banknote size={16} /> },
-          { label: "Profitability", href: "/reports?view=profit", icon: <LineChart size={16} /> },
+          { label: "Sales", href: "/reports?view=sales", icon: <TrendingUp size={16} />, module: "reports.sales" },
+          { label: "Receivables", href: "/reports?view=outstanding", icon: <Wallet size={16} />, module: "reports.receivables" },
+          { label: "Collections", href: "/reports?view=collections", icon: <Banknote size={16} />, module: "reports.collections" },
+          { label: "Profitability", href: "/reports?view=profit", icon: <LineChart size={16} />, module: "reports.profitability" },
           {
             label: "Stock",
             icon: <Boxes size={16} />,
             children: [
-              { label: "Stock Position", href: "/reports?view=stockPosition", icon: <Warehouse size={15} /> },
-              { label: "Stock Summary", href: "/reports?view=stock", icon: <Package size={15} /> },
-              { label: "Stock Aging", href: "/reports?view=stockAging", icon: <Clock size={15} /> },
+              { label: "Stock Position", href: "/reports?view=stockPosition", icon: <Warehouse size={15} />, module: "reports.stockPosition" },
+              { label: "Stock Summary", href: "/reports?view=stock", icon: <Package size={15} />, module: "reports.stockSummary" },
+              { label: "Stock Aging", href: "/reports?view=stockAging", icon: <Clock size={15} />, module: "reports.stockAging" },
             ],
           },
           {
             label: "Procurement",
             icon: <ShoppingCart size={16} />,
             children: [
-              { label: "PO Status", href: "/reports?view=poStatus", icon: <ClipboardList size={15} /> },
-              { label: "Purchases", href: "/reports?view=purchases", icon: <Receipt size={15} /> },
+              { label: "PO Status", href: "/reports?view=poStatus", icon: <ClipboardList size={15} />, module: "reports.poStatus" },
+              { label: "Purchases", href: "/reports?view=purchases", icon: <Receipt size={15} />, module: "reports.purchases" },
             ],
           },
         ],
@@ -112,21 +113,21 @@ export const navSections: NavSection[] = [
         label: "Master Data",
         icon: <Package size={18} />,
         children: [
-          { label: "Products", href: "/masters/products", icon: <Zap size={16} />, roles: MASTER_DATA_ROLES },
-          { label: "Suppliers", href: "/masters/suppliers", icon: <Building2 size={16} />, roles: MASTER_DATA_ROLES },
-          { label: "Customers", href: "/masters/customers", icon: <Users size={16} />, roles: [...MASTER_DATA_ROLES, "CUSTOMER_MANAGER"] },
-          { label: "Warehouses", href: "/masters/warehouses", icon: <Warehouse size={16} />, roles: MASTER_DATA_ROLES },
+          { label: "Products", href: "/masters/products", icon: <Zap size={16} />, module: "masters.products" },
+          { label: "Suppliers", href: "/masters/suppliers", icon: <Building2 size={16} />, module: "masters.suppliers" },
+          { label: "Customers", href: "/masters/customers", icon: <Users size={16} />, module: "masters.customers" },
+          { label: "Warehouses", href: "/masters/warehouses", icon: <Warehouse size={16} />, module: "masters.warehouses" },
         ],
       },
       {
         label: "Settings",
         icon: <Settings size={18} />,
-        roles: ["ADMIN"],
         children: [
-          { label: "Users", href: "/settings/users", icon: <Users size={16} /> },
-          { label: "Tax Configs", href: "/settings/tax-configs", icon: <CreditCard size={16} /> },
-          { label: "Exchange Rates", href: "/settings/exchange-rates", icon: <Globe size={16} /> },
-          { label: "Banks", href: "/settings/banks", icon: <Building2 size={16} /> },
+          { label: "Users", href: "/settings/users", icon: <Users size={16} />, module: "settings.users" },
+          { label: "Roles & Permissions", href: "/settings/roles", icon: <ShieldCheck size={16} />, module: "settings.roles" },
+          { label: "Tax Configs", href: "/settings/tax-configs", icon: <CreditCard size={16} />, module: "settings.taxConfigs" },
+          { label: "Exchange Rates", href: "/settings/exchange-rates", icon: <Globe size={16} />, module: "settings.exchangeRates" },
+          { label: "Banks", href: "/settings/banks", icon: <Building2 size={16} />, module: "settings.banks" },
         ],
       },
     ],
@@ -134,7 +135,7 @@ export const navSections: NavSection[] = [
 ]
 
 interface SidebarProps {
-  user: { name: string; email: string; role: string } | null
+  user: { name: string; email: string; role: string; fullAccess?: boolean; perms?: PermMap } | null
   collapsed: boolean
   onToggle: () => void
 }
@@ -188,9 +189,14 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, currentView])
 
-  const canView = (item: NavItem) => {
-    if (!item.roles || !user) return true
-    return item.roles.includes(user.role)
+  const access: Access | null = user ? { fullAccess: Boolean(user.fullAccess), perms: user.perms ?? {} } : null
+
+  const canView = (item: NavItem): boolean => {
+    // An item with a module is hidden unless the user can read it.
+    if (item.module && !can(access, item.module, "read")) return false
+    // Groups also require at least one visible descendant.
+    if (item.children) return item.children.some(canView)
+    return true
   }
 
   // Recursive nav renderer — supports leaf links and nested expandable groups

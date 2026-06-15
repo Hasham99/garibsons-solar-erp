@@ -1,12 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import type { Access, PermMap } from "@/lib/permissions/modules"
 
-interface User {
+export interface User {
   id: string
   name: string
   email: string
   role: string
+  fullAccess: boolean
+  perms: PermMap
+}
+
+/** Build an Access object from the auth user, for client-side `can()` checks. */
+export function accessOf(user: { fullAccess?: boolean; perms?: PermMap } | null | undefined): Access {
+  return { fullAccess: Boolean(user?.fullAccess), perms: user?.perms ?? {} }
 }
 
 export function useAuth() {

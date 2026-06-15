@@ -72,10 +72,16 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      UserRole @default(VIEWER)
+  role      UserRole @default(VIEWER) // legacy categorisation — retained for back-compat; access now derives from roleRef + permissions
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Granular access control
+  roleId      String?
+  roleRef     Role?            @relation(fields: [roleId], references: [id])
+  fullAccess  Boolean          @default(false) // unrestricted "admin" access; ignores per-module permissions
+  permissions UserPermission[] // per-user overrides on top of the assigned role's defaults
 
   salesOrders      SalesOrder[]
   auditLogs        AuditLog[]
@@ -83,6 +89,44 @@ model User {
   deliveryOrders   DeliveryOrder[]
   expenses         Expense[]
   customerReceipts CustomerReceipt[]
+}
+
+// A named, admin-managed role title that carries a set of default module permissions.
+model Role {
+  id          String           @id @default(cuid())
+  title       String           @unique
+  description String?
+  fullAccess  Boolean          @default(false) // grants unrestricted access regardless of permission rows
+  isSystem    Boolean          @default(false) // protects built-in roles (e.g. Admin) from deletion
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       User[]
+}
+
+// Default permission for a module, attached to a Role.
+model RolePermission {
+  id       String  @id @default(cuid())
+  roleId   String
+  role     Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module   String
+  canRead  Boolean @default(false)
+  canWrite Boolean @default(false)
+
+  @@unique([roleId, module])
+}
+
+// Per-user override of a module permission. A row's presence means it overrides the role default;
+// absence means the module inherits the role's default.
+model UserPermission {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module   String
+  canRead  Boolean @default(false)
+  canWrite Boolean @default(false)
+
+  @@unique([userId, module])
 }
 
 model ExchangeRate {

@@ -1,14 +1,12 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const session = await getSession()
-
-    if (!["ADMIN", "ACCOUNTS"].includes(session.role || "")) {
-      return Response.json({ error: "Unauthorized - only accounts can verify payments" }, { status: 403 })
-    }
+    const auth = await requireModule("sales", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
 
     const order = await prisma.salesOrder.update({
       where: { id },
