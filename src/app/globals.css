@@ -1,14 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  /* Brand palette — deep navy sidebar + solar blue accents */
-  --color-sidebar: #0e1526;
-  --color-sidebar-light: #16203a;
+  /* Chrome — solid navy sidebar (GS Energy design system: #1e2533, no gradient) */
+  --color-sidebar: #1e2533;
+  --color-sidebar-light: #283042;
+
+  /* Primary action — blue-600 (functional; stays blue in data views) */
   --color-brand-50: #eff6ff;
   --color-brand-100: #dbeafe;
   --color-brand-500: #3b82f6;
   --color-brand-600: #2563eb;
   --color-brand-700: #1d4ed8;
+
+  /* GS Energy Systems brand marks — identity & print only, never an action colour.
+     In data views, red still means negative/overdue. */
+  --color-energy-red: #e61b23;       /* isometric solar panel */
+  --color-energy-red-dark: #c1141b;
+  --color-energy-orange: #f6a040;    /* sunburst — energy accent */
+  --color-energy-orange-dark: #e07d1c;
+  --color-energy-ink: #1d1d1b;       /* wordmark near-black */
 
   /* Soft elevation — calm layered shadows instead of hard borders */
   --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 4px -1px rgb(15 23 42 / 0.04);
@@ -58,17 +68,13 @@ html {
 }
 
 :root {
-  --background: #f4f6fa;
+  /* Deliberately plain canvas (gray-50) — data reads first, no surface gradients */
+  --background: #f9fafb;
   --foreground: #0f172a;
 }
 
-/* Soft ambient glow — blue sky top-right, solar amber bottom-left */
 body {
   background-color: var(--background);
-  background-image:
-    radial-gradient(1100px 700px at 88% -10%, rgb(59 130 246 / 0.08), transparent 60%),
-    radial-gradient(900px 650px at -8% 105%, rgb(245 158 11 / 0.07), transparent 60%),
-    radial-gradient(800px 600px at 50% 55%, rgb(99 102 241 / 0.04), transparent 65%);
   color: var(--foreground);
 }
 
@@ -84,11 +90,11 @@ th {
   font-variant-numeric: tabular-nums;
 }
 
-/* Space Mono for numeric figures — every money/quantity value across the app
+/* Geist Mono for numeric figures — every money/quantity value across the app
    already carries `tabular-nums`, so the mono treatment lands exactly on numbers
    (dashboard, tables, stock reports) without touching labels or names. */
 .tabular-nums {
-  font-family: var(--font-space-mono), ui-monospace, monospace;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
 

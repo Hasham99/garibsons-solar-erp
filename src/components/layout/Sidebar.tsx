@@ -279,7 +279,7 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
           collapsed && depth === 0 ? "justify-center px-0 py-2" : "gap-3 px-3 py-1.5",
           depth === 0 ? "text-sm font-medium" : "text-[13px]",
           active
-            ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md shadow-blue-950/40"
+            ? "bg-blue-600 text-white"
             : "text-slate-400 hover:text-white hover:bg-white/5"
         )}
       >
@@ -301,18 +301,17 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
   }
 
   return (
-    <div className="relative flex flex-col h-full bg-gradient-to-b from-[#0e1526] to-[#141d33] border-r border-white/5">
+    <div className="relative flex flex-col h-full bg-sidebar border-r border-white/5">
       {/* Logo */}
       <div className={clsx("border-b border-white/10 flex items-center", collapsed ? "justify-center px-2 py-4" : "px-5 py-4 gap-3")}>
-        <div className="h-9 w-9 shrink-0 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-black/30 p-1.5">
+        <div className="h-9 w-9 shrink-0 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-black/30 p-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.png" alt="Garibsons" className="h-full w-full object-contain" />
+          <img src="/logo-emblem.png" alt="GS Energy Systems" className="h-full w-full object-contain" />
         </div>
         {!collapsed && (
-          <div className="min-w-0 animate-fade-in">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/gbs-logo-inverted.png" alt="Garibsons (Pvt) Ltd" className="h-4 w-auto object-contain" />
-            <p className="text-blue-300/80 text-[11px] mt-1 tracking-wide font-medium">SOLAR ERP</p>
+          <div className="min-w-0 animate-fade-in leading-none">
+            <p className="text-white text-[15px] font-bold tracking-tight truncate">GS Energy</p>
+            <p className="text-energy-orange text-[11px] mt-1 tracking-[0.16em] font-semibold">SOLAR ERP</p>
           </div>
         )}
       </div>

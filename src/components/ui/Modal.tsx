@@ -61,7 +61,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-slate-900/45 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
             onClick={onClose}
           />
           <motion.div
@@ -69,7 +69,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ type: "spring", duration: 0.4, bounce: 0.18 }}
-            className={`relative bg-white rounded-2xl shadow-pop w-full ${sizes[size]} mx-4 max-h-[90vh] flex flex-col`}
+            className={`relative bg-white rounded-xl shadow-pop w-full ${sizes[size]} mx-4 max-h-[90vh] flex flex-col`}
           >
             <div className="flex items-center justify-between p-6 border-b border-slate-100">
               <h2 className="text-lg font-semibold text-slate-900">{title}</h2>

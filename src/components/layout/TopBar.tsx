@@ -117,7 +117,7 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
   return (
     <>
       {/* h-[68px] matches the sidebar logo section (36px logo + 32px padding) so the bottom borders align */}
-      <div className="no-print sticky top-0 z-30 border-b border-white/10 bg-gradient-to-r from-[#0e1526] to-[#141d33]">
+      <div className="no-print sticky top-0 z-30 border-b border-white/10 bg-sidebar">
         <div className="flex h-[4.25rem] items-center justify-between gap-4 px-5">
           {/* Left cluster — toggle + breadcrumbs */}
           <div className="flex min-w-0 items-center gap-2.5">
@@ -250,7 +250,7 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
       <ConfirmDialog
         isOpen={confirmOpen}
         title="Sign out"
-        message={`You'll be signed out of Garibsons Solar ERP${user ? ` as ${user.name}` : ""}. Continue?`}
+        message={`You'll be signed out of GS Energy Solar ERP${user ? ` as ${user.name}` : ""}. Continue?`}
         confirmLabel="Sign out"
         cancelLabel="Stay signed in"
         variant="danger"

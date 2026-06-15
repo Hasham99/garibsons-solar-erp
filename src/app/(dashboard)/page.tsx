@@ -196,7 +196,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       {/* Hero header — deep navy gradient with soft solar glows */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0e1526] via-[#142447] to-[#1e3a8a] px-6 py-7 sm:px-8 text-white shadow-pop">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1e2533] via-[#142447] to-[#1e3a8a] px-6 py-7 sm:px-8 text-white shadow-pop">
         <div className="pointer-events-none absolute -top-24 -right-12 h-64 w-64 rounded-full bg-blue-500/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-amber-400/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-indigo-500/20 blur-3xl" />
@@ -210,7 +210,7 @@ export default function DashboardPage() {
               {greeting}
               {firstName ? `, ${firstName}` : ""}
             </h1>
-            <p className="mt-1.5 text-[15px] text-slate-300/90">Here&rsquo;s how Garibsons Solar is doing.</p>
+            <p className="mt-1.5 text-[15px] text-slate-300/90">Here&rsquo;s how GS Energy Solar is doing.</p>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium ring-1 ring-inset ring-white/15 backdrop-blur-sm">

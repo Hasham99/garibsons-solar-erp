@@ -58,39 +58,48 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Brand panel */}
-      <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between overflow-hidden bg-[#0e1526] p-12 text-white">
-        {/* brand imagery + legibility overlay */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/login-hero.png"
-          alt=""
+      {/* Brand panel — flat navy with a solar-panel array motif (no photography) */}
+      <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between overflow-hidden bg-[#1e2533] p-12 text-white">
+        {/* PV-module lattice: a grid of solar cells drawn in CSS */}
+        <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          className="pointer-events-none absolute inset-0 opacity-[0.18]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgba(255,255,255,0.14) 1px, transparent 1px)," +
+              "linear-gradient(to bottom, rgba(255,255,255,0.14) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
+          }}
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0e1526]/85 via-[#0e1526]/55 to-[#0e1526]/90" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
-        {/* soft solar glows — same language as the dashboard hero */}
-        <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-28 -right-16 h-80 w-80 rounded-full bg-amber-400/15 blur-3xl" />
+        {/* Busbar accent lines — thin orange traces like a panel's conductors */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.10]"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(to right, transparent 0 132px, rgba(246,160,64,0.9) 132px 133px)",
+          }}
+        />
+        {/* Sunburst glow — top-right, brand orange (the one allowed brand moment) */}
+        <div className="pointer-events-none absolute -top-24 -right-24 h-80 w-80 rounded-full bg-[#f6a040]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-[#e61b23]/10 blur-3xl" />
 
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center shadow-lg shadow-black/30 p-2">
+            <div className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center shadow-lg shadow-black/30 p-1.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.png" alt="Garibsons" className="h-full w-full object-contain" />
+              <img src="/logo-emblem.png" alt="GS Energy Systems" className="h-full w-full object-contain" />
             </div>
-            <div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/gbs-logo-inverted.png" alt="Garibsons (Pvt) Ltd" className="h-5 w-auto object-contain" />
-              <p className="text-blue-300/80 text-[11px] mt-1 tracking-[0.2em] font-medium">SOLAR ERP</p>
+            <div className="leading-none">
+              <p className="text-white text-lg font-bold tracking-tight">GS Energy</p>
+              <p className="text-[#f6a040] text-[11px] mt-1.5 tracking-[0.2em] font-semibold">SOLAR ERP</p>
             </div>
           </div>
         </div>
 
         <div className="relative max-w-md">
           <h2 className="text-3xl font-bold leading-snug">
-            Garibsons Solar ERP.
+            GS Energy Solar ERP.
           </h2>
           <p className="mt-3 text-slate-300/90 text-[15px] leading-relaxed">
             Purchases, stock, sales orders, deliveries and collections — all in one system.
@@ -98,7 +107,7 @@ export default function LoginPage() {
           <div className="mt-8 space-y-5">
             {HIGHLIGHTS.map((h) => (
               <div key={h.title} className="flex items-start gap-3.5">
-                <span className="mt-0.5 p-2 rounded-lg bg-white/10 text-amber-300">{h.icon}</span>
+                <span className="mt-0.5 p-2 rounded-lg bg-white/10 text-[#f6a040]">{h.icon}</span>
                 <div>
                   <p className="font-medium text-sm">{h.title}</p>
                   <p className="text-[13px] text-slate-400 mt-0.5">{h.text}</p>
@@ -109,23 +118,20 @@ export default function LoginPage() {
         </div>
 
         <p className="relative text-xs text-slate-400">
-          Garibsons Private Limited &copy; {new Date().getFullYear()}
+          GS Energy Systems (Private) Limited &copy; {new Date().getFullYear()}
         </p>
       </div>
 
       {/* Form panel */}
-      <div className="relative flex-1 flex items-center justify-center overflow-hidden px-4 py-10">
-        {/* ambient glow behind the card */}
-        <div className="pointer-events-none absolute -top-32 right-0 h-80 w-80 rounded-full bg-blue-400/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-amber-300/10 blur-3xl" />
+      <div className="relative flex-1 flex items-center justify-center px-4 py-10">
         <div className="relative w-full max-w-md animate-fade-in-up">
           {/* Mobile-only logo */}
           <div className="text-center mb-8 lg:hidden">
             <div className="inline-flex h-14 w-14 rounded-2xl bg-white border border-slate-200 items-center justify-center shadow-lg shadow-slate-200 mb-4 p-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.png" alt="Garibsons" className="h-full w-full object-contain" />
+              <img src="/logo-emblem.png" alt="GS Energy Systems" className="h-full w-full object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Garibsons (Pvt) Ltd</h1>
+            <h1 className="text-2xl font-bold text-slate-900">GS Energy Systems</h1>
             <p className="text-slate-500 mt-1 text-sm">Solar ERP</p>
           </div>
 
@@ -138,7 +144,7 @@ export default function LoginPage() {
             <IdleNotice />
           </Suspense>
 
-          <div className="bg-white/90 backdrop-blur rounded-2xl shadow-pop border border-slate-200/70 p-8">
+          <div className="bg-white rounded-xl shadow-pop border border-slate-200 p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
@@ -151,8 +157,8 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    placeholder="you@garibsons.com"
-                    className="block w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
+                    placeholder="you@gsenergy.com"
+                    className="block w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-shadow focus:outline-none focus:ring-[3px] focus:ring-blue-100 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -169,7 +175,7 @@ export default function LoginPage() {
                     required
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className="block w-full rounded-lg border border-slate-300 bg-white pl-10 pr-11 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
+                    className="block w-full rounded-md border border-slate-300 bg-white pl-10 pr-11 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-shadow focus:outline-none focus:ring-[3px] focus:ring-blue-100 focus:border-blue-500"
                   />
                   <button
                     type="button"
@@ -210,7 +216,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-sm text-slate-500 mt-6 lg:hidden">
-            Garibsons Private Limited &copy; {new Date().getFullYear()}
+            GS Energy Systems (Private) Limited &copy; {new Date().getFullYear()}
           </p>
         </div>
       </div>

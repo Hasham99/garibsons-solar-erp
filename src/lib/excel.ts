@@ -20,7 +20,7 @@ export interface ExcelOptions {
 
 export function downloadExcel(opts: ExcelOptions) {
   const aoa: (string | number)[][] = []
-  aoa.push(["GARIBSONS (PVT) LTD"])
+  aoa.push(["GS ENERGY SYSTEMS (PRIVATE) LIMITED"])
   aoa.push([opts.title])
   if (opts.subtitle) aoa.push([opts.subtitle])
   for (const line of opts.metaLines || []) aoa.push([line])
