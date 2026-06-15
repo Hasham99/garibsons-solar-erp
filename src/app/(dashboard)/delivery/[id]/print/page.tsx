@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
+import { Printer, Download, Copy, X } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { Letterhead } from "@/components/print/Letterhead"
 
@@ -63,6 +64,32 @@ function computePallets(panels: number, product: PrintLine["product"]): number |
   if (!product.panelsPerContainer || !product.palletsPerContainer) return null
   const panelsPerPallet = product.panelsPerContainer / product.palletsPerContainer
   return Math.ceil(panels / panelsPerPallet)
+}
+
+/* Company contact details shown in the footer of the printed DO. The label is the
+   simple title; `text` is the friendly link text (no raw URLs) and `href` the real link. */
+const CONTACT_DETAILS: Array<{ label: string; text: string; href?: string }> = [
+  { label: "Website", text: "garibsons.com/solar", href: "https://garibsons.com/solar" },
+  { label: "Email", text: "contact@garibsons.com", href: "mailto:contact@garibsons.com" },
+  { label: "Phone", text: "+92 21 111 427 421", href: "tel:+9221111427421" },
+  { label: "Fax", text: "+92 21 111 427 422" },
+  { label: "LinkedIn", text: "Garibsons", href: "https://www.linkedin.com/company/garibsons" },
+  { label: "Facebook", text: "Garibsons (Pvt) Ltd", href: "https://www.facebook.com/people/Garibsons-PVT-LTD/100079335071351" },
+]
+
+function ContactRow({ label, text, href }: { label: string; text: string; href?: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="w-16 shrink-0 text-gray-400">{label}</span>
+      {href ? (
+        <a href={href} className="text-gray-700 underline decoration-gray-300 underline-offset-2">
+          {text}
+        </a>
+      ) : (
+        <span className="text-gray-700">{text}</span>
+      )}
+    </div>
+  )
 }
 
 export default function DeliveryOrderPrintPage() {
@@ -205,8 +232,66 @@ export default function DeliveryOrderPrintPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-gray-500">Loading delivery order...</div>
-  if (!order) return <div className="p-8 text-red-500">Delivery order not found</div>
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto p-8">
+        <div className="animate-pulse space-y-6" aria-hidden>
+          {/* Letterhead */}
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-xl bg-slate-200" />
+              <div className="space-y-2">
+                <div className="h-5 w-52 rounded bg-slate-200" />
+                <div className="h-3 w-36 rounded bg-slate-100" />
+                <div className="h-3 w-64 rounded bg-slate-100" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="ml-auto h-5 w-40 rounded bg-slate-200" />
+              <div className="ml-auto h-3 w-24 rounded bg-slate-100" />
+            </div>
+          </div>
+          <div className="h-px bg-slate-200" />
+          {/* Deliver to / dispatch details */}
+          <div className="grid grid-cols-2 gap-8">
+            {[0, 1].map((c) => (
+              <div key={c} className="space-y-2.5">
+                <div className="h-3 w-24 rounded bg-slate-100" />
+                <div className="h-4 w-40 rounded bg-slate-200" />
+                <div className="h-3 w-32 rounded bg-slate-100" />
+              </div>
+            ))}
+          </div>
+          {/* Table */}
+          <div className="space-y-2">
+            <div className="h-9 rounded bg-slate-200" />
+            {[0, 1, 2].map((r) => (
+              <div key={r} className="h-8 rounded bg-slate-100" />
+            ))}
+          </div>
+        </div>
+        <p className="mt-10 text-center text-sm text-slate-400">Preparing delivery order…</p>
+      </div>
+    )
+  }
+  if (!order) {
+    return (
+      <div className="mx-auto mt-24 max-w-md px-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-500">
+          <X size={22} />
+        </div>
+        <p className="mt-4 text-base font-semibold text-slate-800">Delivery order not found</p>
+        <p className="mt-1 text-sm text-slate-500">It may have been deleted, or the link is invalid.</p>
+        <button
+          type="button"
+          onClick={() => window.close()}
+          className="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Close
+        </button>
+      </div>
+    )
+  }
 
   // Use actual per-product DO lines when available; fall back to proration for legacy DOs
   const doLines = order.lines && order.lines.length > 0
@@ -248,14 +333,36 @@ export default function DeliveryOrderPrintPage() {
 
       <div className="relative max-w-3xl mx-auto p-8 bg-white">
         <div className="no-print flex justify-end mb-4 gap-2">
-          <button type="button" onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Print / Save PDF</button>
-          <button type="button" onClick={handleDownloadImage} disabled={imgWorking} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50">
-            {imgWorking ? "Working..." : "Download Image"}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+          >
+            <Printer size={15} /> Print / Save PDF
           </button>
-          <button type="button" onClick={handleCopyImage} disabled={imgWorking} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50">
-            Copy Image
+          <button
+            type="button"
+            onClick={handleDownloadImage}
+            disabled={imgWorking}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Download size={15} /> {imgWorking ? "Working…" : "Download Image"}
           </button>
-          <button type="button" onClick={() => window.close()} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">Close</button>
+          <button
+            type="button"
+            onClick={handleCopyImage}
+            disabled={imgWorking}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Copy size={15} /> Copy Image
+          </button>
+          <button
+            type="button"
+            onClick={() => window.close()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50"
+          >
+            <X size={15} /> Close
+          </button>
         </div>
 
         <div ref={printAreaRef}>
@@ -348,6 +455,16 @@ export default function DeliveryOrderPrintPage() {
           <p className="text-xs text-gray-500 mt-1">
             For any help, questions, or feedback, please don&apos;t hesitate to reach out to us.
           </p>
+        </div>
+
+        {/* Company contact details — fills the lower area of the page */}
+        <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50/60 px-6 py-4">
+          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400 mb-3">Get in touch</p>
+          <div className="grid grid-cols-2 gap-x-12 gap-y-2.5 text-xs max-w-xl mx-auto">
+            {CONTACT_DETAILS.map((c) => (
+              <ContactRow key={c.label} label={c.label} text={c.text} href={c.href} />
+            ))}
+          </div>
         </div>
 
         <p data-footer className="print-footer text-center text-xs text-gray-400 mt-12 pt-4">Generated by Garibsons Solar ERP · {new Date().toLocaleString("en-PK")}</p>

@@ -9,6 +9,7 @@ import { CommandPalette } from "@/components/layout/CommandPalette"
 import { NotificationBell } from "@/components/layout/NotificationBell"
 import { navSections, NavItem } from "@/components/layout/Sidebar"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { TOPBAR_SURFACE } from "@/lib/surfaces"
 
 const DEFAULT_REPORT_VIEW = "outstanding"
 
@@ -117,7 +118,7 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
   return (
     <>
       {/* h-[68px] matches the sidebar logo section (36px logo + 32px padding) so the bottom borders align */}
-      <div className="no-print sticky top-0 z-30 border-b border-white/10 bg-gradient-to-r from-[#0e1526] to-[#141d33]">
+      <div className="no-print sticky top-0 z-30 border-b border-white/10" style={TOPBAR_SURFACE}>
         <div className="flex h-[4.25rem] items-center justify-between gap-4 px-5">
           {/* Left cluster — toggle + breadcrumbs */}
           <div className="flex min-w-0 items-center gap-2.5">
@@ -224,6 +225,17 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
                       </span>
                     </div>
                     <div className="p-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false)
+                          router.push("/profile")
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                      >
+                        <UserRound size={15} />
+                        My Profile
+                      </button>
                       <button
                         type="button"
                         onClick={() => {

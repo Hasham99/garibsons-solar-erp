@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -61,7 +62,9 @@ const emptyForm = {
 
 export default function ExpensesPage() {
   const { data: expenses, loading, refetch } = useFetch<Expense[]>("/api/expenses")
-  const { data: categories, refetch: refetchCats } = useFetch<ExpenseCategoryDef[]>("/api/expense-categories")
+  // Categories come from the shared lookups cache; refresh() re-pulls after edits.
+  const { expenseCategories, refresh: refetchCats } = useLookups()
+  const categories = expenseCategories as ExpenseCategoryDef[]
 
   const [showModal, setShowModal] = useState(false)
   const [showCatModal, setShowCatModal] = useState(false)

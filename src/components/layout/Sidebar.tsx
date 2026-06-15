@@ -32,6 +32,7 @@ import {
 } from "lucide-react"
 import { clsx } from "clsx"
 import { can, type Access, type ModuleKey, type PermMap } from "@/lib/permissions/modules"
+import { SIDEBAR_SURFACE } from "@/lib/surfaces"
 
 export interface NavItem {
   label: string
@@ -301,7 +302,7 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
   }
 
   return (
-    <div className="relative flex flex-col h-full bg-gradient-to-b from-[#0e1526] to-[#141d33] border-r border-white/5">
+    <div className="relative flex flex-col h-full border-r border-white/5" style={SIDEBAR_SURFACE}>
       {/* Logo */}
       <div className={clsx("border-b border-white/10 flex items-center", collapsed ? "justify-center px-2 py-4" : "px-5 py-4 gap-3")}>
         <div className="h-9 w-9 shrink-0 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-black/30 p-1.5">

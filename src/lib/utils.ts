@@ -49,6 +49,7 @@ const STATUS_ROW_CLASSES: Record<string, string> = {
 
   // Delivery
   AUTHORIZED: "bg-blue-50/60 border-l-4 border-l-blue-400",
+  PARTIALLY_DISPATCHED: "bg-amber-50/60 border-l-4 border-l-amber-400",
   DISPATCHED: "bg-emerald-50/60 border-l-4 border-l-emerald-400",
 
   // Invoice

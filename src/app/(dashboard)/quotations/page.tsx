@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -31,8 +32,9 @@ export default function QuotationsPage() {
   const router = useRouter()
   const [detailRow, setDetailRow] = useState<Quotation | null>(null)
   const { data: quotations, loading, refetch } = useFetch<Quotation[]>("/api/quotations")
-  const { data: customers } = useFetch<{ id: string; name: string }[]>("/api/customers")
-  const { data: products } = useFetch<{ id: string; name: string; wattage: number }[]>("/api/products")
+  const lookups = useLookups()
+  const customers = lookups.customers as { id: string; name: string }[]
+  const products = lookups.products as { id: string; name: string; wattage: number }[]
 
   const [showCreate, setShowCreate] = useState(false)
   const [saving, setSaving] = useState(false)

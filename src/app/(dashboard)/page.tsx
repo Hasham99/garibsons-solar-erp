@@ -195,8 +195,13 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      {/* Hero header — deep navy gradient with soft solar glows */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0e1526] via-[#142447] to-[#1e3a8a] px-6 py-7 sm:px-8 text-white shadow-pop">
+      {/* Hero header — deep navy gradient with soft solar glows.
+          Inline style (not a Tailwind v4 gradient util) so it never falls back
+          to white on browsers without CSS @property support. */}
+      <div
+        className="relative overflow-hidden rounded-2xl px-6 py-7 sm:px-8 text-white shadow-pop"
+        style={{ backgroundColor: "#142447", backgroundImage: "linear-gradient(135deg, #0e1526 0%, #142447 50%, #1e3a8a 100%)" }}
+      >
         <div className="pointer-events-none absolute -top-24 -right-12 h-64 w-64 rounded-full bg-blue-500/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-amber-400/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-indigo-500/20 blur-3xl" />

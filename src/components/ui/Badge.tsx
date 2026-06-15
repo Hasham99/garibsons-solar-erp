@@ -41,6 +41,7 @@ const statusColors: Record<string, string> = {
 
   // Delivery
   AUTHORIZED: tones.info,
+  PARTIALLY_DISPATCHED: tones.warning,
   DISPATCHED: tones.success,
 
   // Invoice

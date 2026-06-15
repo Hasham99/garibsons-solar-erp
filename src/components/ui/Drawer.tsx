@@ -58,7 +58,7 @@ export function Drawer({ isOpen, onClose, title, children, size = "lg" }: Drawer
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-md"
             onClick={onClose}
           />
           <motion.div

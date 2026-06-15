@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { useAuth, accessOf } from "@/hooks/useAuth"
 import { can, REPORT_VIEW_TO_MODULE } from "@/lib/permissions/modules"
 import { Header } from "@/components/layout/Header"
@@ -339,11 +340,12 @@ export default function ReportsPage() {
   useEffect(() => { setHiddenCols({}) }, [stockUnit])
 
   // Option sources for the Filters panel
-  const { data: customers } = useFetch<{ id: string; name: string }[]>("/api/customers")
-  const { data: banks } = useFetch<{ id: string; name: string }[]>("/api/banks")
-  const { data: suppliersList } = useFetch<{ id: string; name: string }[]>("/api/suppliers")
-  const { data: warehousesList } = useFetch<{ id: string; name: string }[]>("/api/warehouses")
-  const { data: productsList } = useFetch<{ id: string; brand: string }[]>("/api/products")
+  const lookups = useLookups()
+  const customers = lookups.customers as { id: string; name: string }[]
+  const banks = lookups.banks as { id: string; name: string }[]
+  const suppliersList = lookups.suppliers as { id: string; name: string }[]
+  const warehousesList = lookups.warehouses as { id: string; name: string }[]
+  const productsList = lookups.products as { id: string; brand: string }[]
   const brands = useMemo(() => [...new Set((productsList || []).map((p) => p.brand).filter(Boolean))].sort(), [productsList])
 
   const serverDims = item.dims.filter((d) => !(item.clientDims || []).includes(d))

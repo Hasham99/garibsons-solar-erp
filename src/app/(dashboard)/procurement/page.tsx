@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -99,12 +100,14 @@ interface ProductOption {
 
 export default function ProcurementPage() {
   const { data: pos, loading, refetch } = useFetch<PO[]>("/api/purchase-orders")
-  const { data: products } = useFetch<ProductOption[]>("/api/products")
-  const { data: suppliers } = useFetch<{ id: string; name: string }[]>("/api/suppliers")
-  const { data: warehouses } = useFetch<{ id: string; name: string }[]>("/api/warehouses")
-  const { data: banks } = useFetch<{ id: string; name: string }[]>("/api/banks")
-  const { data: rates } = useFetch<{ id: string; source: string; rate: number; notes: string | null }[]>("/api/exchange-rates")
   const { data: costings } = useFetch<{ id: string; reference: string; status: string; landedCostPerWatt: number }[]>("/api/costing")
+  // Shared master-data lists come from the once-per-session lookups cache.
+  const lookups = useLookups()
+  const products = lookups.products as ProductOption[]
+  const suppliers = lookups.suppliers as { id: string; name: string }[]
+  const warehouses = lookups.warehouses as { id: string; name: string }[]
+  const banks = lookups.banks as { id: string; name: string }[]
+  const rates = lookups.exchangeRates as { id: string; source: string; rate: number; notes: string | null }[]
 
   const [showCreate, setShowCreate] = useState(false)
   const [showClear, setShowClear] = useState(false)

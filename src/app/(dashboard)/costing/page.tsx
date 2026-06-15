@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -77,8 +78,9 @@ const emptyImpForm: Record<ImpKey, string> = {
 }
 
 export default function CostingPage() {
-  const { data: rates } = useFetch<ExchangeRate[]>("/api/exchange-rates")
-  const { data: taxConfigs } = useFetch<TaxConfig[]>("/api/tax-configs")
+  const lookups = useLookups()
+  const rates = lookups.exchangeRates as ExchangeRate[]
+  const taxConfigs = lookups.taxConfigs as TaxConfig[]
   const { data: costings, loading, refetch } = useFetch<CostingCalc[]>("/api/costing")
 
   // ── Step 01: CIF Calculation ──

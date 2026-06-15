@@ -14,6 +14,8 @@ export interface SessionData {
   fullAccess?: boolean
   /** Resolved module permissions, cached on the cookie for optimistic checks. */
   perms?: PermMap
+  /** When access was last verified against the DB (ms epoch) — throttles re-checks. */
+  permsCheckedAt?: number
   isLoggedIn: boolean
 }
 

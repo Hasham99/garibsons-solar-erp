@@ -20,6 +20,7 @@ import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatAmount, formatCurrency, formatDate, formatNumber, statusRowClass } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { useAuth, accessOf } from "@/hooks/useAuth"
 import { can } from "@/lib/permissions/modules"
 
@@ -45,6 +46,19 @@ interface SalesOrder {
     totalAmount: number
     product: { brand: string; wattage: number; panelsPerContainer: number | null; palletsPerContainer: number | null }
   }>
+  deliveryOrders?: Array<{
+    id: string
+    doNumber: string
+    status: string
+    quantity: number
+    liftedQuantity: number
+    balanceQuantity: number
+  }>
+  remainingPanels?: number
+  balanceCancelledQty?: number
+  totalPanels?: number
+  totalPallets?: number
+  totalWatts?: number
   customerId?: string
   customerType?: string
   paymentTerms2?: string
@@ -103,8 +117,9 @@ export default function SalesPage() {
   const quotationId = searchParams.get("quotationId")
 
   const { data: orders, loading, refetch } = useFetch<SalesOrder[]>("/api/sales-orders")
-  const { data: customers } = useFetch<CustomerOption[]>("/api/customers")
-  const { data: products } = useFetch<ProductOption[]>("/api/products")
+  const lookups = useLookups()
+  const customers = lookups.customers as CustomerOption[]
+  const products = lookups.products as ProductOption[]
   const { data: quotation } = useFetch<{
     id: string
     customerId: string
@@ -125,6 +140,8 @@ export default function SalesPage() {
   const [pendingUploadId, setPendingUploadId] = useState<string | null>(null)
   const [cancelOrder, setCancelOrder] = useState<SalesOrder | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [balanceOrder, setBalanceOrder] = useState<SalesOrder | null>(null)
+  const [cancellingBalance, setCancellingBalance] = useState(false)
   const [detailRow, setDetailRow] = useState<SalesOrder | null>(null)
   const [lastUsedProductId, setLastUsedProductId] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -376,6 +393,25 @@ export default function SalesPage() {
     }
   }
 
+  const handleCancelBalance = async () => {
+    if (!balanceOrder) return
+    setCancellingBalance(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${balanceOrder.id}/cancel-balance`, { method: "POST" })
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(`Closed ${Number(data.cancelledPanels || 0).toLocaleString()} undelivered panels`)
+        refetch()
+      } else {
+        const data = await response.json().catch(() => ({ error: "Failed" }))
+        toast.error(data.error || "Failed to cancel balance")
+      }
+    } finally {
+      setCancellingBalance(false)
+      setBalanceOrder(null)
+    }
+  }
+
   const handleVerifyPayment = async (id: string) => {
     const response = await fetch(`/api/sales-orders/${id}/verify-payment`, { method: "POST" })
     if (response.ok) { toast.success("Payment verified"); refetch() }
@@ -444,11 +480,26 @@ export default function SalesPage() {
     if (row.status === "PENDING_PAYMENT" && can(accessOf(user), "sales", "write")) {
       actions.push({ label: "Verify Payment", icon: <CheckCircle size={15} />, onClick: () => handleVerifyPayment(row.id) })
     }
-    if (row.status === "PAYMENT_CONFIRMED") {
+    const dos = row.deliveryOrders || []
+    const activeDOs = dos.filter((d) => d.status !== "CANCELLED")
+    const remaining = row.remainingPanels ?? 0
+    const anyLifted = dos.some((d) => ["DISPATCHED", "PARTIALLY_DISPATCHED"].includes(d.status))
+
+    // Create DO while there are panels left to deliver.
+    if (["PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status) && remaining > 0) {
       actions.push({ label: "Create DO", icon: <Truck size={15} />, onClick: () => (window.location.href = `/delivery?soId=${row.id}`) })
     }
+
     if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status)) {
-      actions.push({ label: "Cancel SO (+ its DOs)", icon: <Trash2 size={15} />, danger: true, onClick: () => setCancelOrder(row) })
+      // Full void — only while nothing has been lifted.
+      if (!anyLifted) {
+        const label = activeDOs.length > 0 ? "Cancel SO (+ its DOs)" : "Cancel SO"
+        actions.push({ label, icon: <Trash2 size={15} />, danger: true, onClick: () => setCancelOrder(row) })
+      }
+      // Close just the undelivered remainder whenever a DO already covers part of the SO.
+      if (activeDOs.length > 0 && remaining > 0) {
+        actions.push({ label: "Cancel SO Balance", icon: <Trash2 size={15} />, danger: true, onClick: () => setBalanceOrder(row) })
+      }
     }
     return actions
   }
@@ -547,6 +598,13 @@ export default function SalesPage() {
           { label: "GST", value: detailRow.gstRate > 0 ? `${detailRow.gstRate}% = ${formatCurrency(detailRow.gstAmount)}` : "—" },
           { label: "Grand Total", value: <span className="font-bold">{formatCurrency(detailRow.grandTotal)}</span> },
           { label: "Payment Proof", value: detailRow.paymentProofUrl ? "Uploaded" : "—" },
+          { label: "Total Panels", value: `${(detailRow.totalPanels ?? 0).toLocaleString()}`, numeric: true },
+          { label: "Total Pallets", value: `${(detailRow.totalPallets ?? 0).toLocaleString()}`, numeric: true },
+          { label: "Total Watts", value: `${(detailRow.totalWatts ?? 0).toLocaleString()}`, numeric: true },
+          { label: "Remaining to Deliver", value: `${(detailRow.remainingPanels ?? 0).toLocaleString()} panels`, numeric: true },
+          ...((detailRow.balanceCancelledQty ?? 0) > 0
+            ? [{ label: "Balance Closed", value: `${detailRow.balanceCancelledQty!.toLocaleString()} panels` }]
+            : []),
           ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
         ] : []}
         actions={detailRow ? soRowActions(detailRow) : []}
@@ -577,6 +635,43 @@ export default function SalesPage() {
             </table>
           </div>
         ) : null}
+
+        {detailRow?.deliveryOrders && detailRow.deliveryOrders.length > 0 ? (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Delivery Orders</p>
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-3 py-2 text-left">DO #</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-right">Ordered</th>
+                    <th className="px-3 py-2 text-right">Lifted</th>
+                    <th className="px-3 py-2 text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {detailRow.deliveryOrders.map((d) => (
+                    <tr key={d.id}>
+                      <td className="px-3 py-2 font-medium text-gray-800">{d.doNumber}</td>
+                      <td className="px-3 py-2"><Badge status={d.status} /></td>
+                      <td className="px-3 py-2 text-right tabular-nums">{d.quantity.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{d.liftedQuantity.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-amber-700">{d.balanceQuantity.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-sm text-gray-500">
+              Remaining to deliver:{" "}
+              <span className="font-semibold text-gray-800">{(detailRow.remainingPanels ?? 0).toLocaleString()} panels</span>
+              {(detailRow.balanceCancelledQty ?? 0) > 0 && (
+                <span className="text-gray-400"> · {detailRow.balanceCancelledQty!.toLocaleString()} closed</span>
+              )}
+            </p>
+          </div>
+        ) : null}
       </DetailsModal>
 
       {/* Cancel confirmation */}
@@ -592,7 +687,28 @@ export default function SalesPage() {
           <span>
             Cancel <strong>{cancelOrder?.soNumber}</strong> for <strong>{cancelOrder?.customer?.name}</strong> ({formatCurrency(cancelOrder?.grandTotal || 0)})?
             <br />Any delivery orders created for it will also be cancelled and their reserved stock released.
-            Dispatched DOs block cancellation.
+            Once any stock is lifted, the SO can no longer be cancelled.
+          </span>
+        }
+      />
+
+      {/* Cancel SO Balance confirmation (close undelivered remainder after partial delivery) */}
+      <ConfirmDialog
+        isOpen={Boolean(balanceOrder)}
+        onClose={() => setBalanceOrder(null)}
+        onConfirm={handleCancelBalance}
+        loading={cancellingBalance}
+        title={`Cancel SO Balance — ${balanceOrder?.soNumber || ""}`}
+        confirmLabel="Cancel Balance"
+        cancelLabel="Keep Open"
+        message={
+          <span>
+            Close the undelivered balance of{" "}
+            <strong>{(balanceOrder?.remainingPanels ?? 0).toLocaleString()} panels</strong> on{" "}
+            <strong>{balanceOrder?.soNumber}</strong> for <strong>{balanceOrder?.customer?.name}</strong>?
+            <br />
+            The delivered panels stay on record; the remaining quantity is written off and no further delivery
+            orders can be raised for it.
           </span>
         }
       />

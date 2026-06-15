@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { useFetch } from "@/hooks/useFetch"
 import { useAuth, accessOf } from "@/hooks/useAuth"
 import { can } from "@/lib/permissions/modules"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { Header } from "@/components/layout/Header"
 import { Select } from "@/components/ui/Select"
 import { Card } from "@/components/ui/Card"
@@ -185,9 +186,10 @@ export default function LedgerPage() {
   const [viewSOId, setViewSOId] = useState<string | null>(null)
   const [viewDOId, setViewDOId] = useState<string | null>(null)
 
-  const { data: customers } = useFetch<Customer[]>("/api/customers")
-  const { data: suppliers } = useFetch<Supplier[]>("/api/suppliers")
-  const { data: banks } = useFetch<Bank[]>("/api/banks")
+  const lookups = useLookups()
+  const customers = lookups.customers as Customer[]
+  const suppliers = lookups.suppliers as Supplier[]
+  const banks = lookups.banks as Bank[]
 
   const rangeQs = [
     range.from ? `from=${range.from}` : "",

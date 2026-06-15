@@ -1,15 +1,43 @@
 "use client"
 
 import { useState, useSyncExternalStore } from "react"
+import { usePathname } from "next/navigation"
 import { Toaster } from "react-hot-toast"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useAuth } from "@/hooks/useAuth"
 import { useIdleTimeout } from "@/hooks/useIdleTimeout"
+import { AuthProvider } from "@/components/auth/AuthProvider"
+import { LookupsProvider } from "@/components/lookups/LookupsProvider"
 
 const SIDEBAR_PREF_KEY = "gbs-sidebar-collapsed"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+
+  // Print/preview pages render standalone — no sidebar, top bar, page padding,
+  // or auth fetch — so the document fills the tab and prints cleanly.
+  if (pathname?.endsWith("/print")) {
+    return (
+      <>
+        {children}
+        <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
+      </>
+    )
+  }
+
+  // AuthProvider fetches the current user once and shares it with every page,
+  // instead of each page re-fetching /api/auth/me.
+  return (
+    <AuthProvider>
+      <LookupsProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </LookupsProvider>
+    </AuthProvider>
+  )
+}
+
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   useIdleTimeout()
 
