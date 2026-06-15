@@ -138,7 +138,7 @@ export default function LoginPage() {
             <IdleNotice />
           </Suspense>
 
-          <div className="bg-white/90 backdrop-blur rounded-2xl shadow-pop border border-line p-8">
+          <div className="bg-elevated backdrop-blur rounded-2xl shadow-pop border border-line p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-secondary mb-1.5">Email address</label>
