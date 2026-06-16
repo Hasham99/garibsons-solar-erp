@@ -51,35 +51,13 @@ export interface NavSection {
 /* Shared with the command palette (TopBar) so search results mirror the menu */
 export const navSections: NavSection[] = [
   {
-    label: "Overview",
+    label: "Reporting",
     items: [
       { label: "Dashboard", href: "/", icon: <LayoutDashboard size={18} /> },
-      { label: "Costing Calculator", href: "/costing", icon: <Calculator size={18} />, module: "costing" },
-    ],
-  },
-  {
-    label: "Procurement",
-    items: [
-      { label: "Purchase Orders", href: "/procurement", icon: <ShoppingCart size={18} />, module: "procurement" },
-      { label: "Stock Register", href: "/stock", icon: <Warehouse size={18} />, module: "stock" },
-    ],
-  },
-  {
-    label: "Sales",
-    items: [
-      { label: "Quotations", href: "/quotations", icon: <FileText size={18} />, module: "quotations" },
-      { label: "Sales Orders", href: "/sales", icon: <TrendingUp size={18} />, module: "sales" },
-      { label: "Delivery Orders", href: "/delivery", icon: <Truck size={18} />, module: "delivery" },
-      { label: "Invoices", href: "/invoices", icon: <Receipt size={18} />, module: "invoices" },
-    ],
-  },
-  {
-    label: "Finance",
-    items: [
-      { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, module: "ledger" },
-      { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, module: "expenses" },
+      { label: "Container Pipeline", href: "/reporting", icon: <Boxes size={18} /> },
+      { label: "Unlifted DOs", href: "/reporting/unlifted", icon: <Clock size={18} /> },
       {
-        label: "Reports",
+        label: "Reports & Analytics",
         icon: <BarChart3 size={18} />,
         children: [
           { label: "Sales", href: "/reports?view=sales", icon: <TrendingUp size={16} />, module: "reports.sales" },
@@ -105,6 +83,30 @@ export const navSections: NavSection[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    label: "Procurement",
+    items: [
+      { label: "Purchase Orders", href: "/procurement", icon: <ShoppingCart size={18} />, module: "procurement" },
+      { label: "Costing Calculator", href: "/costing", icon: <Calculator size={18} />, module: "costing" },
+      { label: "Stock Register", href: "/stock", icon: <Warehouse size={18} />, module: "stock" },
+    ],
+  },
+  {
+    label: "Sales",
+    items: [
+      { label: "Quotations", href: "/quotations", icon: <FileText size={18} />, module: "quotations" },
+      { label: "Sales Orders", href: "/sales", icon: <TrendingUp size={18} />, module: "sales" },
+      { label: "Delivery Orders", href: "/delivery", icon: <Truck size={18} />, module: "delivery" },
+      { label: "Invoices", href: "/invoices", icon: <Receipt size={18} />, module: "invoices" },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, module: "ledger" },
+      { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, module: "expenses" },
     ],
   },
   {

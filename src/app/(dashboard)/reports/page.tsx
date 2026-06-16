@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
+import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useFetch } from "@/hooks/useFetch"
 import { useLookups } from "@/components/lookups/LookupsProvider"
@@ -892,7 +893,7 @@ function OutstandingView({ d, sections, hidden }: { d: Outstanding; sections: Se
       {sections.table && (
         <SectionCard title="Customer Outstanding" subtitle="Sales − Collections, aged by oldest unpaid order">
           <Table data={d.rows} keyField="customerId" searchPlaceholder="Search customer…" columns={vis<Outstanding["rows"][0]>([
-            { key: "customer", header: "Customer", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.customer}</span> },
+            { key: "customer", header: "Customer", sortable: true, value: (r) => r.customer, render: (r) => <Link href={`/ledger?customerId=${r.customerId}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{r.customer}</Link> },
             moneyCol("soTotal", "Sales"),
             { key: "collected", header: "Collected (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="text-green-700 dark:text-green-300 whitespace-nowrap">{formatAmount(r.collected)}</span> },
             { key: "outstanding", header: "Outstanding (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-semibold whitespace-nowrap ${r.outstanding > 0 ? "text-red-600 dark:text-red-300" : "text-green-700 dark:text-green-300"}`}>{formatAmount(r.outstanding)}</span> },
