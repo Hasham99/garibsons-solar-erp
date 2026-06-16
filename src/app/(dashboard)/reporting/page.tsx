@@ -90,10 +90,11 @@ export default function ContainerPipelinePage() {
     }
   }, [stock.data, sos.data])
 
-  // ── §4 sales pipeline stages (count + Rs by SO status) ──
+  // ── §4 sales pipeline stages (containers + Rs + order count by SO status) ──
   const stages = useMemo(() => {
     const orders = sos.data ?? []
     const STAGES: { key: string; label: string }[] = [
+      { key: "DRAFT", label: "Deal Agreed" },
       { key: "PENDING_PAYMENT", label: "Payment Pending" },
       { key: "PAYMENT_CONFIRMED", label: "Payment Received" },
       { key: "DO_ISSUED", label: "DO Issued" },
@@ -102,7 +103,14 @@ export default function ContainerPipelinePage() {
     ]
     return STAGES.map((s) => {
       const matched = orders.filter((o) => o.status === s.key)
-      return { ...s, count: matched.length, value: matched.reduce((t, o) => t + (o.grandTotal || 0), 0) }
+      const containers = matched.reduce(
+        (t, o) => t + o.lines.reduce((s2, l) => s2 + toCtr(l.quantity, l.product?.panelsPerContainer), 0), 0)
+      return {
+        ...s,
+        count: matched.length,
+        containers,
+        value: matched.reduce((t, o) => t + (o.grandTotal || 0), 0),
+      }
     })
   }, [sos.data])
 
@@ -185,15 +193,16 @@ export default function ContainerPipelinePage() {
               <h2 className="text-sm font-semibold text-foreground">Sales Pipeline</h2>
               <Link href="/sales" className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">View orders</Link>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-line">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-line [&>*]:border-line [&>*]:border-b sm:[&>*]:border-r">
               {stages.map((s, i) => (
                 <div key={s.key} className="p-4">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
-                    <span>{i + 1}.</span>{s.label}
-                    {i < stages.length - 1 && <ArrowRight size={11} className="ml-auto hidden lg:block text-tertiary/60" />}
+                    <span>{i + 1}.</span><span className="truncate">{s.label}</span>
+                    {i < stages.length - 1 && <ArrowRight size={11} className="ml-auto hidden lg:block text-tertiary/60 shrink-0" />}
                   </div>
-                  <p className="mt-1.5 text-xl font-bold tabular-nums text-foreground">{s.count}<span className="ml-1 text-[11px] font-medium text-tertiary">orders</span></p>
-                  <p className="mt-0.5 text-[12px] tabular-nums text-secondary">{formatCurrency(s.value)}</p>
+                  <p className="mt-1.5 text-xl font-bold tabular-nums text-foreground">{ctr(s.containers)}<span className="ml-1 text-[11px] font-medium text-tertiary">ctr</span></p>
+                  <p className="mt-0.5 text-[12px] tabular-nums text-secondary truncate">{formatCurrency(s.value)}</p>
+                  <p className="mt-0.5 text-[11px] tabular-nums text-tertiary">{s.count} orders</p>
                 </div>
               ))}
             </div>

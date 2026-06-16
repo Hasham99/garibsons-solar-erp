@@ -38,17 +38,10 @@ interface UnliftedRow {
   value: number
   doDate: string
   agingDays: number
-  payment: string
+  doStatus: string
 }
 
 const toCtr = (panels: number, ppc?: number | null) => (ppc && ppc > 0 ? panels / ppc : 0)
-
-/** Map the sales-order status to a coarse payment state for the DO. */
-function paymentStatus(soStatus: string): string {
-  if (soStatus === "PENDING_PAYMENT") return "PENDING"
-  if (soStatus === "PARTIAL" || soStatus === "PARTIALLY_PAID") return "PARTIAL"
-  return "PAID"
-}
 
 export default function UnliftedDosPage() {
   const dos = useFetch<DeliveryOrder[]>("/api/delivery-orders")
@@ -59,27 +52,30 @@ export default function UnliftedDosPage() {
     return all
       .filter((d) => d.status !== "CANCELLED" && d.balanceQuantity > 0)
       .map((d) => {
-        // Per-DO sale value: Σ (DO line qty × matching SO-line unit price)
+        // Full-DO basis, then scale to the *unlifted* balance so panels/containers/
+        // value all describe the same (remaining-in-warehouse) quantity. For a fully
+        // unlifted DO frac = 1 (exact); for a partial dispatch it scales proportionally.
+        const doPanels = d.lines.reduce((t, l) => t + l.quantity, 0)
+        const doContainers = d.lines.reduce((t, l) => t + toCtr(l.quantity, l.product.panelsPerContainer), 0)
         const soLineById = new Map((d.salesOrder?.lines ?? []).map((l) => [l.id, l]))
-        const value = d.lines.reduce((t, l) => {
+        const doValue = d.lines.reduce((t, l) => {
           const so = l.soLineId ? soLineById.get(l.soLineId) : undefined
           const unit = so && so.quantity > 0 ? so.totalAmount / so.quantity : 0
           return t + l.quantity * unit
         }, 0)
-        const panels = d.balanceQuantity
-        const containers = d.lines.reduce((t, l) => t + toCtr(l.quantity, l.product.panelsPerContainer), 0)
+        const frac = doPanels > 0 ? d.balanceQuantity / doPanels : 0
         const names = [...new Set(d.lines.map((l) => l.product.name))]
         return {
           id: d.id,
           doNumber: d.doNumber,
           customer: d.salesOrder?.customer?.name ?? "—",
           product: names.length > 1 ? `${names[0]} +${names.length - 1}` : names[0] ?? "—",
-          containers,
-          panels,
-          value,
+          containers: doContainers * frac,
+          panels: d.balanceQuantity,
+          value: doValue * frac,
           doDate: d.createdAt,
           agingDays: d.agingDays,
-          payment: paymentStatus(d.salesOrder?.status ?? ""),
+          doStatus: d.status,
         }
       })
   }, [dos.data])
@@ -100,13 +96,13 @@ export default function UnliftedDosPage() {
       ],
       columns: [
         { header: "DO #", align: "left" }, { header: "Customer", align: "left" }, { header: "Product", align: "left" },
-        { header: "Containers", align: "right" }, { header: "Panels", align: "right" }, { header: "Value", align: "right" },
-        { header: "DO Date", align: "left" }, { header: "Days", align: "right" }, { header: "Payment", align: "left" },
+        { header: "Containers", align: "right" }, { header: "Panels", align: "right" }, { header: "Value (Rs)", align: "right" },
+        { header: "DO Date", align: "left" }, { header: "Days", align: "right" }, { header: "DO Status", align: "left" },
       ],
       rows: sorted.map((r) => [
         r.doNumber, r.customer, r.product,
         formatNumber(r.containers, 1), formatNumber(r.panels, 0), formatCurrency(r.value),
-        formatDate(r.doDate), r.agingDays, r.payment,
+        formatDate(r.doDate), r.agingDays, r.doStatus.replace(/_/g, " "),
       ]),
       fileName: `unlifted-dos-${new Date().toISOString().slice(0, 10)}`,
       orientation: "landscape",
@@ -129,7 +125,7 @@ export default function UnliftedDosPage() {
         </span>
       ),
     },
-    { key: "payment", header: "Payment", render: (r) => <Badge status={r.payment} /> },
+    { key: "doStatus", header: "DO Status", render: (r) => <Badge status={r.doStatus} /> },
   ]
 
   return (
