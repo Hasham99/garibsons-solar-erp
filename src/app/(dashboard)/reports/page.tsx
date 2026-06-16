@@ -677,7 +677,7 @@ export default function ReportsPage() {
                 </div>
               )}
 
-              <div className="ml-auto flex flex-wrap items-center gap-2">
+              <div className="ml-auto flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 {showFiltersPopover && (
                   <Popover button={<><SlidersHorizontal size={15} />Filters</>} badge={activeDimCount + dateFilterCount}>
                     <div className="mb-3 flex items-center justify-between">
@@ -778,8 +778,8 @@ export default function ReportsPage() {
                   <p className="mt-2 text-[11px] text-gray-400">Unticked sections are hidden on screen and left out of the exported PDF / Excel.</p>
                 </Popover>
 
-                <Button variant="secondary" size="sm" onClick={() => exportReport("pdf")}><FileDown size={14} className="mr-1.5" />PDF</Button>
-                <Button variant="secondary" size="sm" onClick={() => exportReport("excel")}><FileSpreadsheet size={14} className="mr-1.5" />Excel</Button>
+                <Button variant="primary" size="sm" className="flex-1 justify-center sm:flex-none" onClick={() => exportReport("pdf")}><FileDown size={14} className="mr-1.5" />PDF</Button>
+                <Button variant="secondary" size="sm" className="flex-1 justify-center sm:flex-none" onClick={() => exportReport("excel")}><FileSpreadsheet size={14} className="mr-1.5" />Excel</Button>
               </div>
             </div>
 

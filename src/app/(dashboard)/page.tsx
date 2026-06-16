@@ -230,7 +230,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI cards — cascade in one after another */}
-      <Stagger className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <Stagger className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StaggerItem className="h-full">
           <StatCard
             title="Sales This Month"

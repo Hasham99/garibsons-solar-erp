@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
-import { Search, ChevronDown, ChevronRight, LogOut, UserRound, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { Search, ChevronDown, ChevronRight, LogOut, UserRound, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react"
 import { clsx } from "clsx"
 import { CommandPalette } from "@/components/layout/CommandPalette"
 import { NotificationBell } from "@/components/layout/NotificationBell"
@@ -50,6 +50,8 @@ interface TopBarProps {
   user: { name: string; email: string; role: string; fullAccess?: boolean; perms?: import("@/lib/permissions/modules").PermMap } | null
   sidebarCollapsed: boolean
   onToggleSidebar: () => void
+  /** Opens the off-canvas drawer on mobile (< lg). */
+  onOpenMobileSidebar?: () => void
 }
 
 function initials(name: string) {
@@ -62,7 +64,7 @@ function initials(name: string) {
     .toUpperCase()
 }
 
-export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps) {
+export function TopBar({ user, sidebarCollapsed, onToggleSidebar, onOpenMobileSidebar }: TopBarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -121,11 +123,22 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
         <div className="flex h-[4.25rem] items-center justify-between gap-4 px-5">
           {/* Left cluster — toggle + breadcrumbs */}
           <div className="flex min-w-0 items-center gap-2.5">
+            {/* Mobile: open the off-canvas drawer */}
+            <button
+              type="button"
+              onClick={onOpenMobileSidebar}
+              title="Open menu"
+              aria-label="Open menu"
+              className="lg:hidden shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <Menu size={20} />
+            </button>
+            {/* Desktop: collapse / expand the docked rail */}
             <button
               type="button"
               onClick={onToggleSidebar}
               title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+              className="hidden lg:inline-flex shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
             >
               {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             </button>
@@ -154,17 +167,26 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar }: TopBarProps)
 
           {/* Right cluster — search + profile */}
           <div className="flex items-center gap-3">
-            {/* Search trigger — looks like an input, opens the command palette */}
+            {/* Search trigger — full faux-input on sm+, icon-only on mobile. Opens the command palette. */}
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
-              className="group flex w-48 sm:w-64 items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-slate-400 transition-all hover:border-white/20 hover:bg-white/10 hover:text-slate-300"
+              aria-label="Search"
+              className="hidden sm:flex group w-48 md:w-64 items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-slate-400 transition-all hover:border-white/20 hover:bg-white/10 hover:text-slate-300"
             >
               <Search size={15} className="shrink-0" />
               <span className="flex-1 text-left">Search…</span>
               <kbd className="rounded-md border border-white/10 bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-slate-400">
                 {isMac ? "⌘K" : "Ctrl K"}
               </kbd>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Search"
+              className="sm:hidden shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <Search size={18} />
             </button>
 
             <NotificationBell />

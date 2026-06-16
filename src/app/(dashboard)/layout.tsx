@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useSyncExternalStore } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
+import { usePathname } from "next/navigation"
 import { Toaster } from "react-hot-toast"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
@@ -12,6 +13,7 @@ const SIDEBAR_PREF_KEY = "gbs-sidebar-collapsed"
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   useIdleTimeout()
+  const pathname = usePathname()
 
   // Stored preference, read hydration-safely (server snapshot: expanded).
   // Session toggles override it without re-reading storage.
@@ -29,6 +31,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setOverride(next)
   }
 
+  // Mobile (< lg): the sidebar is an off-canvas drawer instead of a docked rail.
+  const [mobileOpen, setMobileOpen] = useState(false)
+  // Close the drawer when navigation changes the route (adjust state during
+  // render — the pattern React recommends over a setState-in-effect).
+  const [lastPath, setLastPath] = useState(pathname)
+  if (pathname !== lastPath) {
+    setLastPath(pathname)
+    setMobileOpen(false)
+  }
+  // Lock body scroll while the drawer is open (syncing an external system).
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : ""
+    return () => { document.body.style.overflow = "" }
+  }, [mobileOpen])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -45,15 +62,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Desktop (lg+): docked rail that collapses to an icon strip */}
       <div
         data-sidebar
-        className={`flex-shrink-0 flex flex-col transition-[width] duration-300 ease-in-out ${collapsed ? "w-[72px]" : "w-64"}`}
+        className={`hidden lg:flex flex-shrink-0 flex-col transition-[width] duration-300 ease-in-out ${collapsed ? "w-[72px]" : "w-64"}`}
       >
         <Sidebar user={user} collapsed={collapsed} onToggle={toggleSidebar} />
       </div>
+
+      {/* Mobile (< lg): off-canvas drawer + scrim */}
+      <div className={`lg:hidden fixed inset-0 z-50 ${mobileOpen ? "" : "pointer-events-none"}`} aria-hidden={!mobileOpen}>
+        <div
+          className={`absolute inset-0 bg-slate-900/50 backdrop-blur-[2px] transition-opacity duration-300 ${mobileOpen ? "opacity-100" : "opacity-0"}`}
+          onClick={() => setMobileOpen(false)}
+        />
+        <div
+          className={`absolute inset-y-0 left-0 w-64 max-w-[82%] shadow-pop transition-transform duration-300 ease-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        >
+          <Sidebar user={user} collapsed={false} onToggle={() => setMobileOpen(false)} />
+        </div>
+      </div>
+
       <main className="flex-1 overflow-y-auto">
-        <TopBar user={user} sidebarCollapsed={collapsed} onToggleSidebar={toggleSidebar} />
-        <div className="p-5 max-w-7xl mx-auto">
+        <TopBar
+          user={user}
+          sidebarCollapsed={collapsed}
+          onToggleSidebar={toggleSidebar}
+          onOpenMobileSidebar={() => setMobileOpen(true)}
+        />
+        <div className="p-3 sm:p-5 max-w-7xl mx-auto">
           {children}
         </div>
       </main>
