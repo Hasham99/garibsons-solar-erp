@@ -54,8 +54,8 @@ export const navSections: NavSection[] = [
     label: "Reporting",
     items: [
       { label: "Dashboard", href: "/", icon: <LayoutDashboard size={18} /> },
-      { label: "Container Pipeline", href: "/reporting", icon: <Boxes size={18} /> },
-      { label: "Unlifted DOs", href: "/reporting/unlifted", icon: <Clock size={18} /> },
+      { label: "Container Pipeline", href: "/reporting", icon: <Boxes size={18} />, module: "reports.containerPipeline" },
+      { label: "Unlifted DOs", href: "/reporting/unlifted", icon: <Clock size={18} />, module: "reports.unliftedDos" },
       {
         label: "Reports & Analytics",
         icon: <BarChart3 size={18} />,
@@ -145,6 +145,20 @@ interface SidebarProps {
 
 const DEFAULT_REPORT_VIEW = "outstanding"
 
+/* Every real path-based nav target (excludes "/" and the /reports?view= links,
+   which match on the query param). Used for longest-prefix active matching so a
+   parent route like /reporting doesn't also light up on /reporting/unlifted. */
+const NAV_PATHS: string[] = (() => {
+  const out: string[] = []
+  const walk = (items: NavItem[]) =>
+    items.forEach((it) => {
+      if (it.href && it.href !== "/" && !it.href.includes("?")) out.push(it.href)
+      if (it.children) walk(it.children)
+    })
+  navSections.forEach((s) => walk(s.items))
+  return out
+})()
+
 export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -165,7 +179,16 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
       const view = new URLSearchParams(href.split("?")[1]).get("view")
       return (currentView || DEFAULT_REPORT_VIEW) === view
     }
-    return pathname.startsWith(href)
+    // Segment-boundary match (so /reporting doesn't match /reporting-foo)…
+    if (pathname !== href && !pathname.startsWith(href + "/")) return false
+    // …then longest-prefix-wins: a parent route stays inactive when a more
+    // specific sibling link also matches the current path (e.g. /reporting vs
+    // /reporting/unlifted), so only one item lights up at a time.
+    return !NAV_PATHS.some(
+      (other) =>
+        other.length > href.length &&
+        (pathname === other || pathname.startsWith(other + "/"))
+    )
   }
 
   // A group is "active" when any descendant leaf (at any depth) is active
@@ -314,7 +337,7 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
         {!collapsed && (
           <div className="min-w-0 animate-fade-in leading-none">
             <p className="text-white text-[15px] font-bold tracking-tight truncate">GS Energy</p>
-            <p className="text-energy-orange text-[11px] mt-1 tracking-[0.16em] font-semibold">SOLAR ERP</p>
+            <p className="text-[#f6a040] text-[11px] mt-1 tracking-[0.16em] font-semibold">SOLAR ERP</p>
           </div>
         )}
       </div>

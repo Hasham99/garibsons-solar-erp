@@ -239,6 +239,26 @@ main::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* Printable documents (DO, Invoice, Quotation, Costing) always render on light
+   paper — on screen, in the on-page preview, and in toPng/jsPDF capture — even
+   while the app is in dark theme. They inherit semantic tokens (e.g. an
+   uncoloured <p> picks up --foreground), so pin those back to light values here
+   and force the document's own text dark. The @media print block below repeats
+   this for the actual print pipeline. */
+.print-surface {
+  --surface: #ffffff;
+  --canvas: #ffffff;
+  --elevated: #ffffff;
+  --muted: #f1f5f9;
+  --foreground: #0f172a;
+  --secondary: #475569;
+  --tertiary: #94a3b8;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  color-scheme: light;
+  color: var(--foreground);
+}
+
 @media print {
   /* Documents always print on light paper, even when the app is in dark mode —
      force every semantic token back to its light value so invoices/DOs/reports

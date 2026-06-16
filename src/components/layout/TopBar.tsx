@@ -116,7 +116,15 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar, onOpenMobileSi
     }
   }
 
-  const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().includes("MAC")
+  // Platform-aware shortcut hint. Default to non-Mac ("Ctrl K") so SSR and
+  // Windows render correctly; flip to ⌘ only after detecting macOS on the
+  // client (prefers the modern userAgentData, falls back to platform/UA).
+  const [isMac, setIsMac] = useState(false)
+  useEffect(() => {
+    const nav = navigator as Navigator & { userAgentData?: { platform?: string } }
+    const platform = nav.userAgentData?.platform || nav.platform || nav.userAgent || ""
+    setIsMac(/mac/i.test(platform))
+  }, [])
 
   return (
     <>

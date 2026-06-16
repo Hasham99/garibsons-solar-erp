@@ -185,7 +185,8 @@ export default function DeliveryOrderPrintPage() {
           resolve(canvas)
         }
         logo.onerror = () => resolve(canvas)
-        logo.src = "/logo-full.png"
+        // Match the on-screen / print watermark (Letterhead uses logo-emblem.png).
+        logo.src = "/logo-emblem.png"
       }
       img.src = dataUrl
     })
@@ -331,7 +332,7 @@ export default function DeliveryOrderPrintPage() {
         body { font-family: Arial, sans-serif; }
       `}</style>
 
-      <div className="relative max-w-3xl mx-auto p-8 bg-white">
+      <div className="print-surface relative max-w-3xl mx-auto p-8 bg-white">
         <div className="no-print flex justify-end mb-4 gap-2">
           <button
             type="button"

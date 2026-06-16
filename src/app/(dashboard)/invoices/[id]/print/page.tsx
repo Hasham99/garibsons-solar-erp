@@ -58,7 +58,7 @@ export default function InvoicePrintPage() {
         body { font-family: Arial, sans-serif; }
       `}</style>
 
-      <div className="relative max-w-3xl mx-auto p-8 bg-white">
+      <div className="print-surface relative max-w-3xl mx-auto p-8 bg-white">
         {/* Print button */}
         <div className="no-print flex justify-end mb-4 gap-2">
           <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Print / Save PDF</button>

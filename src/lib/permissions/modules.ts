@@ -26,6 +26,8 @@ export type ModuleKey =
   | "reports.stockAging"
   | "reports.poStatus"
   | "reports.purchases"
+  | "reports.containerPipeline"
+  | "reports.unliftedDos"
   | "masters.products"
   | "masters.suppliers"
   | "masters.customers"
@@ -96,6 +98,8 @@ export const MODULES: ModuleDef[] = [
   { key: "reports.stockAging", label: "Stock Aging Report", section: "Reports" },
   { key: "reports.poStatus", label: "PO Status Report", section: "Reports" },
   { key: "reports.purchases", label: "Purchases Report", section: "Reports" },
+  { key: "reports.containerPipeline", label: "Container Pipeline", section: "Reports" },
+  { key: "reports.unliftedDos", label: "Unlifted DOs", section: "Reports" },
 
   { key: "masters.products", label: "Products", section: "Master Data" },
   { key: "masters.suppliers", label: "Suppliers", section: "Master Data" },
@@ -166,6 +170,9 @@ const PAGE_RULES: Array<{ prefix: string; module: ModuleKey }> = [
   { prefix: "/invoices", module: "invoices" },
   { prefix: "/ledger", module: "ledger" },
   { prefix: "/expenses", module: "expenses" },
+  // Reporting pages — most specific first so /reporting/unlifted wins over /reporting.
+  { prefix: "/reporting/unlifted", module: "reports.unliftedDos" },
+  { prefix: "/reporting", module: "reports.containerPipeline" },
   // "/reports" is handled separately (per ?view=) via reportModuleForView().
   { prefix: "/masters/products", module: "masters.products" },
   { prefix: "/masters/suppliers", module: "masters.suppliers" },
