@@ -302,9 +302,9 @@ export function Table<T extends Record<string, any>>({
   })()
 
   const thClass = compact
-    ? `px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`
-    : `px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap`
-  const tdClass = compact ? `px-2 py-1.5 text-xs text-gray-900` : `px-3 py-2 text-[12px] text-gray-900`
+    ? `px-2 py-2 text-left text-xs font-medium text-secondary uppercase tracking-wider`
+    : `px-3 py-2 text-left text-[10px] font-semibold text-secondary uppercase tracking-wide whitespace-nowrap`
+  const tdClass = compact ? `px-2 py-1.5 text-xs text-foreground` : `px-3 py-2 text-[12px] text-foreground`
 
   const showToolbar = searchable || resolvedFilters.length > 0
 
@@ -313,10 +313,10 @@ export function Table<T extends Record<string, any>>({
   return (
     <div>
       {showToolbar && (
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
           {searchable && (
             <div className="relative flex-1 max-w-sm">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none" />
               <input
                 ref={searchRef}
                 value={query}
@@ -325,13 +325,13 @@ export function Table<T extends Record<string, any>>({
                   setPage(1)
                 }}
                 placeholder={searchPlaceholder}
-                className="block w-full rounded-lg border border-slate-300 bg-white pl-9 pr-8 py-1.5 text-[13px] shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+                className="block w-full rounded-lg border border-line-strong bg-surface pl-9 pr-8 py-1.5 text-[13px] shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
               />
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-tertiary hover:text-secondary"
                   aria-label="Clear search"
                 >
                   <X size={15} />
@@ -347,8 +347,8 @@ export function Table<T extends Record<string, any>>({
                 onClick={() => setFilterOpen((o) => !o)}
                 className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] shadow-sm transition-colors ${
                   activeFilterCount > 0
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"
+                    : "border-line-strong bg-surface text-secondary hover:bg-muted"
                 }`}
               >
                 <SlidersHorizontal size={15} />
@@ -367,14 +367,14 @@ export function Table<T extends Record<string, any>>({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.98 }}
                   transition={{ duration: 0.16, ease: "easeOut" }}
-                  className="absolute right-0 z-20 mt-2 w-72 origin-top-right rounded-xl border border-slate-200 bg-white p-4 shadow-pop">
+                  className="absolute right-0 z-20 mt-2 w-72 origin-top-right rounded-xl border border-line bg-elevated p-4 shadow-pop">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">Filters</span>
+                    <span className="text-sm font-semibold text-foreground">Filters</span>
                     {activeFilterCount > 0 && (
                       <button
                         type="button"
                         onClick={clearFilters}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-300"
                       >
                         Clear all
                       </button>
@@ -383,11 +383,11 @@ export function Table<T extends Record<string, any>>({
                   <div className="space-y-3">
                     {resolvedFilters.map((f) => (
                       <div key={f.key}>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">{f.label}</label>
+                        <label className="mb-1 block text-xs font-medium text-secondary">{f.label}</label>
                         {f.type === "date" ? (
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
-                              <span className="w-10 shrink-0 text-xs text-gray-400">From</span>
+                              <span className="w-10 shrink-0 text-xs text-tertiary">From</span>
                               <input
                                 type="date"
                                 value={(filterState[f.key] as { from?: string })?.from || ""}
@@ -397,11 +397,11 @@ export function Table<T extends Record<string, any>>({
                                     [f.key]: { ...(s[f.key] as object), from: e.target.value },
                                   }))
                                 }
-                                className="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="block w-full min-w-0 rounded-md border border-line-strong px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="w-10 shrink-0 text-xs text-gray-400">To</span>
+                              <span className="w-10 shrink-0 text-xs text-tertiary">To</span>
                               <input
                                 type="date"
                                 value={(filterState[f.key] as { to?: string })?.to || ""}
@@ -411,7 +411,7 @@ export function Table<T extends Record<string, any>>({
                                     [f.key]: { ...(s[f.key] as object), to: e.target.value },
                                   }))
                                 }
-                                className="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="block w-full min-w-0 rounded-md border border-line-strong px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
                           </div>
@@ -419,7 +419,7 @@ export function Table<T extends Record<string, any>>({
                           <select
                             value={(filterState[f.key] as string) || ""}
                             onChange={(e) => setFilterState((s) => ({ ...s, [f.key]: e.target.value }))}
-                            className="block w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="block w-full rounded-md border border-line-strong bg-surface px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             <option value="">All</option>
                             {f.options?.map((opt) => (
@@ -442,19 +442,19 @@ export function Table<T extends Record<string, any>>({
 
       {/* Mobile: rows render as stacked label/value cards — squeezed tables are unreadable on phones */}
       {!compact && pageData.length > 0 && (
-        <div className="md:hidden divide-y divide-slate-100">
+        <div className="md:hidden divide-y divide-line">
           {pageData.map((row, idx) => (
             <div
               key={rowKeys[idx]}
-              className={`px-4 py-3 space-y-2 ${onRowClick ? "cursor-pointer active:bg-slate-50" : ""} ${rowClassName?.(row) || ""}`}
+              className={`px-4 py-3 space-y-2 ${onRowClick ? "cursor-pointer active:bg-muted" : ""} ${rowClassName?.(row) || ""}`}
               onClick={() => onRowClick?.(row)}
             >
               {columns.map((col) => (
                 <div key={col.key} className="flex items-start justify-between gap-3">
-                  <span className="shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <span className="shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
                     {col.header}
                   </span>
-                  <div className={`min-w-0 text-right text-[13px] text-slate-800 ${col.numeric ? "tabular-nums" : ""}`}>
+                  <div className={`min-w-0 text-right text-[13px] text-foreground ${col.numeric ? "tabular-nums" : ""}`}>
                     {col.render ? col.render(row) : String(row[col.key] ?? "")}
                   </div>
                 </div>
@@ -465,19 +465,19 @@ export function Table<T extends Record<string, any>>({
       )}
 
       <div className={`${compact ? "w-full" : "overflow-x-auto"} ${!compact && pageData.length > 0 ? "hidden md:block" : ""}`}>
-        <table className="w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="w-full divide-y divide-line">
+          <thead className="bg-muted">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`${thClass} ${col.sortable ? "cursor-pointer hover:bg-gray-100 select-none" : ""} ${col.className || ""}`}
+                  className={`${thClass} ${col.sortable ? "cursor-pointer hover:bg-muted select-none" : ""} ${col.className || ""}`}
                   onClick={() => col.sortable && handleSort(col.key)}
                 >
                   <div className="flex items-center gap-1">
                     {col.header}
                     {col.sortable && (
-                      <span className="text-gray-400">
+                      <span className="text-tertiary">
                         {sortKey === col.key ? (
                           sortDir === "asc" ? (
                             <ChevronUp size={14} />
@@ -496,20 +496,20 @@ export function Table<T extends Record<string, any>>({
           </thead>
           <tbody
             key={`${page}-${pageSize}-${query}-${sortKey}-${sortDir}`}
-            className="bg-white divide-y divide-gray-200 animate-fade-in"
+            className="bg-surface divide-y divide-line animate-fade-in"
           >
             {pageData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-14">
                   <div className="flex flex-col items-center gap-2.5 text-center">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-tertiary">
                       {query || activeFilterCount > 0 ? <SearchX size={22} /> : <Inbox size={22} />}
                     </span>
-                    <p className="text-sm font-medium text-slate-600">
+                    <p className="text-sm font-medium text-secondary">
                       {query || activeFilterCount > 0 ? "No matching records" : emptyMessage}
                     </p>
                     {(query || activeFilterCount > 0) && (
-                      <p className="text-xs text-slate-400">Try adjusting your search or clearing the filters.</p>
+                      <p className="text-xs text-tertiary">Try adjusting your search or clearing the filters.</p>
                     )}
                   </div>
                 </td>
@@ -518,7 +518,7 @@ export function Table<T extends Record<string, any>>({
               pageData.map((row, idx) => (
                 <tr
                   key={rowKeys[idx]}
-                  className={`hover:bg-blue-50/40 transition-colors duration-150 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || "bg-white"}`}
+                  className={`hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors duration-150 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || "bg-surface"}`}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((col) => (
@@ -534,9 +534,9 @@ export function Table<T extends Record<string, any>>({
       </div>
 
       {(sortedData.length > pageSize || totalPages > 1) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-line">
           <div className="flex items-center gap-3">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-secondary">
               {sortedData.length === 0
                 ? "0 results"
                 : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, sortedData.length)} of ${sortedData.length}`}
@@ -548,7 +548,7 @@ export function Table<T extends Record<string, any>>({
                   setPageSize(Number(e.target.value))
                   setPage(1)
                 }}
-                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-md border border-line-strong bg-surface px-2 py-1 text-xs text-secondary focus:outline-none focus:ring-2 focus:ring-blue-500"
                 aria-label="Rows per page"
               >
                 {pageSizeOptions.map((n) => (
@@ -563,18 +563,18 @@ export function Table<T extends Record<string, any>>({
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:hover:border-slate-200 disabled:active:scale-100 transition-all"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-line rounded-lg bg-surface shadow-sm hover:bg-muted hover:border-line-strong active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-muted disabled:text-tertiary disabled:hover:border-line disabled:active:scale-100 transition-all"
             >
               <ChevronUp size={14} className="-rotate-90" />
               Previous
             </button>
-            <span className="text-sm text-slate-500 tabular-nums">
+            <span className="text-sm text-secondary tabular-nums">
               Page {page} of {totalPages}
             </span>
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:hover:border-slate-200 disabled:active:scale-100 transition-all"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-line rounded-lg bg-surface shadow-sm hover:bg-muted hover:border-line-strong active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-muted disabled:text-tertiary disabled:hover:border-line disabled:active:scale-100 transition-all"
             >
               Next
               <ChevronUp size={14} className="rotate-90" />

@@ -62,7 +62,7 @@ export function SearchableSelect({
   return (
     <div className="w-full" ref={ref}>
       {label && (
-        <label className="block text-[13px] font-medium text-slate-700 mb-1">
+        <label className="block text-[13px] font-medium text-secondary mb-1">
           {label}
           {required && <span className="text-rose-500 ml-1">*</span>}
         </label>
@@ -75,63 +75,63 @@ export function SearchableSelect({
             "flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-[13px] shadow-sm cursor-pointer",
             "transition-[border-color,box-shadow,background-color] duration-200 focus:outline-none focus:ring-2",
             error
-              ? "animate-shake border-rose-300 bg-rose-50/60 focus:ring-rose-400/50 focus:border-rose-400"
-              : "border-slate-300 bg-white hover:border-slate-400 focus:ring-blue-500/50 focus:border-blue-500"
+              ? "animate-shake border-rose-300 bg-rose-50/60 focus:ring-rose-400/50 focus:border-rose-400 dark:border-rose-500/50 dark:bg-rose-500/10"
+              : "border-line-strong bg-surface hover:border-line-strong focus:ring-blue-500/50 focus:border-blue-500"
           )}
         >
-          <span className={clsx("truncate", selected ? "text-slate-900" : error ? "text-rose-300" : "text-slate-400")}>
+          <span className={clsx("truncate", selected ? "text-foreground" : error ? "text-rose-300 dark:text-rose-400" : "text-tertiary")}>
             {selected ? selected.label : placeholder}
           </span>
           <span className="flex shrink-0 items-center gap-1">
             {clearable && selected && (
               <X
                 size={14}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-tertiary hover:text-secondary transition-colors"
                 onClick={(e) => { e.stopPropagation(); onChange(""); setQuery("") }}
               />
             )}
-            <ChevronDown size={15} className={`text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+            <ChevronDown size={15} className={`text-tertiary transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
           </span>
         </button>
 
         {open && (
-          <div className="absolute z-30 mt-1.5 w-full origin-top rounded-xl border border-slate-200 bg-white shadow-pop animate-slide-down">
-            <div className="relative border-b border-slate-100 p-2">
-              <Search size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <div className="absolute z-30 mt-1.5 w-full origin-top rounded-xl border border-line bg-elevated shadow-pop animate-slide-down">
+            <div className="relative border-b border-line p-2">
+              <Search size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}
-                className="w-full rounded-lg border border-slate-200 pl-8 pr-2 py-1.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+                className="w-full rounded-lg border border-line pl-8 pr-2 py-1.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
               />
             </div>
             <div className="max-h-60 overflow-y-auto py-1">
               {filtered.length === 0 ? (
-                <p className="px-3 py-3 text-center text-sm text-slate-400">No match found</p>
+                <p className="px-3 py-3 text-center text-sm text-tertiary">No match found</p>
               ) : (
                 filtered.slice(0, 100).map((o) => (
                   <button
                     key={o.value}
                     type="button"
                     onClick={() => { onChange(o.value); setOpen(false); setQuery("") }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-blue-50 cursor-pointer ${
-                      o.value === value ? "bg-blue-50 font-medium text-blue-700" : "text-slate-800"
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-blue-50 dark:hover:bg-blue-500/10 cursor-pointer ${
+                      o.value === value ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300" : "text-foreground"
                     }`}
                   >
                     <span>{o.label}</span>
-                    {o.sublabel && <span className="text-xs text-slate-400">{o.sublabel}</span>}
+                    {o.sublabel && <span className="text-xs text-tertiary">{o.sublabel}</span>}
                   </button>
                 ))
               )}
               {filtered.length > 100 && (
-                <p className="px-3 py-2 text-center text-xs text-slate-400">…{filtered.length - 100} more — keep typing to narrow</p>
+                <p className="px-3 py-2 text-center text-xs text-tertiary">…{filtered.length - 100} more — keep typing to narrow</p>
               )}
             </div>
           </div>
         )}
       </div>
-      {error && <p className="mt-1.5 text-[13px] text-rose-600 animate-slide-down">{error}</p>}
+      {error && <p className="mt-1.5 text-[13px] text-rose-600 dark:text-rose-400 animate-slide-down">{error}</p>}
     </div>
   )
 }

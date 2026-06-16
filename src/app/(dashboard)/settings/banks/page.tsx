@@ -10,6 +10,7 @@ import { Table } from "@/components/ui/Table"
 import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { RowActionsMenu } from "@/components/ui/RowActionsMenu"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { formatDate } from "@/lib/utils"
 import { Plus, Pencil, Trash2 } from "lucide-react"
@@ -31,7 +32,8 @@ export default function BanksPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<typeof emptyForm>(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Bank | null>(null)
   const [detailRow, setDetailRow] = useState<Bank | null>(null)
 
   const openAdd = () => { setEditingId(null); setForm(emptyForm); setShowModal(true) }
@@ -66,20 +68,21 @@ export default function BanksPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this bank?")) return
-    setDeleting(id)
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      const res = await fetch(`/api/banks/${id}`, { method: "DELETE" })
+      const res = await fetch(`/api/banks/${deleteTarget.id}`, { method: "DELETE" })
       if (res.ok) {
         toast.success("Bank deleted")
+        setDeleteTarget(null)
         refetch()
       } else {
         const err = await res.json()
         toast.error(err.error || "Failed to delete bank")
       }
     } finally {
-      setDeleting(null)
+      setDeleting(false)
     }
   }
 
@@ -90,7 +93,7 @@ export default function BanksPage() {
     {
       key: "active", header: "Status",
       render: (row: Bank) => (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.active ? "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "bg-muted text-secondary"}`}>
           {row.active ? "Active" : "Inactive"}
         </span>
       ),
@@ -100,7 +103,7 @@ export default function BanksPage() {
       render: (row: Bank) => (
         <RowActionsMenu actions={[
           { label: "Edit", icon: <Pencil size={15} />, onClick: () => openEdit(row) },
-          { label: "Delete Bank", icon: <Trash2 size={15} />, danger: true, disabled: deleting === row.id, onClick: () => handleDelete(row.id) },
+          { label: "Delete Bank", icon: <Trash2 size={15} />, danger: true, onClick: () => setDeleteTarget(row) },
         ]} />
       ),
     },
@@ -143,7 +146,7 @@ export default function BanksPage() {
           </div>
         }
       />
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={(banks || [])}
@@ -159,7 +162,7 @@ export default function BanksPage() {
           <Input label="Branch" value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} placeholder="e.g. Main Branch" />
           <div className="flex items-center gap-2">
             <input type="checkbox" id="activeBank" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-            <label htmlFor="activeBank" className="text-sm text-gray-700">Active</label>
+            <label htmlFor="activeBank" className="text-sm text-secondary">Active</label>
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
@@ -167,6 +170,17 @@ export default function BanksPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        title="Delete Bank"
+        message={<>Delete bank <span className="font-semibold text-foreground">&ldquo;{deleteTarget?.name}&rdquo;</span>? This cannot be undone.</>}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

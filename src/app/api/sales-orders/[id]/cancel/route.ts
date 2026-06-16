@@ -34,9 +34,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       if (!salesOrder) throw new Error("NOT_FOUND")
       if (salesOrder.status === "CANCELLED") return { salesOrder, cancelledDOs: [] as string[] }
 
-      const dispatched = salesOrder.deliveryOrders.filter((d) => d.status === "DISPATCHED")
-      if (dispatched.length) {
-        throw new Error(`DISPATCHED:${dispatched.map((d) => d.doNumber).join(", ")}`)
+      // Once any DO has been lifted (fully or partially), the SO can't be voided —
+      // use "Cancel SO Balance" to close the undelivered remainder instead.
+      const lifted = salesOrder.deliveryOrders.filter((d) =>
+        ["DISPATCHED", "PARTIALLY_DISPATCHED"].includes(d.status)
+      )
+      if (lifted.length) {
+        throw new Error(`DISPATCHED:${lifted.map((d) => d.doNumber).join(", ")}`)
       }
 
       const activeDOs = salesOrder.deliveryOrders.filter((d) => d.status !== "CANCELLED")
@@ -79,7 +83,11 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       }
       if (error.message.startsWith("DISPATCHED:")) {
         return Response.json(
-          { error: `Cannot cancel — delivery order(s) already dispatched: ${error.message.slice("DISPATCHED:".length)}` },
+          {
+            error: `Cannot cancel — stock already lifted on delivery order(s): ${error.message.slice(
+              "DISPATCHED:".length
+            )}. Use "Cancel SO Balance" to close the undelivered remainder.`,
+          },
           { status: 422 }
         )
       }

@@ -69,13 +69,13 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ type: "spring", duration: 0.4, bounce: 0.18 }}
-            className={`relative bg-white rounded-xl shadow-pop w-full ${sizes[size]} mx-4 max-h-[90vh] flex flex-col`}
+            className={`relative bg-elevated rounded-xl shadow-pop w-full ${sizes[size]} mx-4 max-h-[90vh] flex flex-col`}
           >
-            <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+            <div className="flex items-center justify-between p-6 border-b border-line">
+              <h2 className="text-lg font-semibold text-foreground">{title}</h2>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-tertiary hover:text-secondary hover:bg-muted transition-colors"
               >
                 <X size={20} />
               </button>

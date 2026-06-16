@@ -486,6 +486,13 @@ model SalesOrder {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Balance closure — the undelivered/uncommitted panels an admin has written off
+  // (kept on record). Subtracted from the SO's remaining-to-deliver quantity.
+  balanceCancelledQty    Int       @default(0)
+  balanceCancelledAt     DateTime?
+  balanceCancelledBy     String?
+  balanceCancelReason    String?
+
   lines          SalesOrderLine[]
   deliveryOrders DeliveryOrder[]
   stockMovements StockMovement[]

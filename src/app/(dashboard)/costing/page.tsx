@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -77,8 +78,9 @@ const emptyImpForm: Record<ImpKey, string> = {
 }
 
 export default function CostingPage() {
-  const { data: rates } = useFetch<ExchangeRate[]>("/api/exchange-rates")
-  const { data: taxConfigs } = useFetch<TaxConfig[]>("/api/tax-configs")
+  const lookups = useLookups()
+  const rates = lookups.exchangeRates as ExchangeRate[]
+  const taxConfigs = lookups.taxConfigs as TaxConfig[]
   const { data: costings, loading, refetch } = useFetch<CostingCalc[]>("/api/costing")
 
   // ── Step 01: CIF Calculation ──
@@ -190,7 +192,7 @@ export default function CostingPage() {
     { key: "totalPanels", header: "Panels", render: (row: CostingCalc) => row.totalPanels.toLocaleString() },
     { key: "landedCostPerWatt", header: "PKR/Watt", render: (row: CostingCalc) => `Rs ${row.landedCostPerWatt.toFixed(2)}` },
     { key: "landedCostPerPanel", header: "PKR/Panel", render: (row: CostingCalc) => formatCurrency(row.landedCostPerPanel) },
-    { key: "impTotalCost", header: "Import Total", render: (row: CostingCalc) => row.impTotalCost ? formatCurrency(row.impTotalCost) : <span className="text-gray-400">—</span> },
+    { key: "impTotalCost", header: "Import Total", render: (row: CostingCalc) => row.impTotalCost ? formatCurrency(row.impTotalCost) : <span className="text-tertiary">—</span> },
     { key: "totalShipmentValue", header: "Calc Value", render: (row: CostingCalc) => formatCurrency(row.totalShipmentValue) },
     { key: "createdAt", header: "Date", render: (row: CostingCalc) => formatDate(row.createdAt) },
   ]
@@ -219,7 +221,7 @@ export default function CostingPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tax Mode</label>
+              <label className="block text-sm font-medium text-secondary mb-1">Tax Mode</label>
               <div className="flex gap-3">
                 {(["config", "simple"] as const).map((mode) => (
                   <label key={mode} className="flex items-center gap-2 cursor-pointer">
@@ -266,28 +268,28 @@ export default function CostingPage() {
                 { label: "Tax per Watt", value: taxPerWatt > 0 ? `Rs ${taxPerWatt.toFixed(2)}` : "—" },
                 { label: "Handling per Watt", value: `Rs ${handlingPW.toFixed(2)}` },
               ].map(({ label, value }) => (
-                <div key={label} className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">{label}</p>
-                  <p className="font-semibold text-gray-900">{value}</p>
+                <div key={label} className="bg-muted rounded-lg p-3">
+                  <p className="text-xs text-secondary">{label}</p>
+                  <p className="font-semibold text-foreground">{value}</p>
                 </div>
               ))}
             </div>
 
             <div className="border-t pt-4 space-y-3">
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <span className="font-medium text-blue-900">Landed Cost / Watt</span>
-                <span className="font-bold text-blue-900 text-lg">{landedCostPerWatt > 0 ? `Rs ${landedCostPerWatt.toFixed(2)}` : "—"}</span>
+              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+                <span className="font-medium text-blue-900 dark:text-blue-300">Landed Cost / Watt</span>
+                <span className="font-bold text-blue-900 dark:text-blue-300 text-lg">{landedCostPerWatt > 0 ? `Rs ${landedCostPerWatt.toFixed(2)}` : "—"}</span>
               </div>
               {wattage > 0 && (
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <span className="font-medium text-blue-900">Landed Cost / Panel ({wattage}W)</span>
-                  <span className="font-bold text-blue-900 text-lg">{landedCostPerPanel > 0 ? formatCurrency(landedCostPerPanel) : "—"}</span>
+                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+                  <span className="font-medium text-blue-900 dark:text-blue-300">Landed Cost / Panel ({wattage}W)</span>
+                  <span className="font-bold text-blue-900 dark:text-blue-300 text-lg">{landedCostPerPanel > 0 ? formatCurrency(landedCostPerPanel) : "—"}</span>
                 </div>
               )}
               {panels > 0 && (
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                  <span className="font-medium text-green-900">Total Shipment Value ({panels.toLocaleString()} panels)</span>
-                  <span className="font-bold text-green-900 text-xl">{totalShipmentValue > 0 ? formatCurrency(totalShipmentValue) : "—"}</span>
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-500/10 rounded-lg border border-green-200 dark:border-green-500/30">
+                  <span className="font-medium text-green-900 dark:text-green-300">Total Shipment Value ({panels.toLocaleString()} panels)</span>
+                  <span className="font-bold text-green-900 dark:text-green-300 text-xl">{totalShipmentValue > 0 ? formatCurrency(totalShipmentValue) : "—"}</span>
                 </div>
               )}
             </div>
@@ -297,7 +299,7 @@ export default function CostingPage() {
               if (!tc) return null
               return (
                 <div className="border-t pt-4">
-                  <p className="text-xs font-medium text-gray-500 mb-2">Tax Breakdown (% of invoice value)</p>
+                  <p className="text-xs font-medium text-secondary mb-2">Tax Breakdown (% of invoice value)</p>
                   <div className="space-y-1 text-sm">
                     {[
                       { label: "Customs Duty", value: tc.customsDuty },
@@ -307,11 +309,11 @@ export default function CostingPage() {
                       { label: "Additional ST", value: tc.additionalST },
                       { label: "Income Tax", value: tc.incomeTax },
                     ].map(({ label, value }) => (
-                      <div key={label} className="flex justify-between text-gray-600">
+                      <div key={label} className="flex justify-between text-secondary">
                         <span>{label}</span><span>{value}%</span>
                       </div>
                     ))}
-                    <div className="flex justify-between font-medium text-gray-900 border-t pt-1 mt-1">
+                    <div className="flex justify-between font-medium text-foreground border-t pt-1 mt-1">
                       <span>Total Tax</span><span>{taxRate.toFixed(2)}%</span>
                     </div>
                   </div>
@@ -324,26 +326,26 @@ export default function CostingPage() {
 
       {/* ── Step 02: Import Cost Breakdown ── */}
       <Card title="Step 02 — Import Cost Breakdown">
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-secondary mb-4">
           Enter the actual PKR amounts for each expense category.
           {totalWatts > 0 && <span className="ml-1">Avg/W is calculated on <strong>{totalWatts.toLocaleString()} W</strong> ({panels.toLocaleString()} panels × {wattage}W).</span>}
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide w-64">Expense</th>
-                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide w-44">PKR Amount</th>
-                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide w-24">Avg/W</th>
+              <tr className="border-b border-line">
+                <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-secondary uppercase tracking-wide w-64">Expense</th>
+                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-secondary uppercase tracking-wide w-44">PKR Amount</th>
+                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-secondary uppercase tracking-wide w-24">Avg/W</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-line">
               {impFields.map(({ key, label }) => {
                 const pkrVal = parseFloat(impForm[key]) || 0
                 const avgW = totalWatts > 0 && pkrVal > 0 ? pkrVal / totalWatts : null
                 return (
-                  <tr key={key} className="hover:bg-gray-50">
-                    <td className="px-3 py-2.5 text-[13px] text-gray-700">{label}</td>
+                  <tr key={key} className="hover:bg-muted">
+                    <td className="px-3 py-2.5 text-[13px] text-secondary">{label}</td>
                     <td className="px-3 py-2.5 text-[13px]">
                       <input
                         type="number"
@@ -352,10 +354,10 @@ export default function CostingPage() {
                         onChange={(e) => setImpForm((prev) => ({ ...prev, [key]: e.target.value }))}
                         placeholder="0"
                         aria-label={label}
-                        className="w-full text-right rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full text-right rounded-lg border border-line-strong px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </td>
-                    <td className="px-3 py-2.5 text-[13px] text-right font-medium text-gray-700">
+                    <td className="px-3 py-2.5 text-[13px] text-right font-medium text-secondary">
                       {avgW !== null ? avgW.toFixed(2) : "—"}
                     </td>
                   </tr>
@@ -363,16 +365,16 @@ export default function CostingPage() {
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-gray-300 bg-blue-50">
-                <td className="px-3 py-3 font-bold text-blue-900 text-[13px]">Total Landed Cost (Import)</td>
-                <td className="px-3 py-3 text-right font-bold text-blue-900 text-base">{impTotal > 0 ? formatCurrency(impTotal) : "—"}</td>
-                <td className="px-3 py-3 text-right font-bold text-blue-900 text-[13px]">{avgPerWatt !== null ? avgPerWatt.toFixed(2) : "—"}</td>
+              <tr className="border-t-2 border-line-strong bg-blue-50 dark:bg-blue-500/10">
+                <td className="px-3 py-3 font-bold text-blue-900 dark:text-blue-300 text-[13px]">Total Landed Cost (Import)</td>
+                <td className="px-3 py-3 text-right font-bold text-blue-900 dark:text-blue-300 text-base">{impTotal > 0 ? formatCurrency(impTotal) : "—"}</td>
+                <td className="px-3 py-3 text-right font-bold text-blue-900 dark:text-blue-300 text-[13px]">{avgPerWatt !== null ? avgPerWatt.toFixed(2) : "—"}</td>
               </tr>
             </tfoot>
           </table>
         </div>
         {impTotal > 0 && panels > 0 && (
-          <div className="mt-4 p-3 bg-green-50 rounded-lg text-sm text-green-800 flex justify-between">
+          <div className="mt-4 p-3 bg-green-50 dark:bg-green-500/10 rounded-lg text-sm text-green-800 dark:text-green-300 flex justify-between">
             <span>Import Cost per Panel ({wattage}W)</span>
             <span className="font-bold">{formatCurrency(impTotal / panels)}</span>
           </div>

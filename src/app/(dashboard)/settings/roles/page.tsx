@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Table } from "@/components/ui/Table"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { PermissionMatrix } from "@/components/permissions/PermissionMatrix"
@@ -51,6 +52,8 @@ export default function RolesPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<RoleForm>(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Role | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const openCreate = () => {
     setEditId(null)
@@ -100,22 +103,28 @@ export default function RolesPage() {
     }
   }
 
-  const handleDelete = async (role: Role) => {
-    if (!confirm(`Delete role "${role.title}"? This cannot be undone.`)) return
-    const res = await fetch(`/api/roles/${role.id}`, { method: "DELETE" })
-    if (res.ok) {
-      toast.success("Role deleted")
-      refetch()
-    } else {
-      const data = await res.json()
-      toast.error(data.error || "Failed to delete role")
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/roles/${deleteTarget.id}`, { method: "DELETE" })
+      if (res.ok) {
+        toast.success("Role deleted")
+        setDeleteTarget(null)
+        refetch()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to delete role")
+      }
+    } finally {
+      setDeleting(false)
     }
   }
 
   const rowActions = (role: Role): RowAction[] => {
     const actions: RowAction[] = [{ label: "Edit", icon: <Pencil size={15} />, onClick: () => openEdit(role) }]
     if (!role.isSystem) {
-      actions.push({ label: "Delete", icon: <Trash2 size={15} />, danger: true, onClick: () => handleDelete(role) })
+      actions.push({ label: "Delete", icon: <Trash2 size={15} />, danger: true, onClick: () => setDeleteTarget(role) })
     }
     return actions
   }
@@ -127,10 +136,10 @@ export default function RolesPage() {
       sortable: true,
       render: (row: Role) => (
         <div className="flex items-center gap-2">
-          <ShieldCheck size={15} className="text-slate-400" />
-          <span className="font-medium text-slate-800">{row.title}</span>
+          <ShieldCheck size={15} className="text-tertiary" />
+          <span className="font-medium text-foreground">{row.title}</span>
           {row.isSystem && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">SYSTEM</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-secondary">SYSTEM</span>
           )}
         </div>
       ),
@@ -141,9 +150,9 @@ export default function RolesPage() {
       header: "Access",
       render: (row: Role) =>
         row.fullAccess ? (
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Full Access</span>
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">Full Access</span>
         ) : (
-          <span className="text-xs text-slate-500">{row.permissions.filter((p) => p.canRead || p.canWrite).length} modules</span>
+          <span className="text-xs text-secondary">{row.permissions.filter((p) => p.canRead || p.canWrite).length} modules</span>
         ),
     },
     { key: "users", header: "Users", numeric: true, render: (row: Role) => row._count.users },
@@ -168,7 +177,7 @@ export default function RolesPage() {
           </Button>
         }
       />
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table columns={columns} data={roles || []} emptyMessage="No roles yet" searchPlaceholder="Search roles…" />
       </div>
 
@@ -188,7 +197,7 @@ export default function RolesPage() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
           <div>
-            <p className="text-sm font-medium text-slate-700 mb-2">Permissions</p>
+            <p className="text-sm font-medium text-secondary mb-2">Permissions</p>
             <PermissionMatrix
               value={form.perms}
               fullAccess={form.fullAccess}
@@ -206,6 +215,17 @@ export default function RolesPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        title="Delete Role"
+        message={<>Delete role <span className="font-semibold text-foreground">&ldquo;{deleteTarget?.title}&rdquo;</span>? This cannot be undone.</>}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

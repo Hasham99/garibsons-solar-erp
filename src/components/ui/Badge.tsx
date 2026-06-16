@@ -10,13 +10,13 @@ interface BadgeProps {
 /* Soft 100-level background + 800-level text — the GS Energy badge map.
    One hue per semantic meaning, flat (no ring). */
 const tones = {
-  neutral: "bg-slate-100 text-slate-700",
-  info: "bg-blue-100 text-blue-800",
-  progress: "bg-indigo-100 text-indigo-800",
-  warning: "bg-amber-100 text-amber-800",
-  success: "bg-emerald-100 text-emerald-800",
-  danger: "bg-rose-100 text-rose-800",
-  special: "bg-violet-100 text-violet-800",
+  neutral: "bg-slate-100 text-slate-700 dark:bg-slate-400/10 dark:text-slate-300",
+  info: "bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-300",
+  progress: "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/10 dark:text-indigo-300",
+  warning: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
+  success: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300",
+  danger: "bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300",
+  special: "bg-violet-100 text-violet-800 dark:bg-violet-500/10 dark:text-violet-300",
 }
 
 const statusColors: Record<string, string> = {
@@ -42,6 +42,7 @@ const statusColors: Record<string, string> = {
 
   // Delivery
   AUTHORIZED: tones.info,
+  PARTIALLY_DISPATCHED: tones.warning,
   DISPATCHED: tones.success,
 
   // Invoice

@@ -44,7 +44,7 @@ export function RowActionsMenu({ actions, label = "Row actions" }: { actions: Ro
     }
   }, [open])
 
-  if (actions.length === 0) return <span className="text-gray-300">—</span>
+  if (actions.length === 0) return <span className="text-tertiary">—</span>
 
   const toggle = () => {
     if (!open && btnRef.current) {
@@ -62,7 +62,7 @@ export function RowActionsMenu({ actions, label = "Row actions" }: { actions: Ro
         aria-label={label}
         onClick={(e) => { e.stopPropagation(); toggle() }}
         className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-          open ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+          open ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300" : "border-line bg-surface text-secondary hover:bg-muted hover:text-foreground"
         }`}
       >
         <MoreVertical size={15} />
@@ -72,7 +72,7 @@ export function RowActionsMenu({ actions, label = "Row actions" }: { actions: Ro
         <div
           ref={menuRef}
           style={{ position: "fixed", top: pos.top, right: pos.right }}
-          className="z-50 min-w-44 rounded-xl border border-gray-200 bg-white py-1.5 shadow-lg"
+          className="z-50 min-w-44 rounded-xl border border-line bg-elevated py-1.5 shadow-lg"
         >
           {actions.map((a) => (
             <button
@@ -81,10 +81,10 @@ export function RowActionsMenu({ actions, label = "Row actions" }: { actions: Ro
               disabled={a.disabled}
               onClick={(e) => { e.stopPropagation(); setOpen(false); a.onClick() }}
               className={`flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
-                a.danger ? "text-red-600 hover:bg-red-50" : "text-gray-700 hover:bg-gray-50"
+                a.danger ? "text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10" : "text-secondary hover:bg-muted"
               }`}
             >
-              {a.icon && <span className={a.danger ? "text-red-500" : "text-gray-400"}>{a.icon}</span>}
+              {a.icon && <span className={a.danger ? "text-red-500 dark:text-red-400" : "text-tertiary"}>{a.icon}</span>}
               {a.label}
             </button>
           ))}

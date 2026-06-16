@@ -228,14 +228,14 @@ export default function CustomerReceiptsPage() {
     <div className="space-y-6">
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-500">
-        <button type="button" onClick={() => router.push("/masters/customers")} className="hover:text-gray-800 flex items-center gap-1">
+      <div className="flex items-center gap-2 text-sm text-secondary">
+        <button type="button" onClick={() => router.push("/masters/customers")} className="hover:text-foreground flex items-center gap-1">
           <ArrowLeft size={14} />Customers
         </button>
         <span>/</span>
-        <span className="text-gray-700 font-medium">{customer?.name || "Customer"}</span>
+        <span className="text-secondary font-medium">{customer?.name || "Customer"}</span>
         <span>/</span>
-        <span className="text-gray-900 font-semibold">Receipts</span>
+        <span className="text-foreground font-semibold">Receipts</span>
       </div>
 
       <Header
@@ -246,44 +246,44 @@ export default function CustomerReceiptsPage() {
       {/* Balance Banner */}
       {balance && (
         <div className={`rounded-xl p-4 flex items-center justify-between ${
-          bal >= 0 ? "bg-green-50 border border-green-200" : "bg-orange-50 border border-orange-200"
+          bal >= 0 ? "bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30" : "bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/30"
         }`}>
           <div className="flex items-center gap-3">
             {bal >= 0
-              ? <TrendingUp size={20} className="text-green-600" />
-              : <TrendingDown size={20} className="text-orange-600" />
+              ? <TrendingUp size={20} className="text-green-600 dark:text-green-300" />
+              : <TrendingDown size={20} className="text-orange-600 dark:text-orange-300" />
             }
             <div>
-              <p className={`font-semibold text-sm ${bal >= 0 ? "text-green-900" : "text-orange-900"}`}>
+              <p className={`font-semibold text-sm ${bal >= 0 ? "text-green-900 dark:text-green-300" : "text-orange-900 dark:text-orange-300"}`}>
                 {bal >= 0
                   ? `Advance Credit: ${formatCurrency(bal)}`
                   : `Pending from Customer: ${formatCurrency(Math.abs(bal))}`
                 }
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-secondary mt-0.5">
                 Total collected: {formatCurrency(totalCollected)} · Total SO value: {formatCurrency(totalSOValue)}
               </p>
             </div>
           </div>
-          <Wallet size={24} className={bal >= 0 ? "text-green-400" : "text-orange-400"} />
+          <Wallet size={24} className={bal >= 0 ? "text-green-400 dark:text-green-400" : "text-orange-400 dark:text-orange-400"} />
         </div>
       )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-          <p className="text-sm text-gray-500">Total Collected</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalCollected)}</p>
+        <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+          <p className="text-sm text-secondary">Total Collected</p>
+          <p className="text-2xl font-bold text-green-600 dark:text-green-300 mt-1">{formatCurrency(totalCollected)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-          <p className="text-sm text-gray-500">Total SO Value</p>
-          <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalSOValue)}</p>
+        <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+          <p className="text-sm text-secondary">Total SO Value</p>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-300 mt-1">{formatCurrency(totalSOValue)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-5">
-          <p className={`text-sm ${bal >= 0 ? "text-green-600" : "text-gray-500"}`}>
+        <div className="bg-surface rounded-xl shadow-card border border-line p-5">
+          <p className={`text-sm ${bal >= 0 ? "text-green-600 dark:text-green-300" : "text-secondary"}`}>
             {bal >= 0 ? "Advance Credit" : "Pending"}
           </p>
-          <p className={`text-2xl font-bold mt-1 ${bal >= 0 ? "text-green-600" : "text-orange-600"}`}>
+          <p className={`text-2xl font-bold mt-1 ${bal >= 0 ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"}`}>
             {formatCurrency(Math.abs(bal))}
           </p>
         </div>
@@ -291,8 +291,8 @@ export default function CustomerReceiptsPage() {
 
       {/* Selection toolbar */}
       {selectMode && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
-          <p className="text-sm font-medium text-blue-800">Selection mode — {selectedIds.length} collection(s) selected</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 px-4 py-2.5">
+          <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Selection mode — {selectedIds.length} collection(s) selected</p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => setSelected(Object.fromEntries(receipts.map((r) => [r.id, true])))}>Select all</Button>
             <Button size="sm" variant="secondary" onClick={() => setSelected({})} disabled={selectedIds.length === 0}>Deselect all</Button>
@@ -307,9 +307,9 @@ export default function CustomerReceiptsPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">All Receipts ({receiptsData?.total ?? 0})</h3>
+      <div className="bg-surface rounded-xl shadow-card border border-line">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+          <h3 className="font-semibold text-foreground">All Receipts ({receiptsData?.total ?? 0})</h3>
           {canDelete && receipts.length > 0 && !selectMode && (
             <Button size="sm" variant="ghost" onClick={() => setSelectMode(true)}>
               <CheckSquare size={14} className="mr-1" />Select
@@ -343,14 +343,14 @@ export default function CustomerReceiptsPage() {
                 />
               ),
             }] : []),
-            { key: "receiptNo", header: "Receipt No.", sortable: true, render: (r: Receipt) => <span className="font-medium text-blue-700">{r.receiptNo}</span> },
+            { key: "receiptNo", header: "Receipt No.", sortable: true, render: (r: Receipt) => <span className="font-medium text-blue-700 dark:text-blue-300">{r.receiptNo}</span> },
             { key: "valueDate", header: "Bank Value Date", sortable: true, numeric: true, value: (r: Receipt) => r.valueDate, render: (r: Receipt) => <span className="whitespace-nowrap">{formatDate(r.valueDate)}</span> },
             { key: "bank", header: "Bank", sortable: true, value: (r: Receipt) => r.bank.name, render: (r: Receipt) => r.bank.name },
-            { key: "amount", header: "Amount (PKR)", sortable: true, numeric: true, value: (r: Receipt) => r.amount, render: (r: Receipt) => <span className="font-semibold text-green-700">{formatAmount(r.amount)}</span> },
-            { key: "reference", header: "Reference / Slip", render: (r: Receipt) => <span className="text-gray-500">{r.reference || "—"}</span> },
-            { key: "whatsappDate", header: "WhatsApp Date", numeric: true, render: (r: Receipt) => <span className="text-gray-500 whitespace-nowrap">{r.whatsappDate ? formatDate(r.whatsappDate) : "—"}</span> },
-            { key: "notes", header: "Notes", render: (r: Receipt) => <span className="text-gray-500 max-w-xs truncate inline-block align-bottom">{r.notes || "—"}</span> },
-            { key: "createdBy", header: "Recorded By", value: (r: Receipt) => r.createdBy?.name || "—", render: (r: Receipt) => <span className="text-gray-400">{r.createdBy?.name || "—"}</span> },
+            { key: "amount", header: "Amount (PKR)", sortable: true, numeric: true, value: (r: Receipt) => r.amount, render: (r: Receipt) => <span className="font-semibold text-green-700 dark:text-green-300">{formatAmount(r.amount)}</span> },
+            { key: "reference", header: "Reference / Slip", render: (r: Receipt) => <span className="text-secondary">{r.reference || "—"}</span> },
+            { key: "whatsappDate", header: "WhatsApp Date", numeric: true, render: (r: Receipt) => <span className="text-secondary whitespace-nowrap">{r.whatsappDate ? formatDate(r.whatsappDate) : "—"}</span> },
+            { key: "notes", header: "Notes", render: (r: Receipt) => <span className="text-secondary max-w-xs truncate inline-block align-bottom">{r.notes || "—"}</span> },
+            { key: "createdBy", header: "Recorded By", value: (r: Receipt) => r.createdBy?.name || "—", render: (r: Receipt) => <span className="text-tertiary">{r.createdBy?.name || "—"}</span> },
             { key: "actions", header: "Actions", render: (r: Receipt) => (
               <RowActionsMenu actions={receiptRowActions(r)} />
             ) },
@@ -365,7 +365,7 @@ export default function CustomerReceiptsPage() {
         title={`Collection — ${detailRow?.receiptNo || ""}`}
         fields={detailRow ? [
           { label: "Party", value: customer?.name },
-          { label: "Amount", value: <span className="font-bold text-green-700">{formatCurrency(detailRow.amount)}</span> },
+          { label: "Amount", value: <span className="font-bold text-green-700 dark:text-green-300">{formatCurrency(detailRow.amount)}</span> },
           { label: "Bank", value: detailRow.bank.name },
           { label: "Bank Value Date", value: formatDate(detailRow.valueDate) },
           { label: "Reference / Slip", value: detailRow.reference || "—" },
@@ -404,9 +404,9 @@ export default function CustomerReceiptsPage() {
       <Modal isOpen={Boolean(transferReceipt)} onClose={() => setTransferReceipt(null)} title={`Transfer Collection — ${transferReceipt?.receiptNo}`} size="md">
         {transferReceipt && (
           <div className="space-y-4">
-            <div className="rounded-lg bg-gray-50 p-3 text-sm">
-              <p className="font-medium text-gray-900">{formatCurrency(transferReceipt.amount)} · {transferReceipt.bank.name}</p>
-              <p className="text-gray-500 mt-0.5">
+            <div className="rounded-lg bg-muted p-3 text-sm">
+              <p className="font-medium text-foreground">{formatCurrency(transferReceipt.amount)} · {transferReceipt.bank.name}</p>
+              <p className="text-secondary mt-0.5">
                 {formatDate(transferReceipt.valueDate)}{transferReceipt.reference ? ` · Ref: ${transferReceipt.reference}` : ""} — currently under <span className="font-medium">{customer?.name}</span>
               </p>
             </div>
@@ -418,7 +418,7 @@ export default function CustomerReceiptsPage() {
               value={transferTo}
               onChange={setTransferTo}
             />
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+            <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-2.5">
               This moves the payment to the selected party&apos;s ledger. Both parties&apos; balances update immediately.
             </p>
             <div className="flex justify-end gap-3">

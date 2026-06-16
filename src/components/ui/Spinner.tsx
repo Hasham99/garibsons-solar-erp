@@ -14,7 +14,7 @@ export function Spinner({ size = "md", className = "" }: SpinnerProps) {
 
   return (
     <svg
-      className={`animate-spin text-blue-600 ${sizes[size]} ${className}`}
+      className={`animate-spin text-blue-600 dark:text-blue-300 ${sizes[size]} ${className}`}
       fill="none"
       viewBox="0 0 24 24"
     >
@@ -33,7 +33,7 @@ export function LoadingPage() {
     <div className="flex items-center justify-center h-64">
       <div className="text-center">
         <Spinner size="lg" className="mx-auto" />
-        <p className="mt-4 text-gray-500">Loading...</p>
+        <p className="mt-4 text-secondary">Loading...</p>
       </div>
     </div>
   )

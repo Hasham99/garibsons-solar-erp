@@ -20,6 +20,7 @@ import { CsvImport } from "@/components/ui/CsvImport"
 import { TableSkeleton } from "@/components/ui/Skeleton"
 import { formatAmount, formatCurrency, formatDate, formatNumber, statusRowClass } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { useAuth, accessOf } from "@/hooks/useAuth"
 import { can } from "@/lib/permissions/modules"
 
@@ -45,6 +46,19 @@ interface SalesOrder {
     totalAmount: number
     product: { brand: string; wattage: number; panelsPerContainer: number | null; palletsPerContainer: number | null }
   }>
+  deliveryOrders?: Array<{
+    id: string
+    doNumber: string
+    status: string
+    quantity: number
+    liftedQuantity: number
+    balanceQuantity: number
+  }>
+  remainingPanels?: number
+  balanceCancelledQty?: number
+  totalPanels?: number
+  totalPallets?: number
+  totalWatts?: number
   customerId?: string
   customerType?: string
   paymentTerms2?: string
@@ -103,8 +117,9 @@ export default function SalesPage() {
   const quotationId = searchParams.get("quotationId")
 
   const { data: orders, loading, refetch } = useFetch<SalesOrder[]>("/api/sales-orders")
-  const { data: customers } = useFetch<CustomerOption[]>("/api/customers")
-  const { data: products } = useFetch<ProductOption[]>("/api/products")
+  const lookups = useLookups()
+  const customers = lookups.customers as CustomerOption[]
+  const products = lookups.products as ProductOption[]
   const { data: quotation } = useFetch<{
     id: string
     customerId: string
@@ -125,6 +140,8 @@ export default function SalesPage() {
   const [pendingUploadId, setPendingUploadId] = useState<string | null>(null)
   const [cancelOrder, setCancelOrder] = useState<SalesOrder | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [balanceOrder, setBalanceOrder] = useState<SalesOrder | null>(null)
+  const [cancellingBalance, setCancellingBalance] = useState(false)
   const [detailRow, setDetailRow] = useState<SalesOrder | null>(null)
   const [lastUsedProductId, setLastUsedProductId] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -376,6 +393,25 @@ export default function SalesPage() {
     }
   }
 
+  const handleCancelBalance = async () => {
+    if (!balanceOrder) return
+    setCancellingBalance(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${balanceOrder.id}/cancel-balance`, { method: "POST" })
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(`Closed ${Number(data.cancelledPanels || 0).toLocaleString()} undelivered panels`)
+        refetch()
+      } else {
+        const data = await response.json().catch(() => ({ error: "Failed" }))
+        toast.error(data.error || "Failed to cancel balance")
+      }
+    } finally {
+      setCancellingBalance(false)
+      setBalanceOrder(null)
+    }
+  }
+
   const handleVerifyPayment = async (id: string) => {
     const response = await fetch(`/api/sales-orders/${id}/verify-payment`, { method: "POST" })
     if (response.ok) { toast.success("Payment verified"); refetch() }
@@ -444,11 +480,26 @@ export default function SalesPage() {
     if (row.status === "PENDING_PAYMENT" && can(accessOf(user), "sales", "write")) {
       actions.push({ label: "Verify Payment", icon: <CheckCircle size={15} />, onClick: () => handleVerifyPayment(row.id) })
     }
-    if (row.status === "PAYMENT_CONFIRMED") {
+    const dos = row.deliveryOrders || []
+    const activeDOs = dos.filter((d) => d.status !== "CANCELLED")
+    const remaining = row.remainingPanels ?? 0
+    const anyLifted = dos.some((d) => ["DISPATCHED", "PARTIALLY_DISPATCHED"].includes(d.status))
+
+    // Create DO while there are panels left to deliver.
+    if (["PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status) && remaining > 0) {
       actions.push({ label: "Create DO", icon: <Truck size={15} />, onClick: () => (window.location.href = `/delivery?soId=${row.id}`) })
     }
+
     if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status)) {
-      actions.push({ label: "Cancel SO (+ its DOs)", icon: <Trash2 size={15} />, danger: true, onClick: () => setCancelOrder(row) })
+      // Full void — only while nothing has been lifted.
+      if (!anyLifted) {
+        const label = activeDOs.length > 0 ? "Cancel SO (+ its DOs)" : "Cancel SO"
+        actions.push({ label, icon: <Trash2 size={15} />, danger: true, onClick: () => setCancelOrder(row) })
+      }
+      // Close just the undelivered remainder whenever a DO already covers part of the SO.
+      if (activeDOs.length > 0 && remaining > 0) {
+        actions.push({ label: "Cancel SO Balance", icon: <Trash2 size={15} />, danger: true, onClick: () => setBalanceOrder(row) })
+      }
     }
     return actions
   }
@@ -466,9 +517,9 @@ export default function SalesPage() {
       value: (row: SalesOrder) => row.lines?.[0]?.ratePerWatt ?? 0,
       render: (row: SalesOrder) => {
         const rates = [...new Set((row.lines || []).map((l) => l.ratePerWatt))].sort((a, b) => a - b)
-        if (rates.length === 0) return <span className="text-gray-400">—</span>
+        if (rates.length === 0) return <span className="text-tertiary">—</span>
         return (
-          <span className="font-medium text-blue-700 whitespace-nowrap">
+          <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">
             {rates.length === 1 ? rates[0].toFixed(2) : `${rates[0].toFixed(2)}–${rates[rates.length - 1].toFixed(2)}`}
           </span>
         )
@@ -517,7 +568,7 @@ export default function SalesPage() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={orders || []}
@@ -547,14 +598,21 @@ export default function SalesPage() {
           { label: "GST", value: detailRow.gstRate > 0 ? `${detailRow.gstRate}% = ${formatCurrency(detailRow.gstAmount)}` : "—" },
           { label: "Grand Total", value: <span className="font-bold">{formatCurrency(detailRow.grandTotal)}</span> },
           { label: "Payment Proof", value: detailRow.paymentProofUrl ? "Uploaded" : "—" },
+          { label: "Total Panels", value: `${(detailRow.totalPanels ?? 0).toLocaleString()}`, numeric: true },
+          { label: "Total Pallets", value: `${(detailRow.totalPallets ?? 0).toLocaleString()}`, numeric: true },
+          { label: "Total Watts", value: `${(detailRow.totalWatts ?? 0).toLocaleString()}`, numeric: true },
+          { label: "Remaining to Deliver", value: `${(detailRow.remainingPanels ?? 0).toLocaleString()} panels`, numeric: true },
+          ...((detailRow.balanceCancelledQty ?? 0) > 0
+            ? [{ label: "Balance Closed", value: `${detailRow.balanceCancelledQty!.toLocaleString()} panels` }]
+            : []),
           ...(detailRow.notes ? [{ label: "Notes", value: detailRow.notes, wide: true }] : []),
         ] : []}
         actions={detailRow ? soRowActions(detailRow) : []}
       >
         {detailRow?.lines?.length ? (
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <div className="rounded-lg border border-line overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+              <thead className="bg-muted text-xs text-secondary uppercase">
                 <tr>
                   <th className="px-3 py-2 text-left">Product</th>
                   <th className="px-3 py-2 text-right">Panels</th>
@@ -563,7 +621,7 @@ export default function SalesPage() {
                   <th className="px-3 py-2 text-right">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {detailRow.lines.map((l, i) => (
                   <tr key={i}>
                     <td className="px-3 py-2">{l.product?.brand} ({l.product?.wattage}W)</td>
@@ -575,6 +633,43 @@ export default function SalesPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : null}
+
+        {detailRow?.deliveryOrders && detailRow.deliveryOrders.length > 0 ? (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-tertiary mb-1.5">Delivery Orders</p>
+            <div className="rounded-lg border border-line overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-xs text-secondary uppercase">
+                  <tr>
+                    <th className="px-3 py-2 text-left">DO #</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-right">Ordered</th>
+                    <th className="px-3 py-2 text-right">Lifted</th>
+                    <th className="px-3 py-2 text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {detailRow.deliveryOrders.map((d) => (
+                    <tr key={d.id}>
+                      <td className="px-3 py-2 font-medium text-foreground">{d.doNumber}</td>
+                      <td className="px-3 py-2"><Badge status={d.status} /></td>
+                      <td className="px-3 py-2 text-right tabular-nums">{d.quantity.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-emerald-700 dark:text-emerald-300">{d.liftedQuantity.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-amber-700 dark:text-amber-300">{d.balanceQuantity.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-sm text-secondary">
+              Remaining to deliver:{" "}
+              <span className="font-semibold text-foreground">{(detailRow.remainingPanels ?? 0).toLocaleString()} panels</span>
+              {(detailRow.balanceCancelledQty ?? 0) > 0 && (
+                <span className="text-tertiary"> · {detailRow.balanceCancelledQty!.toLocaleString()} closed</span>
+              )}
+            </p>
           </div>
         ) : null}
       </DetailsModal>
@@ -592,7 +687,28 @@ export default function SalesPage() {
           <span>
             Cancel <strong>{cancelOrder?.soNumber}</strong> for <strong>{cancelOrder?.customer?.name}</strong> ({formatCurrency(cancelOrder?.grandTotal || 0)})?
             <br />Any delivery orders created for it will also be cancelled and their reserved stock released.
-            Dispatched DOs block cancellation.
+            Once any stock is lifted, the SO can no longer be cancelled.
+          </span>
+        }
+      />
+
+      {/* Cancel SO Balance confirmation (close undelivered remainder after partial delivery) */}
+      <ConfirmDialog
+        isOpen={Boolean(balanceOrder)}
+        onClose={() => setBalanceOrder(null)}
+        onConfirm={handleCancelBalance}
+        loading={cancellingBalance}
+        title={`Cancel SO Balance — ${balanceOrder?.soNumber || ""}`}
+        confirmLabel="Cancel Balance"
+        cancelLabel="Keep Open"
+        message={
+          <span>
+            Close the undelivered balance of{" "}
+            <strong>{(balanceOrder?.remainingPanels ?? 0).toLocaleString()} panels</strong> on{" "}
+            <strong>{balanceOrder?.soNumber}</strong> for <strong>{balanceOrder?.customer?.name}</strong>?
+            <br />
+            The delivered panels stay on record; the remaining quantity is written off and no further delivery
+            orders can be raised for it.
           </span>
         }
       />
@@ -606,7 +722,7 @@ export default function SalesPage() {
             ) : (
               <iframe src={viewProof.url} className="h-96 w-full rounded-lg border" title="Payment proof" />
             )}
-            <a href={viewProof.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+            <a href={viewProof.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
               Open in new tab
             </a>
           </div>
@@ -621,8 +737,8 @@ export default function SalesPage() {
         size="xl"
       >
         <div className="space-y-5">
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <p className="text-sm font-semibold text-blue-900 mb-3">Customer</p>
+          <div className="rounded-xl border border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 p-4">
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3">Customer</p>
             <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr]">
               <div className="relative">
                 <Input
@@ -636,19 +752,19 @@ export default function SalesPage() {
                   }}
                 />
                 {customerResults.length > 0 && form.customerId === "" && (
-                  <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                  <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-line bg-elevated shadow-lg">
                     {customerResults.slice(0, 8).map((c) => (
                       <button
                         key={c.id}
                         type="button"
-                        className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50"
+                        className="flex w-full items-start justify-between gap-3 border-b border-line px-3 py-2 text-left last:border-b-0 hover:bg-muted"
                         onMouseDown={(e) => { e.preventDefault(); selectCustomer(c) }}
                       >
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{c.name}</p>
-                          <p className="text-xs text-gray-500">{c.contactPhone || c.type.replace(/_/g, " ")}</p>
+                          <p className="text-sm font-medium text-foreground">{c.name}</p>
+                          <p className="text-xs text-secondary">{c.contactPhone || c.type.replace(/_/g, " ")}</p>
                         </div>
-                        <span className="text-xs text-gray-400">{c.paymentTerms.replace(/_/g, " ")}</span>
+                        <span className="text-xs text-tertiary">{c.paymentTerms.replace(/_/g, " ")}</span>
                       </button>
                     ))}
                   </div>
@@ -677,15 +793,15 @@ export default function SalesPage() {
             </div>
 
             {selectedCustomer && (
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-blue-900">
-                <span className="rounded-full bg-white px-2.5 py-1 font-medium">{selectedCustomer.name}</span>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-blue-900 dark:text-blue-300">
+                <span className="rounded-full bg-surface px-2.5 py-1 font-medium">{selectedCustomer.name}</span>
                 <span>Terms: {selectedCustomer.paymentTerms.replace(/_/g, " ")}</span>
                 {selectedCustomer.creditLimit && <span>Credit limit: {formatCurrency(selectedCustomer.creditLimit)}</span>}
                 {customerBalance !== null && (
                   <span className={`rounded-full px-2.5 py-1 font-semibold ${
                     customerBalance.balance >= 0
-                      ? "bg-green-100 text-green-800"
-                      : "bg-orange-100 text-orange-800"
+                      ? "bg-green-100 dark:bg-green-500/10 text-green-800 dark:text-green-300"
+                      : "bg-orange-100 dark:bg-orange-500/10 text-orange-800 dark:text-orange-300"
                   }`}>
                     {customerBalance.balance >= 0
                       ? `Advance: ${formatCurrency(customerBalance.balance)}`
@@ -701,8 +817,8 @@ export default function SalesPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">Order Lines</p>
-                <p className="text-xs text-gray-500">Select SKU — wattage and panels auto-fill from master data.</p>
+                <p className="text-sm font-semibold text-foreground">Order Lines</p>
+                <p className="text-xs text-secondary">Select SKU — wattage and panels auto-fill from master data.</p>
               </div>
               <Button size="sm" variant="ghost" onClick={addLine}>+ Add Line</Button>
             </div>
@@ -710,7 +826,7 @@ export default function SalesPage() {
             {lines.map((line, index) => {
               const computedLine = computedLines[index]
               return (
-                <div key={`${index}-${line.productId}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div key={`${index}-${line.productId}`} className="rounded-xl border border-line bg-muted p-4">
                   <div className="grid gap-3 lg:grid-cols-[2fr_0.8fr_0.8fr_0.9fr_auto]">
                     <SearchableSelect
                       label="SKU / Product"
@@ -755,32 +871,32 @@ export default function SalesPage() {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-3 rounded-lg bg-white p-3 text-sm md:grid-cols-4">
+                  <div className="mt-3 grid gap-3 rounded-lg bg-surface p-3 text-sm md:grid-cols-4">
                     <div>
-                      <p className="text-xs text-gray-500">Panels</p>
-                      <p className="font-semibold text-gray-900">{computedLine.quantity.toLocaleString()}</p>
+                      <p className="text-xs text-secondary">Panels</p>
+                      <p className="font-semibold text-foreground">{computedLine.quantity.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Watts</p>
-                      <p className="font-semibold text-gray-900">{computedLine.watts.toLocaleString()}</p>
+                      <p className="text-xs text-secondary">Watts</p>
+                      <p className="font-semibold text-foreground">{computedLine.watts.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Rate / Panel</p>
-                      <p className="font-semibold text-gray-900">{formatCurrency(computedLine.ratePerPanel)}</p>
+                      <p className="text-xs text-secondary">Rate / Panel</p>
+                      <p className="font-semibold text-foreground">{formatCurrency(computedLine.ratePerPanel)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Line Total</p>
-                      <p className="font-semibold text-gray-900">{formatCurrency(computedLine.totalAmount)}</p>
+                      <p className="text-xs text-secondary">Line Total</p>
+                      <p className="font-semibold text-foreground">{formatCurrency(computedLine.totalAmount)}</p>
                     </div>
                   </div>
 
                   {computedLine.product && computedLine.panelsPerPallet > 0 && (
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-secondary">
                       Packing: {formatNumber(computedLine.panelsPerPallet, 0)} panels/pallet · {computedLine.product.panelsPerContainer?.toLocaleString() || "—"} panels/container
                     </p>
                   )}
                   {computedLine.invalidPallets && (
-                    <p className="mt-2 text-xs font-medium text-red-600">This SKU needs container/pallet packing configured in product master.</p>
+                    <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-300">This SKU needs container/pallet packing configured in product master.</p>
                   )}
                 </div>
               )
@@ -789,7 +905,7 @@ export default function SalesPage() {
 
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
             <div className="space-y-3">
-              <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+              <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-line p-3 hover:bg-muted">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded accent-blue-600"
@@ -797,8 +913,8 @@ export default function SalesPage() {
                   onChange={(e) => setForm((cur) => ({ ...cur, gstInvoice: e.target.checked }))}
                 />
                 <div>
-                  <p className="text-sm font-medium text-gray-800">GST Invoice Required</p>
-                  <p className="text-xs text-gray-500">Customer requests FBR GST invoice (exclusive GST)</p>
+                  <p className="text-sm font-medium text-foreground">GST Invoice Required</p>
+                  <p className="text-xs text-secondary">Customer requests FBR GST invoice (exclusive GST)</p>
                 </div>
               </label>
               {form.gstInvoice && (
@@ -826,12 +942,12 @@ export default function SalesPage() {
               />
             </div>
 
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
-              <div className="mb-2 flex items-center justify-between text-xs text-blue-800">
+            <div className="rounded-xl border border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 p-4 text-sm">
+              <div className="mb-2 flex items-center justify-between text-xs text-blue-800 dark:text-blue-300">
                 <span>Total Panels</span>
                 <span className="font-semibold">{totalPanels.toLocaleString()}</span>
               </div>
-              <div className="mb-2 flex items-center justify-between text-xs text-blue-800">
+              <div className="mb-2 flex items-center justify-between text-xs text-blue-800 dark:text-blue-300">
                 <span>Total Watts</span>
                 <span className="font-semibold">{totalWatts.toLocaleString()}</span>
               </div>
@@ -840,12 +956,12 @@ export default function SalesPage() {
                 <span className="font-semibold">{formatCurrency(subTotal)}</span>
               </div>
               {form.gstInvoice && (
-                <div className="mt-1 flex items-center justify-between text-orange-700">
+                <div className="mt-1 flex items-center justify-between text-orange-700 dark:text-orange-300">
                   <span>GST ({gstRate}%)</span>
                   <span className="font-semibold">+ {formatCurrency(gstAmount)}</span>
                 </div>
               )}
-              <div className="mt-2 flex items-center justify-between border-t border-blue-200 pt-2 text-base font-bold text-blue-900">
+              <div className="mt-2 flex items-center justify-between border-t border-blue-200 dark:border-blue-500/30 pt-2 text-base font-bold text-blue-900 dark:text-blue-300">
                 <span>Grand Total</span>
                 <span>{formatCurrency(grandTotal)}</span>
               </div>
@@ -853,7 +969,7 @@ export default function SalesPage() {
           </div>
 
           {creditWarning && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">
               {creditWarning}
             </div>
           )}

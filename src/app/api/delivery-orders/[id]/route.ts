@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 import { buildReservationPlan, getOutstandingReservations } from "@/lib/stock"
+import { committedPanels, liftedPanels } from "@/lib/delivery"
 
 class DeliveryOrderError extends Error {
   status: number
@@ -45,25 +46,48 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         warehouse: {
           include: { contacts: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] } },
         },
+        // Lean select — we only need movement totals + each entry's product id
+        // (for per-line lifted progress), not the full stock entry / product.
         stockMovements: {
-          include: {
-            stockEntry: {
-              include: {
-                product: true,
-              },
-            },
+          select: {
+            type: true,
+            quantity: true,
+            watts: true,
+            stockEntryId: true,
+            stockEntry: { select: { productId: true } },
           },
         },
-        invoices: true,
       },
     })
     if (!deliveryOrder) return Response.json({ error: "Not found" }, { status: 404 })
 
     const outstandingReservations = getOutstandingReservations(deliveryOrder.stockMovements)
 
+    // Lifted panels per product (from STOCK_OUT movements) → per-line progress.
+    const liftedByProduct: Record<string, number> = {}
+    for (const m of deliveryOrder.stockMovements) {
+      if (m.type === "STOCK_OUT" && m.stockEntry?.productId) {
+        liftedByProduct[m.stockEntry.productId] = (liftedByProduct[m.stockEntry.productId] || 0) + m.quantity
+      }
+    }
+    const lineProgress = deliveryOrder.lines.map((line) => {
+      const lifted = Math.min(line.quantity, liftedByProduct[line.productId] || 0)
+      return {
+        productId: line.productId,
+        productName: line.product?.name ?? "",
+        wattage: line.product?.wattage ?? 0,
+        ordered: line.quantity,
+        lifted,
+        balance: Math.max(0, line.quantity - lifted),
+      }
+    })
+
     return Response.json({
       ...deliveryOrder,
       outstandingReservations,
+      lineProgress,
+      liftedQuantity: liftedPanels(deliveryOrder.stockMovements),
+      balanceQuantity: outstandingReservations.reduce((t, r) => t + r.quantity, 0),
     })
   } catch (error) {
     console.error(error)
@@ -93,7 +117,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             salesOrder: {
               include: {
                 lines: { include: { product: { select: { name: true, wattage: true } } } },
-                deliveryOrders: { select: { id: true, status: true, quantity: true } },
+                deliveryOrders: {
+                  select: {
+                    id: true,
+                    status: true,
+                    quantity: true,
+                    stockMovements: { select: { type: true, quantity: true, watts: true, stockEntryId: true } },
+                  },
+                },
               },
             },
           },
@@ -110,10 +141,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
         const requestedPanels = requestLines.reduce((s, l) => s + l.quantity, 0)
         const soTotalPanels = existing.salesOrder.lines.reduce((s, l) => s + l.quantity, 0)
-        const otherDispatched = existing.salesOrder.deliveryOrders
-          .filter((d) => d.id !== id && d.status !== "CANCELLED")
-          .reduce((s, d) => s + d.quantity, 0)
-        const remaining = soTotalPanels - otherDispatched
+        // Panels committed by OTHER DOs (delivered + reserved) plus any written-off balance.
+        const otherCommitted = existing.salesOrder.deliveryOrders
+          .filter((d) => d.id !== id)
+          .reduce((s, d) => s + committedPanels(d.stockMovements), 0)
+        const remaining = soTotalPanels - otherCommitted - existing.salesOrder.balanceCancelledQty
         if (requestedPanels > remaining) {
           throw new DeliveryOrderError(`Requested ${requestedPanels} panels but only ${remaining} remain undelivered on this sales order`, 422)
         }

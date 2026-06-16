@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 import { useFetch } from "@/hooks/useFetch"
+import { useLookups } from "@/components/lookups/LookupsProvider"
 import { useAuth, accessOf } from "@/hooks/useAuth"
 import { can, REPORT_VIEW_TO_MODULE } from "@/lib/permissions/modules"
 import { Header } from "@/components/layout/Header"
@@ -20,6 +21,7 @@ import {
   LineChart as LineIcon, Package, ShoppingCart, SlidersHorizontal, TrendingUp, Wallet, X,
 } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { useChartTheme } from "@/hooks/useChartTheme"
 import toast from "react-hot-toast"
 
 // ---------- response shapes ----------
@@ -212,12 +214,12 @@ function Kpi({ label, value, sub, full, icon, tone = "blue" }: {
 }) {
   const subLine = full && full !== value ? (sub ? `${full} · ${sub}` : full) : sub
   return (
-    <div className="bg-white rounded-xl shadow-card border border-slate-200/70 p-4 min-w-0 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" title={full || undefined}>
+    <div className="bg-surface rounded-xl shadow-card border border-line p-4 min-w-0 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" title={full || undefined}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 truncate" title={label}>{label}</p>
-          <p className="mt-1.5 text-xl xl:text-[22px] font-bold text-gray-900 leading-none whitespace-nowrap tabular-nums">{value}</p>
-          <p className={`mt-1.5 text-xs text-gray-400 truncate ${subLine ? "" : "invisible"}`} title={subLine}>{subLine || "·"}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-tertiary truncate" title={label}>{label}</p>
+          <p className="mt-1.5 text-xl xl:text-[22px] font-bold text-foreground leading-none whitespace-nowrap tabular-nums">{value}</p>
+          <p className={`mt-1.5 text-xs text-tertiary truncate ${subLine ? "" : "invisible"}`} title={subLine}>{subLine || "·"}</p>
         </div>
         {icon && <div className={`p-2.5 rounded-xl shrink-0 text-white shadow-lg ${KPI_TONES[tone]}`}>{icon}</div>}
       </div>
@@ -241,11 +243,11 @@ function MoneyKpi({ label, amount, sub, icon, tone }: { label: string; amount: n
 
 function SectionCard({ title, subtitle, children, headerExtra }: { title: string; subtitle?: string; children: ReactNode; headerExtra?: ReactNode }) {
   return (
-    <div className="bg-white rounded-xl shadow-card border border-slate-200/70 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+    <div className="bg-surface rounded-xl shadow-card border border-line overflow-hidden">
+      <div className="px-5 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-gray-900">{title}</h3>
-          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+          <h3 className="font-semibold text-foreground">{title}</h3>
+          {subtitle && <p className="text-xs text-secondary mt-0.5">{subtitle}</p>}
         </div>
         {headerExtra}
       </div>
@@ -268,20 +270,21 @@ function BucketStrip({ items }: { items: { label: string; value: number; tone: s
 }
 
 function TrendChart({ data, xKey, yKey, label, color = "#3b82f6" }: { data: Record<string, unknown>[]; xKey: string; yKey: string; label: string; color?: string }) {
+  const chart = useChartTheme()
   return (
     <SectionCard title={label}>
       <div className="p-4">
         {data.length ? (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "#64748b" }} tickLine={false} axisLine={{ stroke: "#e2e8f0" }} />
-              <YAxis tick={{ fontSize: 12, fill: "#64748b" }} tickLine={false} axisLine={false} tickFormatter={(v) => compactNum(Number(v))} width={48} />
-              <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Value"]} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)", fontSize: 13 }} cursor={{ fill: "#f8fafc" }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+              <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: chart.axis }} tickLine={false} axisLine={{ stroke: chart.axisLine }} />
+              <YAxis tick={{ fontSize: 12, fill: chart.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => compactNum(Number(v))} width={48} />
+              <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Value"]} contentStyle={chart.tooltipStyle} cursor={{ fill: chart.cursor }} />
               <Bar dataKey={yKey} fill={color} radius={[6, 6, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
-        ) : <div className="h-40 flex items-center justify-center text-gray-400 text-sm">No data</div>}
+        ) : <div className="h-40 flex items-center justify-center text-tertiary text-sm">No data</div>}
       </div>
     </SectionCard>
   )
@@ -299,7 +302,7 @@ function BreakdownCard<T extends Record<string, unknown>>({ title, columns, data
 
 const moneyCol = <T extends Record<string, unknown>>(key: string, header: string, strong = false): Column<T> => ({
   key, header: `${header} (PKR)`, sortable: true, className: "text-right", numeric: true,
-  render: (r) => <span className={`whitespace-nowrap ${strong ? "font-semibold text-gray-900" : ""}`}>{formatAmount(Number(r[key]))}</span>,
+  render: (r) => <span className={`whitespace-nowrap ${strong ? "font-semibold text-foreground" : ""}`}>{formatAmount(Number(r[key]))}</span>,
 })
 const numCol = <T extends Record<string, unknown>>(key: string, header: string): Column<T> => ({
   key, header, sortable: true, className: "text-right", numeric: true, render: (r) => Number(r[key]).toLocaleString(),
@@ -339,11 +342,12 @@ export default function ReportsPage() {
   useEffect(() => { setHiddenCols({}) }, [stockUnit])
 
   // Option sources for the Filters panel
-  const { data: customers } = useFetch<{ id: string; name: string }[]>("/api/customers")
-  const { data: banks } = useFetch<{ id: string; name: string }[]>("/api/banks")
-  const { data: suppliersList } = useFetch<{ id: string; name: string }[]>("/api/suppliers")
-  const { data: warehousesList } = useFetch<{ id: string; name: string }[]>("/api/warehouses")
-  const { data: productsList } = useFetch<{ id: string; brand: string }[]>("/api/products")
+  const lookups = useLookups()
+  const customers = lookups.customers as { id: string; name: string }[]
+  const banks = lookups.banks as { id: string; name: string }[]
+  const suppliersList = lookups.suppliers as { id: string; name: string }[]
+  const warehousesList = lookups.warehouses as { id: string; name: string }[]
+  const productsList = lookups.products as { id: string; brand: string }[]
   const brands = useMemo(() => [...new Set((productsList || []).map((p) => p.brand).filter(Boolean))].sort(), [productsList])
 
   const serverDims = item.dims.filter((d) => !(item.clientDims || []).includes(d))
@@ -620,7 +624,7 @@ export default function ReportsPage() {
 
   const dimSelect = (key: DimKey, label: string, options: { value: string; label: string }[], searchable = false) => (
     <div key={key}>
-      <label className="mb-1 block text-xs font-medium text-gray-600">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-secondary">{label}</label>
       {searchable ? (
         <SearchableSelect
           options={options}
@@ -632,7 +636,7 @@ export default function ReportsPage() {
         <select
           value={dims[key]}
           onChange={(e) => setDims((d) => ({ ...d, [key]: e.target.value }))}
-          className="block w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="block w-full rounded-md border border-line-strong bg-surface px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All</option>
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -643,7 +647,7 @@ export default function ReportsPage() {
 
   const dateInput = (value: string, onChange: (v: string) => void) => (
     <input type="date" value={value} onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      className="rounded-lg border border-line-strong px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
   )
 
   const showFiltersPopover = item.dims.length > 0 || item.dateMode === "rangeOptional" || item.dateMode === "asOf"
@@ -658,21 +662,21 @@ export default function ReportsPage() {
 
       <div className="space-y-5">
           {/* Toolbar: period + detailed filters + sections + columns + exports */}
-          <div className="bg-white rounded-xl shadow-card border border-slate-200/70 px-5 py-3.5 space-y-3">
+          <div className="bg-surface rounded-xl shadow-card border border-line px-5 py-3.5 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-sm font-semibold text-gray-900 mr-1">{item.label}</h2>
+              <h2 className="text-sm font-semibold text-foreground mr-1">{item.label}</h2>
 
               {item.dateMode === "range" && (
                 <div className="flex flex-wrap items-center gap-2">
                   {dateInput(from, setFrom)}
-                  <span className="text-gray-400">→</span>
+                  <span className="text-tertiary">→</span>
                   {dateInput(to, setTo)}
                   {[
                     { l: "Today", f: today, t: today },
                     { l: "This month", f: today.slice(0, 8) + "01", t: today },
                     { l: "From 1 May", f: "2026-05-01", t: today },
                   ].map((p) => (
-                    <button key={p.l} onClick={() => { setFrom(p.f); setTo(p.t) }} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 whitespace-nowrap">{p.l}</button>
+                    <button key={p.l} onClick={() => { setFrom(p.f); setTo(p.t) }} className="rounded-lg border border-line px-3 py-1.5 text-xs text-secondary hover:bg-muted whitespace-nowrap">{p.l}</button>
                   ))}
                 </div>
               )}
@@ -681,17 +685,17 @@ export default function ReportsPage() {
                 {showFiltersPopover && (
                   <Popover button={<><SlidersHorizontal size={15} />Filters</>} badge={activeDimCount + dateFilterCount}>
                     <div className="mb-3 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-900">Report Filters</span>
+                      <span className="text-sm font-semibold text-foreground">Report Filters</span>
                       {(activeDimCount + dateFilterCount) > 0 && (
-                        <button type="button" onClick={() => { setDims(EMPTY_DIMS); setOptRange({ from: "", to: "" }); setAsOfDate("") }} className="text-xs font-medium text-blue-600 hover:text-blue-800">Clear all</button>
+                        <button type="button" onClick={() => { setDims(EMPTY_DIMS); setOptRange({ from: "", to: "" }); setAsOfDate("") }} className="text-xs font-medium text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-300">Clear all</button>
                       )}
                     </div>
                     <div className="space-y-3">
                       {item.dateMode === "asOf" && (
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-600">Stock as of date</label>
+                          <label className="mb-1 block text-xs font-medium text-secondary">Stock as of date</label>
                           <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)}
-                            className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            className="block w-full rounded-md border border-line-strong px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                           <div className="mt-2 flex flex-wrap gap-2">
                             {[
                               { l: "Today (live)", v: "" },
@@ -699,20 +703,20 @@ export default function ReportsPage() {
                               { l: "1 month ago", v: (() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 10) })() },
                             ].map((p) => (
                               <button key={p.l} type="button" onClick={() => setAsOfDate(p.v)}
-                                className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50">{p.l}</button>
+                                className="rounded-lg border border-line px-2.5 py-1 text-xs text-secondary hover:bg-muted">{p.l}</button>
                             ))}
                           </div>
-                          <p className="mt-1.5 text-[11px] text-gray-400">Rewinds the whole report to end of that day — leave empty for live position.</p>
+                          <p className="mt-1.5 text-[11px] text-tertiary">Rewinds the whole report to end of that day — leave empty for live position.</p>
                         </div>
                       )}
                       {item.dateMode === "rangeOptional" && (
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-600">Received between</label>
+                          <label className="mb-1 block text-xs font-medium text-secondary">Received between</label>
                           <div className="space-y-2">
                             <input type="date" value={optRange.from} onChange={(e) => setOptRange((r) => ({ ...r, from: e.target.value }))}
-                              className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              className="block w-full rounded-md border border-line-strong px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             <input type="date" value={optRange.to} onChange={(e) => setOptRange((r) => ({ ...r, to: e.target.value }))}
-                              className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              className="block w-full rounded-md border border-line-strong px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                           </div>
                         </div>
                       )}
@@ -737,45 +741,45 @@ export default function ReportsPage() {
 
                 <Popover button={<><Columns3 size={15} />Columns</>} badge={hiddenColCount}>
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">Table & export columns</span>
+                    <span className="text-sm font-semibold text-foreground">Table & export columns</span>
                     {hiddenColCount > 0 && (
-                      <button type="button" onClick={() => setHiddenCols({})} className="text-xs font-medium text-blue-600 hover:text-blue-800">Show all</button>
+                      <button type="button" onClick={() => setHiddenCols({})} className="text-xs font-medium text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-300">Show all</button>
                     )}
                   </div>
                   <div className="space-y-1 max-h-72 overflow-y-auto">
                     {columnSpecs.map((c) => (
-                      <label key={c.key} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-gray-50 cursor-pointer">
+                      <label key={c.key} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted cursor-pointer">
                         <input
                           type="checkbox"
                           className="h-4 w-4 rounded accent-blue-600"
                           checked={!hiddenCols[c.key]}
                           onChange={(e) => setHiddenCols((cur) => ({ ...cur, [c.key]: !e.target.checked }))}
                         />
-                        <span className="text-sm text-gray-700">{c.header}</span>
+                        <span className="text-sm text-secondary">{c.header}</span>
                       </label>
                     ))}
                   </div>
-                  <p className="mt-2 text-[11px] text-gray-400">Unticked columns are hidden in the table below and left out of PDF / Excel exports.</p>
+                  <p className="mt-2 text-[11px] text-tertiary">Unticked columns are hidden in the table below and left out of PDF / Excel exports.</p>
                 </Popover>
 
                 <Popover button={<><LayoutGrid size={15} />Sections</>} badge={hiddenSectionCount}>
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">Include in page & exports</span>
+                    <span className="text-sm font-semibold text-foreground">Include in page & exports</span>
                   </div>
                   <div className="space-y-1">
                     {item.sections.map((s) => (
-                      <label key={s} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-gray-50 cursor-pointer">
+                      <label key={s} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted cursor-pointer">
                         <input
                           type="checkbox"
                           className="h-4 w-4 rounded accent-blue-600"
                           checked={sections[s]}
                           onChange={(e) => setSections((cur) => ({ ...cur, [s]: e.target.checked }))}
                         />
-                        <span className="text-sm text-gray-700">{SECTION_LABELS[s]}</span>
+                        <span className="text-sm text-secondary">{SECTION_LABELS[s]}</span>
                       </label>
                     ))}
                   </div>
-                  <p className="mt-2 text-[11px] text-gray-400">Unticked sections are hidden on screen and left out of the exported PDF / Excel.</p>
+                  <p className="mt-2 text-[11px] text-tertiary">Unticked sections are hidden on screen and left out of the exported PDF / Excel.</p>
                 </Popover>
 
                 <Button variant="primary" size="sm" className="flex-1 justify-center sm:flex-none" onClick={() => exportReport("pdf")}><FileDown size={14} className="mr-1.5" />PDF</Button>
@@ -786,21 +790,21 @@ export default function ReportsPage() {
             {(dimChips.length > 0 || dateFilterCount > 0) && (
               <div className="flex flex-wrap items-center gap-2">
                 {item.dateMode === "asOf" && asOfDate && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2.5 py-1 text-xs font-medium text-purple-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 px-2.5 py-1 text-xs font-medium text-purple-700 dark:text-purple-300">
                     As of {formatDate(asOfDate)}
-                    <button type="button" onClick={() => setAsOfDate("")} className="hover:text-purple-900" aria-label="Back to live"><X size={12} /></button>
+                    <button type="button" onClick={() => setAsOfDate("")} className="hover:text-purple-900 dark:hover:text-purple-300" aria-label="Back to live"><X size={12} /></button>
                   </span>
                 )}
                 {item.dateMode === "rangeOptional" && (optRange.from || optRange.to) && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2.5 py-1 text-xs font-medium text-purple-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 px-2.5 py-1 text-xs font-medium text-purple-700 dark:text-purple-300">
                     Received {optRange.from ? formatDate(optRange.from) : "start"} → {optRange.to ? formatDate(optRange.to) : "today"}
-                    <button type="button" onClick={() => setOptRange({ from: "", to: "" })} className="hover:text-purple-900" aria-label="Clear date range"><X size={12} /></button>
+                    <button type="button" onClick={() => setOptRange({ from: "", to: "" })} className="hover:text-purple-900 dark:hover:text-purple-300" aria-label="Clear date range"><X size={12} /></button>
                   </span>
                 )}
                 {dimChips.map((c) => (
-                  <span key={c.key} className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-700">
+                  <span key={c.key} className="inline-flex items-center gap-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-300">
                     {c.label}
-                    <button type="button" onClick={() => setDims((d) => ({ ...d, [c.key]: "" }))} className="hover:text-blue-900" aria-label="Remove filter">
+                    <button type="button" onClick={() => setDims((d) => ({ ...d, [c.key]: "" }))} className="hover:text-blue-900 dark:hover:text-blue-300" aria-label="Remove filter">
                       <X size={12} />
                     </button>
                   </span>
@@ -854,7 +858,7 @@ function SalesView({ d, sections, hidden }: { d: SalesReport; sections: Sections
       {sections.table && (
         <SectionCard title="Sales Orders" subtitle={`${d.rows.length} orders`}>
           <Table data={d.rows} searchPlaceholder="Search SO #, customer…" columns={vis<SalesReport["rows"][0]>([
-            { key: "soNumber", header: "SO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 whitespace-nowrap">{r.soNumber}</span> },
+            { key: "soNumber", header: "SO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.soNumber}</span> },
             { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
             { key: "customer", header: "Customer", sortable: true },
             { key: "status", header: "Status", render: (r) => <Badge status={r.status} /> },
@@ -878,21 +882,21 @@ function OutstandingView({ d, sections, hidden }: { d: Outstanding; sections: Se
       )}
       {sections.breakdowns && (
         <BucketStrip items={[
-          { label: "Current", value: d.summary.current || 0, tone: "border-green-200 bg-green-50 text-green-800" },
-          { label: "1–30 days", value: d.summary["1to30"] || 0, tone: "border-yellow-200 bg-yellow-50 text-yellow-800" },
-          { label: "31–60 days", value: d.summary["31to60"] || 0, tone: "border-orange-200 bg-orange-50 text-orange-800" },
-          { label: "61–90 days", value: d.summary["61to90"] || 0, tone: "border-red-200 bg-red-50 text-red-700" },
-          { label: "90+ days", value: d.summary.over90 || 0, tone: "border-red-300 bg-red-100 text-red-900" },
+          { label: "Current", value: d.summary.current || 0, tone: "border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 text-green-800 dark:text-green-300" },
+          { label: "1–30 days", value: d.summary["1to30"] || 0, tone: "border-yellow-200 dark:border-yellow-500/30 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-800 dark:text-yellow-300" },
+          { label: "31–60 days", value: d.summary["31to60"] || 0, tone: "border-orange-200 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-500/10 text-orange-800 dark:text-orange-300" },
+          { label: "61–90 days", value: d.summary["61to90"] || 0, tone: "border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300" },
+          { label: "90+ days", value: d.summary.over90 || 0, tone: "border-red-300 dark:border-red-500/30 bg-red-100 dark:bg-red-500/10 text-red-900 dark:text-red-300" },
         ]} />
       )}
       {sections.table && (
         <SectionCard title="Customer Outstanding" subtitle="Sales − Collections, aged by oldest unpaid order">
           <Table data={d.rows} keyField="customerId" searchPlaceholder="Search customer…" columns={vis<Outstanding["rows"][0]>([
-            { key: "customer", header: "Customer", sortable: true, render: (r) => <span className="font-medium text-gray-900">{r.customer}</span> },
+            { key: "customer", header: "Customer", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.customer}</span> },
             moneyCol("soTotal", "Sales"),
-            { key: "collected", header: "Collected (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="text-green-700 whitespace-nowrap">{formatAmount(r.collected)}</span> },
-            { key: "outstanding", header: "Outstanding (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-semibold whitespace-nowrap ${r.outstanding > 0 ? "text-red-600" : "text-green-700"}`}>{formatAmount(r.outstanding)}</span> },
-            { key: "over90", header: "90+ d (PKR)", className: "text-right", numeric: true, value: (r) => r.buckets.over90 || 0, render: (r) => r.buckets.over90 ? <span className="text-red-700 whitespace-nowrap">{formatAmount(r.buckets.over90)}</span> : <span className="text-gray-300">—</span> },
+            { key: "collected", header: "Collected (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="text-green-700 dark:text-green-300 whitespace-nowrap">{formatAmount(r.collected)}</span> },
+            { key: "outstanding", header: "Outstanding (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-semibold whitespace-nowrap ${r.outstanding > 0 ? "text-red-600 dark:text-red-300" : "text-green-700 dark:text-green-300"}`}>{formatAmount(r.outstanding)}</span> },
+            { key: "over90", header: "90+ d (PKR)", className: "text-right", numeric: true, value: (r) => r.buckets.over90 || 0, render: (r) => r.buckets.over90 ? <span className="text-red-700 dark:text-red-300 whitespace-nowrap">{formatAmount(r.buckets.over90)}</span> : <span className="text-tertiary">—</span> },
             { key: "oldestUnpaid", header: "Oldest", numeric: true, render: (r) => <span className="whitespace-nowrap">{r.oldestUnpaid ? formatDate(r.oldestUnpaid) : "—"}</span> },
           ], hidden)} emptyMessage="No outstanding balances" />
         </SectionCard>
@@ -920,7 +924,7 @@ function CollectionsView({ d, sections, hidden }: { d: Collections; sections: Se
       {sections.table && (
         <SectionCard title="Collection Receipts" subtitle={`${d.rows.length} receipts`}>
           <Table data={d.rows} searchPlaceholder="Search receipt, customer, ref…" columns={vis<Collections["rows"][0]>([
-            { key: "receiptNo", header: "Receipt #", sortable: true, render: (r) => <span className="font-medium text-blue-700 whitespace-nowrap">{r.receiptNo}</span> },
+            { key: "receiptNo", header: "Receipt #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.receiptNo}</span> },
             { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
             { key: "customer", header: "Customer", sortable: true },
             { key: "bank", header: "Bank", sortable: true },
@@ -947,10 +951,10 @@ function ProfitView({ d, sections, hidden }: { d: Profit; sections: Sections; hi
       {sections.table && (
         <SectionCard title="Gross Profit by Product" subtitle="Delivered sales − FIFO landed cost">
           <Table data={d.rows} keyField="product" searchPlaceholder="Search product…" columns={vis<Profit["rows"][0]>([
-            { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-gray-900">{r.product}</span> },
+            { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.product}</span> },
             { key: "brand", header: "Brand", sortable: true },
             numCol("panels", "Panels"), moneyCol("revenue", "Revenue"), moneyCol("cogs", "Cost"),
-            { key: "grossProfit", header: "Gross Profit (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-semibold whitespace-nowrap ${r.grossProfit >= 0 ? "text-green-700" : "text-red-600"}`}>{formatAmount(r.grossProfit)}</span> },
+            { key: "grossProfit", header: "Gross Profit (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-semibold whitespace-nowrap ${r.grossProfit >= 0 ? "text-green-700 dark:text-green-300" : "text-red-600 dark:text-red-300"}`}>{formatAmount(r.grossProfit)}</span> },
             { key: "marginPct", header: "Margin", sortable: true, className: "text-right", numeric: true, render: (r) => `${r.marginPct.toFixed(1)}%` },
           ], hidden)} emptyMessage="No delivered sales in range" />
         </SectionCard>
@@ -976,7 +980,7 @@ function PurchasesView({ d, sections, hidden }: { d: Purchases; sections: Sectio
       {sections.table && (
         <SectionCard title="Purchase Orders" subtitle={`${d.rows.length} POs`}>
           <Table data={d.rows} searchPlaceholder="Search PO, supplier, product…" columns={vis<Purchases["rows"][0]>([
-            { key: "poNumber", header: "PO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 whitespace-nowrap">{r.poNumber}</span> },
+            { key: "poNumber", header: "PO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.poNumber}</span> },
             { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
             { key: "supplier", header: "Supplier", sortable: true },
             { key: "product", header: "Product", sortable: true },
@@ -990,7 +994,7 @@ function PurchasesView({ d, sections, hidden }: { d: Purchases; sections: Sectio
 }
 
 function StockAgingView({ d, sections, hidden }: { d: StockAging; sections: Sections; hidden: Hidden }) {
-  const tone: Record<string, string> = { "0to30": "border-green-200 bg-green-50 text-green-800", "31to60": "border-yellow-200 bg-yellow-50 text-yellow-800", "61to90": "border-orange-200 bg-orange-50 text-orange-800", over90: "border-red-200 bg-red-50 text-red-700" }
+  const tone: Record<string, string> = { "0to30": "border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 text-green-800 dark:text-green-300", "31to60": "border-yellow-200 dark:border-yellow-500/30 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-800 dark:text-yellow-300", "61to90": "border-orange-200 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-500/10 text-orange-800 dark:text-orange-300", over90: "border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300" }
   const labels: Record<string, string> = { "0to30": "0–30 days", "31to60": "31–60 days", "61to90": "61–90 days", over90: "90+ days" }
   return (
     <>
@@ -1008,10 +1012,10 @@ function StockAgingView({ d, sections, hidden }: { d: StockAging; sections: Sect
       {sections.table && (
         <SectionCard title="Stock Aging" subtitle="Available batches by age — watch the 90+ day dead stock">
           <Table data={d.rows} searchPlaceholder="Search product…" columns={vis<StockAging["rows"][0]>([
-            { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-gray-900">{r.product}</span> },
+            { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.product}</span> },
             { key: "warehouse", header: "Warehouse", sortable: true },
             numCol("availablePanels", "Panels"),
-            { key: "ageDays", header: "Age", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={r.ageDays > 90 ? "font-semibold text-red-600" : ""}>{r.ageDays}d</span> },
+            { key: "ageDays", header: "Age", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={r.ageDays > 90 ? "font-semibold text-red-600 dark:text-red-300" : ""}>{r.ageDays}d</span> },
             moneyCol("value", "Value", true),
             { key: "receivedAt", header: "Received", numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.receivedAt)}</span> },
           ], hidden)} emptyMessage="No stock" />
@@ -1035,10 +1039,10 @@ function StockView({ d, sections, hidden, asOfDate }: { d: StockSummary; section
       {sections.table && (
         <SectionCard title="Stock by Batch" subtitle={`${d.rows.length} batches${asOfDate ? ` — as of ${formatDate(asOfDate)}` : ""}`}>
           <Table data={d.rows} searchPlaceholder="Search product…" columns={vis<StockSummary["rows"][0]>([
-            { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-gray-900">{r.product}</span> },
+            { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.product}</span> },
             { key: "warehouse", header: "Warehouse", sortable: true },
             numCol("currentPanels", "Current"), numCol("reservedPanels", "Reserved"),
-            { key: "availablePanels", header: "Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="font-semibold text-green-700">{r.availablePanels.toLocaleString()}</span> },
+            { key: "availablePanels", header: "Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="font-semibold text-green-700 dark:text-green-300">{r.availablePanels.toLocaleString()}</span> },
             moneyCol("availableValue", "Avail. Value", true),
           ], hidden)} emptyMessage="No stock" />
         </SectionCard>
@@ -1086,7 +1090,7 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
             <div className="flex gap-1">
               {([["panels", "Panels"], ["containers", "Containers"], ["value", "PKR Value"]] as const).map(([k, l]) => (
                 <button key={k} onClick={() => setUnit(k)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${unit === k ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${unit === k ? "bg-blue-600 text-white" : "bg-muted text-secondary hover:bg-muted"}`}>
                   {l}
                 </button>
               ))}
@@ -1096,17 +1100,17 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
           {unit === "panels" && (
             <div className="overflow-x-auto">
               <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={vis<StockPositionRow>([
-                { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
+                { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-foreground whitespace-nowrap">{r.item}</span> },
                 { key: "packing", header: "Packing", className: "text-right", numeric: true, render: (r) => r.packing ?? "—" },
                 { key: "receivedLocal", header: "Recv Local", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.receivedLocal) },
                 { key: "receivedImport", header: "Recv Import", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.receivedImport) },
                 { key: "so", header: "SO", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.so) },
                 { key: "doIssued", header: "DO Issued", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.doIssued) },
                 { key: "lifted", header: "Lifted DO", sortable: true, className: "text-right", numeric: true, render: (r) => num(r.lifted) },
-                { key: "unlifted", header: "Unlifted DO", sortable: true, className: "text-right", numeric: true, render: (r) => r.unlifted ? <span className="text-amber-700">{num(r.unlifted)}</span> : "—" },
+                { key: "unlifted", header: "Unlifted DO", sortable: true, className: "text-right", numeric: true, render: (r) => r.unlifted ? <span className="text-amber-700 dark:text-amber-300">{num(r.unlifted)}</span> : "—" },
                 { key: "warehouseStock", header: "WH Stock", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="font-semibold">{num(r.warehouseStock)}</span> },
-                { key: "balanceSO", header: "Bal. SO", sortable: true, className: "text-right", numeric: true, render: (r) => r.balanceSO ? <span className="text-orange-700">{num(r.balanceSO)}</span> : "—" },
-                { key: "availableForSale", header: "Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600" : "text-green-700"}`}>{num(r.availableForSale)}</span> },
+                { key: "balanceSO", header: "Bal. SO", sortable: true, className: "text-right", numeric: true, render: (r) => r.balanceSO ? <span className="text-orange-700 dark:text-orange-300">{num(r.balanceSO)}</span> : "—" },
+                { key: "availableForSale", header: "Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600 dark:text-red-300" : "text-green-700 dark:text-green-300"}`}>{num(r.availableForSale)}</span> },
               ], hidden)} emptyMessage="No stock data" />
             </div>
           )}
@@ -1114,13 +1118,13 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
           {unit === "containers" && (
             <div className="overflow-x-auto">
               <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={vis<StockPositionRow>([
-                { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
+                { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-foreground whitespace-nowrap">{r.item}</span> },
                 { key: "receivedLocal", header: "Ctr Recv Local", className: "text-right", numeric: true, render: (r) => inCtr(r.receivedLocal, r) },
                 { key: "receivedImport", header: "Ctr Recv Import", className: "text-right", numeric: true, render: (r) => inCtr(r.receivedImport, r) },
                 { key: "doIssued", header: "Sales (DO Issued)", className: "text-right", numeric: true, render: (r) => inCtr(r.doIssued, r) },
                 { key: "warehouseStock", header: "WH Stock", className: "text-right", numeric: true, render: (r) => <span className="font-semibold">{inCtr(r.warehouseStock, r)}</span> },
                 { key: "balanceSO", header: "Sales Deals (Bal. SO)", className: "text-right", numeric: true, render: (r) => inCtr(r.balanceSO, r) },
-                { key: "availableForSale", header: "Ctr Available", className: "text-right", numeric: true, render: (r) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600" : "text-green-700"}`}>{inCtr(r.availableForSale, r)}</span> },
+                { key: "availableForSale", header: "Ctr Available", className: "text-right", numeric: true, render: (r) => <span className={`font-bold ${r.availableForSale < 0 ? "text-red-600 dark:text-red-300" : "text-green-700 dark:text-green-300"}`}>{inCtr(r.availableForSale, r)}</span> },
               ], hidden)} emptyMessage="No stock data" />
             </div>
           )}
@@ -1129,17 +1133,17 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
             <>
               <div className="overflow-x-auto">
                 <Table data={d.rows} keyField="productId" searchPlaceholder="Search item…" compact columns={vis<StockPositionRow>([
-                  { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-gray-900 whitespace-nowrap">{r.item}</span> },
+                  { key: "item", header: "Item", sortable: true, render: (r) => <span className="font-medium text-foreground whitespace-nowrap">{r.item}</span> },
                   { key: "packing", header: "Packing", className: "text-right", numeric: true, render: (r) => r.packing ?? "—" },
-                  { key: "availableForSale", header: "Panels Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={r.availableForSale < 0 ? "text-red-600 font-semibold" : ""}>{num(r.availableForSale)}</span> },
+                  { key: "availableForSale", header: "Panels Available", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={r.availableForSale < 0 ? "text-red-600 dark:text-red-300 font-semibold" : ""}>{num(r.availableForSale)}</span> },
                   { key: "fifoRatePerWatt", header: "Cost Rate/Watt (FIFO)", sortable: true, className: "text-right", numeric: true, render: (r) => r.fifoRatePerWatt ? `Rs ${r.fifoRatePerWatt.toFixed(2)}` : "—" },
                   { key: "availWatts", header: "Stock in Watts", className: "text-right", numeric: true, value: (r) => availWatts(r), render: (r) => num(availWatts(r)) },
-                  { key: "availValue", header: "Stock Value (PKR)", sortable: true, className: "text-right", numeric: true, value: (r) => availValue(r), render: (r) => <span className={`font-semibold ${availValue(r) < 0 ? "text-red-600" : "text-gray-900"}`}>{formatAmount(availValue(r))}</span> },
+                  { key: "availValue", header: "Stock Value (PKR)", sortable: true, className: "text-right", numeric: true, value: (r) => availValue(r), render: (r) => <span className={`font-semibold ${availValue(r) < 0 ? "text-red-600 dark:text-red-300" : "text-foreground"}`}>{formatAmount(availValue(r))}</span> },
                 ], hidden)} emptyMessage="No stock data" />
               </div>
-              <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-sm">
-                <span className="font-medium text-gray-600">Total — Available for Sale valuation (FIFO base)</span>
-                <span className="font-bold text-gray-900">{formatCurrency(totalAvailValue)}</span>
+              <div className="px-5 py-3 border-t border-line bg-muted flex items-center justify-between text-sm">
+                <span className="font-medium text-secondary">Total — Available for Sale valuation (FIFO base)</span>
+                <span className="font-bold text-foreground">{formatCurrency(totalAvailValue)}</span>
               </div>
             </>
           )}
@@ -1160,7 +1164,7 @@ function POStatusView({ d, rows, sections, hidden }: { d: POStatus; rows: POStat
       {sections.table && (
         <SectionCard title="Purchase Order Status" subtitle={`${rows.length} POs`}>
           <Table data={rows} searchPlaceholder="Search PO, supplier…" columns={vis<POStatus["rows"][0]>([
-            { key: "poNumber", header: "PO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 whitespace-nowrap">{r.poNumber}</span> },
+            { key: "poNumber", header: "PO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.poNumber}</span> },
             { key: "supplier", header: "Supplier", sortable: true },
             { key: "product", header: "Product", sortable: true },
             numCol("noOfPanels", "Ordered"), numCol("receivedPanels", "Received"),

@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: any element inside `.dark` (set on <html>) flips. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Semantic color tokens ──
+ * Utilities (bg-surface, text-foreground, border-line, …) resolve through
+ * runtime CSS variables, so overriding those variables under `.dark` re-themes
+ * the whole app without touching markup. `@theme inline` is required here: it
+ * makes Tailwind emit `var(--surface)` directly instead of baking in a fixed
+ * value, which is what lets the .dark override take effect. */
+@theme inline {
+  /* Backgrounds */
+  --color-surface: var(--surface);       /* cards, white panels */
+  --color-canvas: var(--canvas);         /* page background */
+  --color-elevated: var(--elevated);     /* modals, popovers, dropdowns */
+  --color-muted: var(--muted);           /* subtle fills, hover rows */
+  /* Text */
+  --color-foreground: var(--foreground); /* primary text */
+  --color-secondary: var(--secondary);   /* secondary text */
+  --color-tertiary: var(--tertiary);     /* placeholders, tertiary text */
+  /* Borders */
+  --color-line: var(--line);             /* default borders/dividers */
+  --color-line-strong: var(--line-strong);
+}
+
 @theme {
   /* Chrome — solid navy sidebar (GS Energy design system: #1e2533, no gradient) */
   --color-sidebar: #1e2533;
@@ -67,21 +91,60 @@ html {
   font-size: 15px;
 }
 
+/* ── Light theme (default) ── */
 :root {
-  /* Deliberately plain canvas (gray-50) — data reads first, no surface gradients */
-  --background: #f9fafb;
+  --surface: #ffffff;
+  /* Design system: deliberately plain canvas (gray-50) — data reads first */
+  --canvas: #f9fafb;
+  --elevated: #ffffff;
+  --muted: #f1f5f9;
   --foreground: #0f172a;
+  --secondary: #475569;
+  --tertiary: #94a3b8;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+
+  /* Flat canvas — no ambient surface gradients (GS Energy design system) */
+  --body-glow: none;
+  --selection-bg: #bfdbfe;
+  --selection-fg: #1e3a8a;
+
+  /* Back-compat alias for the original variable name */
+  --background: var(--canvas);
+
+  color-scheme: light;
+}
+
+/* ── Dark theme ── */
+.dark {
+  --surface: #131c30;
+  --canvas: #0a0f1d;
+  --elevated: #1a2438;
+  --muted: #1e293b;
+  --foreground: #e8edf5;
+  --secondary: #9aa8bd;
+  --tertiary: #64748b;
+  --line: #283449;
+  --line-strong: #3a4866;
+
+  /* Flat dark canvas — no ambient gradients (design system) */
+  --body-glow: none;
+  --selection-bg: #1e3a8a;
+  --selection-fg: #dbeafe;
+
+  color-scheme: dark;
 }
 
 body {
-  background-color: var(--background);
+  background-color: var(--canvas);
+  background-image: var(--body-glow);
   color: var(--foreground);
 }
 
 /* Brand-tinted text selection */
 ::selection {
-  background: #bfdbfe;
-  color: #1e3a8a;
+  background: var(--selection-bg);
+  color: var(--selection-fg);
 }
 
 /* Numbers align vertically in every table column (amounts, quantities, dates) */
@@ -103,6 +166,11 @@ th {
   background: linear-gradient(90deg, #e9edf3 25%, #f3f6fa 45%, #e9edf3 65%);
   background-size: 400% 100%;
   animation: skeleton-shimmer 1.6s ease infinite;
+}
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(90deg, #1c2740 25%, #25324d 45%, #1c2740 65%);
+  background-size: 400% 100%;
 }
 
 @keyframes skeleton-shimmer {
@@ -151,6 +219,14 @@ main::-webkit-scrollbar-thumb:hover {
   background-color: #94a3b8;
 }
 
+.dark main::-webkit-scrollbar-thumb {
+  background-color: #334155;
+}
+
+.dark main::-webkit-scrollbar-thumb:hover {
+  background-color: #475569;
+}
+
 /* Users who prefer reduced motion get instant transitions everywhere */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -164,6 +240,23 @@ main::-webkit-scrollbar-thumb:hover {
 }
 
 @media print {
+  /* Documents always print on light paper, even when the app is in dark mode —
+     force every semantic token back to its light value so invoices/DOs/reports
+     never render dark ink-on-dark. */
+  :root,
+  .dark {
+    --surface: #ffffff;
+    --canvas: #ffffff;
+    --elevated: #ffffff;
+    --muted: #f1f5f9;
+    --foreground: #0f172a;
+    --secondary: #475569;
+    --tertiary: #94a3b8;
+    --line: #e2e8f0;
+    --line-strong: #cbd5e1;
+    color-scheme: light;
+  }
+
   /* Printed documents (invoices, DOs, reports) keep the normal font — the mono
      numeric treatment is screen-only, never on printed/PDF output. */
   .tabular-nums {

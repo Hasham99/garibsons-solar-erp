@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { getNextRef } from "@/lib/counter"
 import { getSession } from "@/lib/auth"
 import { writeAuditLog } from "@/lib/audit"
+import { computePallets, liftedPanels, reservedPanels, soRemainingPanels } from "@/lib/delivery"
 
 export async function GET() {
   try {
@@ -10,11 +11,41 @@ export async function GET() {
         customer: true,
         lines: { include: { product: true } },
         createdBy: { select: { name: true } },
-        deliveryOrders: { select: { status: true, quantity: true } },
+        deliveryOrders: {
+          select: {
+            id: true,
+            doNumber: true,
+            status: true,
+            quantity: true,
+            createdAt: true,
+            dispatchedAt: true,
+            stockMovements: { select: { type: true, quantity: true, watts: true, stockEntryId: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
       orderBy: { createdAt: "desc" },
     })
-    return Response.json(orders)
+
+    // Attach derived delivery quantities so the SO panel can show DOs + remaining.
+    const shaped = orders.map((o) => ({
+      ...o,
+      totalPanels: o.lines.reduce((s, l) => s + l.quantity, 0),
+      totalWatts: o.lines.reduce((s, l) => s + l.watts, 0),
+      totalPallets: o.lines.reduce((s, l) => s + computePallets(l.quantity, l.product), 0),
+      remainingPanels: soRemainingPanels(o.lines, o.deliveryOrders, o.balanceCancelledQty),
+      deliveryOrders: o.deliveryOrders.map((d) => ({
+        id: d.id,
+        doNumber: d.doNumber,
+        status: d.status,
+        quantity: d.quantity,
+        createdAt: d.createdAt,
+        dispatchedAt: d.dispatchedAt,
+        liftedQuantity: liftedPanels(d.stockMovements),
+        balanceQuantity: reservedPanels(d.stockMovements),
+      })),
+    }))
+    return Response.json(shaped)
   } catch (error) {
     console.error(error)
     return Response.json({ error: "Failed to fetch sales orders" }, { status: 500 })

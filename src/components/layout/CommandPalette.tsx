@@ -242,19 +242,19 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
       onMouseMove={() => setActive(idx)}
       className={clsx(
         "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-        idx === activeIdx ? "bg-blue-50 text-blue-900" : "text-slate-700"
+        idx === activeIdx ? "bg-blue-50 dark:bg-blue-500/10 text-blue-900 dark:text-blue-300" : "text-secondary"
       )}
     >
-      <span className={clsx("shrink-0", idx === activeIdx ? "text-blue-600" : "text-slate-400")}>
+      <span className={clsx("shrink-0", idx === activeIdx ? "text-blue-600 dark:text-blue-300" : "text-tertiary")}>
         {cmd.icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{cmd.label}</span>
-        <span className={clsx("block truncate text-xs", idx === activeIdx ? "text-blue-500/80" : "text-slate-400")}>
+        <span className={clsx("block truncate text-xs", idx === activeIdx ? "text-blue-500/80 dark:text-blue-400" : "text-tertiary")}>
           {cmd.path}
         </span>
       </span>
-      {idx === activeIdx && <CornerDownLeft size={14} className="shrink-0 text-blue-400" />}
+      {idx === activeIdx && <CornerDownLeft size={14} className="shrink-0 text-blue-400 dark:text-blue-400" />}
     </button>
   )
 
@@ -273,10 +273,10 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98, y: -6 }}
         transition={{ type: "spring", duration: 0.3, bounce: 0.15 }}
-        className="relative w-full max-w-xl rounded-2xl bg-white shadow-pop overflow-hidden"
+        className="relative w-full max-w-xl rounded-2xl bg-elevated shadow-pop overflow-hidden"
       >
-        <div className="flex items-center gap-3 border-b border-slate-100 px-4">
-          <Search size={17} className="shrink-0 text-slate-400" />
+        <div className="flex items-center gap-3 border-b border-line px-4">
+          <Search size={17} className="shrink-0 text-tertiary" />
           <input
             autoFocus
             value={query}
@@ -286,9 +286,9 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
             }}
             onKeyDown={onKeyDown}
             placeholder="Search pages…"
-            className="w-full bg-transparent py-3.5 text-[15px] text-slate-900 placeholder-slate-400 focus:outline-none"
+            className="w-full bg-transparent py-3.5 text-[15px] text-foreground placeholder-tertiary focus:outline-none"
           />
-          <kbd className="shrink-0 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium text-slate-400">
+          <kbd className="shrink-0 rounded-md border border-line bg-muted px-1.5 py-0.5 text-[11px] font-medium text-tertiary">
             esc
           </kbd>
         </div>
@@ -296,12 +296,12 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
         <div ref={listRef} className="max-h-[46vh] overflow-y-auto p-2">
           {items.length === 0 ? (
             searching ? (
-              <div className="flex items-center justify-center gap-2.5 px-3 py-8 text-sm text-slate-400">
+              <div className="flex items-center justify-center gap-2.5 px-3 py-8 text-sm text-tertiary">
                 <Loader2 size={16} className="animate-spin" />
                 Searching records…
               </div>
             ) : (
-              <p className="px-3 py-8 text-center text-sm text-slate-400">
+              <p className="px-3 py-8 text-center text-sm text-tertiary">
                 Nothing matches &ldquo;{query}&rdquo;
               </p>
             )
@@ -310,7 +310,7 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
               {filtered.length > 0 && (
                 <>
                   {(records.length > 0 || searching) && (
-                    <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
                       Pages
                     </p>
                   )}
@@ -319,14 +319,14 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
               )}
               {records.length > 0 && (
                 <>
-                  <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
                     Records
                   </p>
                   {records.map((cmd, idx) => renderRow(cmd, filtered.length + idx))}
                 </>
               )}
               {searching && (
-                <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-slate-400">
+                <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-tertiary">
                   <Loader2 size={13} className="animate-spin" />
                   Searching records…
                 </div>
@@ -335,7 +335,7 @@ function PaletteContent({ onClose, user }: { onClose: () => void; user: CommandP
           )}
         </div>
 
-        <div className="flex items-center gap-4 border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 text-[11px] text-slate-400">
+        <div className="flex items-center gap-4 border-t border-line bg-muted px-4 py-2.5 text-[11px] text-tertiary">
           <span><kbd className="font-sans">↑↓</kbd> navigate</span>
           <span><kbd className="font-sans">↵</kbd> open</span>
           <span><kbd className="font-sans">esc</kbd> close</span>

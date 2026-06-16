@@ -1,35 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import type { Access, PermMap } from "@/lib/permissions/modules"
+import { useAuthContext, type User } from "@/components/auth/AuthProvider"
 
-export interface User {
-  id: string
-  name: string
-  email: string
-  role: string
-  fullAccess: boolean
-  perms: PermMap
-}
+export type { User }
 
 /** Build an Access object from the auth user, for client-side `can()` checks. */
 export function accessOf(user: { fullAccess?: boolean; perms?: PermMap } | null | undefined): Access {
   return { fullAccess: Boolean(user?.fullAccess), perms: user?.perms ?? {} }
 }
 
+/**
+ * Returns the shared auth state. The actual fetch happens once in AuthProvider;
+ * every consumer reads the same context (no duplicate `/api/auth/me` calls).
+ */
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.user) setUser(data.user)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  return { user, loading }
+  return useAuthContext()
 }

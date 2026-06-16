@@ -3,6 +3,7 @@ import { getNextRef } from "@/lib/counter"
 import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 import { buildReservationPlan, getOutstandingReservations } from "@/lib/stock"
+import { soCommittedPanels, liftedPanels, liftedWatts, computePallets } from "@/lib/delivery"
 
 class DeliveryOrderError extends Error {
   status: number
@@ -28,7 +29,17 @@ export async function GET() {
         },
         warehouse: { select: { id: true, name: true } },
         createdBy: { select: { name: true } },
-        lines: { select: { soLineId: true, productId: true, quantity: true, watts: true } },
+        lines: {
+          select: {
+            soLineId: true,
+            productId: true,
+            quantity: true,
+            watts: true,
+            product: {
+              select: { name: true, code: true, wattage: true, panelsPerContainer: true, palletsPerContainer: true },
+            },
+          },
+        },
         stockMovements: {
           select: { type: true, quantity: true, watts: true, stockEntryId: true },
         },
@@ -41,11 +52,17 @@ export async function GET() {
       dos.map((deliveryOrder) => {
         const outstandingReservations = getOutstandingReservations(deliveryOrder.stockMovements)
         const agingDays = Math.max(0, Math.floor((now - deliveryOrder.createdAt.getTime()) / (1000 * 60 * 60 * 24)))
+        const reservedQuantity = outstandingReservations.reduce((t, i) => t + i.quantity, 0)
         return {
           ...deliveryOrder,
-          reservedQuantity: outstandingReservations.reduce((t, i) => t + i.quantity, 0),
+          reservedQuantity,
           reservedWatts: outstandingReservations.reduce((t, i) => t + i.watts, 0),
           reservedBatches: outstandingReservations.length,
+          // lifted = physically dispatched; balance = still reserved (cancellable)
+          liftedQuantity: liftedPanels(deliveryOrder.stockMovements),
+          liftedWatts: liftedWatts(deliveryOrder.stockMovements),
+          balanceQuantity: reservedQuantity,
+          totalPallets: deliveryOrder.lines.reduce((s, l) => s + computePallets(l.quantity, l.product), 0),
           agingDays,
         }
       })
@@ -88,12 +105,11 @@ export async function POST(request: Request) {
       }
       if (!salesOrder.lines.length) throw new DeliveryOrderError("Sales order has no line items to dispatch", 422)
 
-      // Calculate how many panels are already covered by active/completed DOs
+      // Panels already delivered or reserved on other DOs, plus any written-off
+      // balance, don't count toward what a new DO can cover.
       const soTotalPanels = salesOrder.lines.reduce((s, l) => s + l.quantity, 0)
-      const alreadyDispatched = salesOrder.deliveryOrders
-        .filter((d) => d.status !== "CANCELLED")
-        .reduce((s, d) => s + d.quantity, 0)
-      const remaining = soTotalPanels - alreadyDispatched
+      const committed = soCommittedPanels(salesOrder.deliveryOrders)
+      const remaining = soTotalPanels - committed - salesOrder.balanceCancelledQty
 
       if (remaining <= 0) throw new DeliveryOrderError("All panels for this sales order have already been covered by delivery orders", 409)
 

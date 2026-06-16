@@ -73,7 +73,7 @@ export default function SuppliersPage() {
     { key: "contactPhone", header: "Phone", render: (row: Supplier) => row.contactPhone || "-" },
     { key: "paymentTerms", header: "Payment Terms", render: (row: Supplier) => row.paymentTerms || "-" },
     { key: "active", header: "Status", render: (row: Supplier) => (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.active ? "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "bg-muted text-secondary"}`}>
         {row.active ? "Active" : "Inactive"}
       </span>
     )},
@@ -105,7 +105,7 @@ export default function SuppliersPage() {
       <Header title="Suppliers" breadcrumbs={[{ label: "Master Data" }, { label: "Suppliers" }]}
         actions={<Button onClick={() => { setEditId(null); setForm(emptyForm); setShowModal(true) }}><Plus size={16} className="mr-2" />Add Supplier</Button>}
       />
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={(suppliers || [])}

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { getSession, verifyPassword } from "@/lib/auth"
-import { resolveAccess } from "@/lib/permissions/resolve"
+import { computeAccess } from "@/lib/permissions/resolve"
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +13,23 @@ export async function POST(request: Request) {
     const email = rawEmail.toLowerCase().trim()
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { roleRef: { select: { title: true } } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        password: true,
+        active: true,
+        role: true,
+        fullAccess: true,
+        roleRef: {
+          select: {
+            title: true,
+            fullAccess: true,
+            permissions: { select: { module: true, canRead: true, canWrite: true } },
+          },
+        },
+        permissions: { select: { module: true, canRead: true, canWrite: true } },
+      },
     })
 
     if (!user || !user.active) {
@@ -25,7 +41,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const access = await resolveAccess(user.id)
+    const access = computeAccess(user)
     const roleTitle = user.roleRef?.title ?? user.role
 
     const session = await getSession()
@@ -35,6 +51,7 @@ export async function POST(request: Request) {
     session.role = roleTitle
     session.fullAccess = access.fullAccess
     session.perms = access.perms
+    session.permsCheckedAt = Date.now()
     session.isLoggedIn = true
     await session.save()
 

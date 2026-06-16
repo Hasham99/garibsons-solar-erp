@@ -97,23 +97,23 @@ export default function WarehousesPage() {
       key: "contacts",
       header: "Contact Persons",
       render: (row: Warehouse) => {
-        if (!row.contacts?.length) return <span className="text-gray-400">-</span>
+        if (!row.contacts?.length) return <span className="text-tertiary">-</span>
         return (
           <div className="space-y-0.5">
             {row.contacts.slice(0, 2).map((c, i) => (
               <div key={i} className="text-xs">
                 <span className="font-medium">{c.name}</span>
-                <span className="text-gray-500 ml-1">{c.whatsapp}</span>
+                <span className="text-secondary ml-1">{c.whatsapp}</span>
               </div>
             ))}
-            {row.contacts.length > 2 && <p className="text-xs text-gray-400">+{row.contacts.length - 2} more</p>}
+            {row.contacts.length > 2 && <p className="text-xs text-tertiary">+{row.contacts.length - 2} more</p>}
           </div>
         )
       },
     },
     {
       key: "active", header: "Status", render: (row: Warehouse) => (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.active ? "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "bg-muted text-secondary"}`}>
           {row.active ? "Active" : "Inactive"}
         </span>
       ),
@@ -149,7 +149,7 @@ export default function WarehousesPage() {
         breadcrumbs={[{ label: "Master Data" }, { label: "Warehouses" }]}
         actions={<Button onClick={openAdd}><Plus size={16} className="mr-2" />Add Warehouse</Button>}
       />
-      <div className="bg-white rounded-xl shadow-card border border-slate-200/70">
+      <div className="bg-surface rounded-xl shadow-card border border-line">
         <Table
           columns={columns}
           data={warehouses || []}
@@ -176,15 +176,15 @@ export default function WarehousesPage() {
           {/* Contact Persons */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700">Contact Persons</label>
+              <label className="text-sm font-medium text-secondary">Contact Persons</label>
               <Button size="sm" variant="ghost" onClick={addContact}>
                 <Plus size={14} className="mr-1" />Add Contact
               </Button>
             </div>
-            <p className="text-xs text-gray-400 mb-2">The first contact is the primary — its name prints as ATTN on Delivery Orders.</p>
+            <p className="text-xs text-tertiary mb-2">The first contact is the primary — its name prints as ATTN on Delivery Orders.</p>
             <div className="space-y-2">
               {contacts.map((contact, idx) => (
-                <div key={idx} className="flex items-end gap-2 p-3 bg-gray-50 rounded-lg">
+                <div key={idx} className="flex items-end gap-2 p-3 bg-muted rounded-lg">
                   <div className="flex-1">
                     <Input
                       label={idx === 0 ? "Name * (Primary / ATTN)" : "Name"}

@@ -34,10 +34,10 @@ export function ConfirmDialog({
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="md">
       <div className="space-y-4">
         <div className="flex items-start gap-3">
-          <div className={`shrink-0 rounded-full p-2.5 ${variant === "danger" ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
+          <div className={`shrink-0 rounded-full p-2.5 ${variant === "danger" ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300" : "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"}`}>
             <AlertTriangle size={20} />
           </div>
-          <div className="text-sm text-gray-600 pt-1.5">{message}</div>
+          <div className="text-sm text-secondary pt-1.5">{message}</div>
         </div>
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose} disabled={loading}>{cancelLabel}</Button>

@@ -69,7 +69,7 @@ export function PermissionMatrix({ value, fullAccess, onChange, onFullAccessChan
       <label
         className={clsx(
           "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
-          fullAccess ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-slate-50 hover:bg-slate-100",
+          fullAccess ? "border-blue-300 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10" : "border-line bg-muted hover:bg-muted",
           disabled && "opacity-60 pointer-events-none"
         )}
       >
@@ -81,8 +81,8 @@ export function PermissionMatrix({ value, fullAccess, onChange, onFullAccessChan
           disabled={disabled}
         />
         <span>
-          <span className="block text-sm font-semibold text-slate-900">Full Access (all modules)</span>
-          <span className="block text-xs text-slate-500">
+          <span className="block text-sm font-semibold text-foreground">Full Access (all modules)</span>
+          <span className="block text-xs text-secondary">
             Unrestricted access to every module and all data. When enabled, the permissions below are ignored.
           </span>
         </span>
@@ -90,13 +90,13 @@ export function PermissionMatrix({ value, fullAccess, onChange, onFullAccessChan
 
       <div
         className={clsx(
-          "rounded-lg border border-slate-200 overflow-hidden transition-opacity",
+          "rounded-lg border border-line overflow-hidden transition-opacity",
           gridDisabled && "opacity-50 pointer-events-none select-none"
         )}
         aria-disabled={gridDisabled}
       >
         {/* Column header */}
-        <div className="grid grid-cols-[1fr_64px_64px] items-center bg-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <div className="grid grid-cols-[1fr_64px_64px] items-center bg-muted px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-secondary">
           <span>Module</span>
           <span className="text-center">Read</span>
           <span className="text-center">Write</span>
@@ -109,10 +109,10 @@ export function PermissionMatrix({ value, fullAccess, onChange, onFullAccessChan
           const readState = sectionState(keys, "read")
           const writeState = sectionState(keys, "write")
           return (
-            <div key={section} className="border-t border-slate-100 first:border-t-0">
+            <div key={section} className="border-t border-line first:border-t-0">
               {/* Section header with bulk toggles */}
-              <div className="grid grid-cols-[1fr_64px_64px] items-center bg-slate-50/70 px-3 py-1.5">
-                <span className="text-xs font-semibold text-slate-600">{section}</span>
+              <div className="grid grid-cols-[1fr_64px_64px] items-center bg-muted px-3 py-1.5">
+                <span className="text-xs font-semibold text-secondary">{section}</span>
                 <span className="flex justify-center">
                   <input
                     type="checkbox"
@@ -139,7 +139,7 @@ export function PermissionMatrix({ value, fullAccess, onChange, onFullAccessChan
                 return (
                   <div
                     key={m.key}
-                    className="grid grid-cols-[1fr_64px_64px] items-center px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                    className="grid grid-cols-[1fr_64px_64px] items-center px-3 py-1.5 text-sm text-secondary hover:bg-muted"
                   >
                     <span className="pl-2">{m.label}</span>
                     <span className="flex justify-center">
@@ -169,7 +169,7 @@ export function PermissionMatrix({ value, fullAccess, onChange, onFullAccessChan
       </div>
 
       {!fullAccess && (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-tertiary">
           {MODULES.length} modules · Write implies Read. Leave a module unchecked to deny access.
         </p>
       )}
