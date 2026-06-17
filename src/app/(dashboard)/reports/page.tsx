@@ -19,7 +19,7 @@ import { downloadPdf } from "@/lib/pdf"
 import { downloadExcel } from "@/lib/excel"
 import {
   Banknote, Boxes, Columns3, ClipboardList, Clock, FileDown, FileSpreadsheet, LayoutGrid,
-  LineChart as LineIcon, Package, ShoppingCart, SlidersHorizontal, TrendingUp, Wallet, X,
+  LineChart as LineIcon, Package, ShoppingCart, SlidersHorizontal, TrendingUp, Truck, Wallet, X,
 } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { useChartTheme } from "@/hooks/useChartTheme"
@@ -27,11 +27,19 @@ import toast from "react-hot-toast"
 
 // ---------- response shapes ----------
 type SalesReport = {
-  rows: { id: string; soNumber: string; date: string; customer: string; status: string; panels: number; watts: number; value: number; items: string }[]
-  summary: { orders: number; value: number; panels: number; delivered: number; pending: number }
+  rows: { id: string; soNumber: string; date: string; customer: string; status: string; brand: string; items: string; panels: number; watts: number; value: number; collected: number; balance: number }[]
+  summary: { orders: number; value: number; panels: number; watts: number; collected: number; balance: number; delivered: number; pending: number }
   byCustomer: { customer: string; value: number; panels: number; orders: number }[]
   byBrand: { brand: string; value: number; panels: number }[]
   byMonth: { month: string; value: number; panels: number; orders: number }[]
+}
+type DeliveriesReport = {
+  rows: { id: string; doNumber: string; referenceNo: string | null; date: string; customer: string; soNumber: string; warehouse: string; status: string; brand: string; items: string; panels: number; watts: number; lifted: number; balance: number; pallets: number }[]
+  summary: { dos: number; panels: number; watts: number; lifted: number; balance: number; pallets: number; dispatched: number; pending: number }
+  byStatus: Record<string, number>
+  byCustomer: { customer: string; dos: number; panels: number; lifted: number }[]
+  byWarehouse: { warehouse: string; dos: number; panels: number; lifted: number }[]
+  byMonth: { month: string; dos: number; panels: number; lifted: number }[]
 }
 type Outstanding = {
   rows: { customerId: string; customer: string; soTotal: number; collected: number; outstanding: number; oldestUnpaid: string | null; buckets: Record<string, number> }[]
@@ -107,6 +115,7 @@ interface ReportDef {
 const GROUPS: { group: string; items: ReportDef[] }[] = [
   { group: "Sales", items: [
     { key: "sales", label: "Sales Analysis", icon: <TrendingUp size={16} />, dateMode: "range", dims: ["customerId", "brand", "status"], sections: ["summary", "chart", "breakdowns", "table"] },
+    { key: "deliveries", label: "Deliveries", icon: <Truck size={16} />, dateMode: "range", dims: ["customerId", "warehouseId", "status"], sections: ["summary", "chart", "breakdowns", "table"] },
   ]},
   { group: "Receivables", items: [
     { key: "outstanding", label: "Outstanding & Aging", icon: <Wallet size={16} />, dims: ["customerId"], sections: ["summary", "breakdowns", "table"] },
@@ -132,6 +141,7 @@ const ALL_ITEMS = GROUPS.flatMap((g) => g.items)
 const DEFAULT_REPORT = "outstanding"
 
 const SO_STATUSES = ["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED", "DO_ISSUED", "DELIVERED", "INVOICED", "CANCELLED"]
+const DO_STATUSES = ["PENDING", "AUTHORIZED", "PARTIALLY_DISPATCHED", "DISPATCHED", "CANCELLED"]
 const LC_TYPES = ["SIGHT", "USANCE", "TT", "LOCAL"]
 
 const compactNum = (n: number) => (Math.abs(n) >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : `${n}`)
@@ -188,6 +198,44 @@ interface ColSpec<R = any> {
   header: string
   align?: "left" | "right"
   cell: (r: R) => Cell
+}
+
+/** One-table export shared by the detail tables AND every breakdown card, so
+ *  each table on the page can be downloaded as its own PDF / Excel sheet. */
+interface TableExport {
+  title: string
+  fileName: string
+  cols: ColSpec[]
+  rows: unknown[]
+  metaLines?: string[]
+  kpis?: { label: string; value: string }[]
+  totals?: Record<string, Cell>
+}
+function runTableExport(format: "pdf" | "excel", p: TableExport) {
+  if (!p.rows.length) return toast.error("Nothing to export")
+  const headers = p.cols.map((c) => c.header)
+  const rows = p.rows.map((r) => p.cols.map((c) => c.cell(r)))
+  const totalsRow = p.totals ? p.cols.map((c) => p.totals![c.key] ?? "") : undefined
+  if (format === "pdf") {
+    downloadPdf({ title: p.title, metaLines: p.metaLines, kpis: p.kpis, columns: p.cols.map((c) => ({ header: c.header, align: c.align ?? "left" })), rows, totalsRow, fileName: p.fileName, orientation: "landscape" })
+  } else {
+    downloadExcel({ title: p.title, metaLines: p.metaLines, kpis: p.kpis, headers, rows, totalsRow, fileName: p.fileName, sheetName: p.title.slice(0, 31) })
+  }
+}
+
+/** Small PDF / Excel button pair shown in a table card's header. */
+function ExportButtons({ onPdf, onExcel }: { onPdf: () => void; onExcel: () => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <button type="button" onClick={onPdf} className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-secondary hover:bg-muted"><FileDown size={13} />PDF</button>
+      <button type="button" onClick={onExcel} className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-secondary hover:bg-muted"><FileSpreadsheet size={13} />Excel</button>
+    </div>
+  )
+}
+/** Self-contained export buttons that build their own file from cols + rows. */
+function CardExport(p: TableExport) {
+  if (!p.rows.length) return null
+  return <ExportButtons onPdf={() => runTableExport("pdf", p)} onExcel={() => runTableExport("excel", p)} />
 }
 
 // ---------- small UI helpers ----------
@@ -291,9 +339,12 @@ function TrendChart({ data, xKey, yKey, label, color = "#3b82f6" }: { data: Reco
   )
 }
 
-function BreakdownCard<T extends Record<string, unknown>>({ title, columns, data }: { title: string; columns: Column<T>[]; data: T[] }) {
+function BreakdownCard<T extends Record<string, unknown>>({ title, columns, data, exportCols, fileName, meta }: { title: string; columns: Column<T>[]; data: T[]; exportCols?: ColSpec[]; fileName?: string; meta?: string[] }) {
   return (
-    <SectionCard title={title}>
+    <SectionCard
+      title={title}
+      headerExtra={exportCols ? <CardExport title={title} fileName={fileName || `report-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`} cols={exportCols} rows={data} metaLines={meta} /> : undefined}
+    >
       <div className="overflow-x-auto">
         <Table columns={columns} data={data} searchable={false} pageSizeOptions={[]} pageSize={8} compact emptyMessage="No data" />
       </div>
@@ -369,6 +420,7 @@ export default function ReportsPage() {
   const url = (key: string, path: string) => (active === key ? `/api/reports/${path}${qs}` : "")
 
   const sales = useFetch<SalesReport>(url("sales", "sales"), [active, qs])
+  const deliveries = useFetch<DeliveriesReport>(url("deliveries", "deliveries"), [active, qs])
   const outstanding = useFetch<Outstanding>(url("outstanding", "outstanding"), [active, qs])
   const collections = useFetch<Collections>(url("collections", "collections"), [active, qs])
   const profit = useFetch<Profit>(url("profit", "profitability"), [active, qs])
@@ -378,7 +430,7 @@ export default function ReportsPage() {
   const poStatus = useFetch<POStatus>(url("poStatus", "po-status"), [active])
   const stockPosition = useFetch<StockPosition>(url("stockPosition", "stock-position"), [active, qs])
 
-  const loading = [sales, outstanding, collections, profit, purchases, stockAging, stock, poStatus, stockPosition].some((q) => q.loading)
+  const loading = [sales, deliveries, outstanding, collections, profit, purchases, stockAging, stock, poStatus, stockPosition].some((q) => q.loading)
 
   // PO Status rows with client-side status filter applied
   const poRows = useMemo(
@@ -398,6 +450,17 @@ export default function ReportsPage() {
   if (dims.brand && item.dims.includes("brand")) dimChips.push({ key: "brand", label: `Brand: ${dims.brand}` })
   if (dims.status && item.dims.includes("status")) dimChips.push({ key: "status", label: `${active === "purchases" ? "LC Type" : "Status"}: ${dims.status.replace(/_/g, " ")}` })
 
+  // Period + active-filter lines printed at the top of every export (detail + per-table)
+  const metaLines = useMemo(() => {
+    const dateLine =
+      item.dateMode === "range" ? `Period: ${formatDate(from)} – ${formatDate(to)}`
+      : item.dateMode === "rangeOptional" && (optRange.from || optRange.to) ? `Received: ${optRange.from ? formatDate(optRange.from) : "start"} – ${optRange.to ? formatDate(optRange.to) : "today"}`
+      : item.dateMode === "asOf" && asOfDate ? `As of: ${formatDate(asOfDate)}`
+      : `As of: ${formatDate(today)}`
+    return [dateLine, ...(dimChips.length ? [`Filters: ${dimChips.map((c) => c.label).join("  ·  ")}`] : [])]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item, from, to, optRange, asOfDate, today, dims, active])
+
   // ---------- column specs (drive the Columns picker AND the exports) ----------
   const columnSpecs = useMemo<ColSpec[]>(() => {
     switch (active) {
@@ -405,9 +468,30 @@ export default function ReportsPage() {
         { key: "soNumber", header: "SO #", cell: (r: SalesReport["rows"][0]) => r.soNumber },
         { key: "date", header: "Date", cell: (r: SalesReport["rows"][0]) => formatDate(r.date) },
         { key: "customer", header: "Customer", cell: (r: SalesReport["rows"][0]) => r.customer },
-        { key: "status", header: "Status", cell: (r: SalesReport["rows"][0]) => r.status },
+        { key: "items", header: "Items", cell: (r: SalesReport["rows"][0]) => r.items || "—" },
+        { key: "brand", header: "Brand", cell: (r: SalesReport["rows"][0]) => r.brand },
+        { key: "status", header: "Status", cell: (r: SalesReport["rows"][0]) => r.status.replace(/_/g, " ") },
         { key: "panels", header: "Panels", align: "right", cell: (r: SalesReport["rows"][0]) => n(r.panels) },
+        { key: "kw", header: "kW", align: "right", cell: (r: SalesReport["rows"][0]) => ctr1(r.watts / 1000) },
         { key: "value", header: "Value (Rs)", align: "right", cell: (r: SalesReport["rows"][0]) => n(r.value) },
+        { key: "collected", header: "Collected (Rs)", align: "right", cell: (r: SalesReport["rows"][0]) => n(r.collected) },
+        { key: "balance", header: "Balance (Rs)", align: "right", cell: (r: SalesReport["rows"][0]) => n(r.balance) },
+      ]
+      case "deliveries": return [
+        { key: "doNumber", header: "DO #", cell: (r: DeliveriesReport["rows"][0]) => r.doNumber },
+        { key: "referenceNo", header: "Customer Ref", cell: (r: DeliveriesReport["rows"][0]) => r.referenceNo || "—" },
+        { key: "date", header: "Date", cell: (r: DeliveriesReport["rows"][0]) => formatDate(r.date) },
+        { key: "customer", header: "Customer", cell: (r: DeliveriesReport["rows"][0]) => r.customer },
+        { key: "soNumber", header: "SO #", cell: (r: DeliveriesReport["rows"][0]) => r.soNumber },
+        { key: "warehouse", header: "Warehouse", cell: (r: DeliveriesReport["rows"][0]) => r.warehouse },
+        { key: "items", header: "Items", cell: (r: DeliveriesReport["rows"][0]) => r.items || "—" },
+        { key: "brand", header: "Brand", cell: (r: DeliveriesReport["rows"][0]) => r.brand },
+        { key: "status", header: "Status", cell: (r: DeliveriesReport["rows"][0]) => r.status.replace(/_/g, " ") },
+        { key: "panels", header: "Panels", align: "right", cell: (r: DeliveriesReport["rows"][0]) => n(r.panels) },
+        { key: "kw", header: "kW", align: "right", cell: (r: DeliveriesReport["rows"][0]) => ctr1(r.watts / 1000) },
+        { key: "lifted", header: "Lifted", align: "right", cell: (r: DeliveriesReport["rows"][0]) => n(r.lifted) },
+        { key: "balance", header: "Balance", align: "right", cell: (r: DeliveriesReport["rows"][0]) => n(r.balance) },
+        { key: "pallets", header: "Pallets", align: "right", cell: (r: DeliveriesReport["rows"][0]) => n(r.pallets) },
       ]
       case "outstanding": return [
         { key: "customer", header: "Party", cell: (r: Outstanding["rows"][0]) => r.customer },
@@ -510,9 +594,16 @@ export default function ReportsPage() {
     if (active === "sales" && sales.data) {
       const d = sales.data
       return { title: "Sales Analysis",
-        kpis: [{ label: "Sales Value", value: formatCurrency(d.summary.value) }, { label: "Orders", value: String(d.summary.orders) }, { label: "Panels", value: n(d.summary.panels) }, { label: "Delivered / Pending", value: `${d.summary.delivered} / ${d.summary.pending}` }],
+        kpis: [{ label: "Sales Value", value: formatCurrency(d.summary.value) }, { label: "Collected", value: formatCurrency(d.summary.collected) }, { label: "Balance", value: formatCurrency(d.summary.balance) }, { label: "Orders / Panels", value: `${d.summary.orders} / ${n(d.summary.panels)}` }],
         dataRows: d.rows,
-        totals: { status: "TOTAL", panels: n(d.summary.panels), value: n(d.summary.value) } }
+        totals: { status: "TOTAL", panels: n(d.summary.panels), kw: ctr1(d.summary.watts / 1000), value: n(d.summary.value), collected: n(d.summary.collected), balance: n(d.summary.balance) } }
+    }
+    if (active === "deliveries" && deliveries.data) {
+      const d = deliveries.data
+      return { title: "Deliveries",
+        kpis: [{ label: "Delivery Orders", value: String(d.summary.dos) }, { label: "Panels", value: n(d.summary.panels) }, { label: "Lifted / Balance", value: `${n(d.summary.lifted)} / ${n(d.summary.balance)}` }, { label: "Pallets", value: n(d.summary.pallets) }],
+        dataRows: d.rows,
+        totals: { status: "TOTAL", panels: n(d.summary.panels), kw: ctr1(d.summary.watts / 1000), lifted: n(d.summary.lifted), balance: n(d.summary.balance), pallets: n(d.summary.pallets) } }
     }
     if (active === "outstanding" && outstanding.data) {
       const d = outstanding.data
@@ -583,15 +674,6 @@ export default function ReportsPage() {
     const specs = columnSpecs.filter((s) => !hiddenCols[s.key])
     if (specs.length === 0) return toast.error("All columns are hidden — enable at least one in Columns")
 
-    const dateLine =
-      item.dateMode === "range" ? `Period: ${formatDate(from)} – ${formatDate(to)}`
-      : item.dateMode === "rangeOptional" && (optRange.from || optRange.to) ? `Received: ${optRange.from ? formatDate(optRange.from) : "start"} – ${optRange.to ? formatDate(optRange.to) : "today"}`
-      : item.dateMode === "asOf" && asOfDate ? `As of: ${formatDate(asOfDate)}`
-      : `As of: ${formatDate(today)}`
-    const metaLines = [
-      dateLine,
-      ...(dimChips.length ? [`Filters: ${dimChips.map((c) => c.label).join("  ·  ")}`] : []),
-    ]
     const kpis = sections.summary ? built.kpis : undefined
     const headers = specs.map((s) => s.header)
     const rows = built.dataRows.map((r) => specs.map((s) => s.cell(r)))
@@ -733,7 +815,9 @@ export default function ReportsPage() {
                           ? LC_TYPES
                           : active === "poStatus"
                             ? Object.keys(poStatus.data?.byStatus || {})
-                            : SO_STATUSES
+                            : active === "deliveries"
+                              ? DO_STATUSES
+                              : SO_STATUSES
                         ).map((s) => ({ value: s, label: s.replace(/_/g, " ") }))
                       )}
                     </div>
@@ -816,16 +900,17 @@ export default function ReportsPage() {
 
           {loading ? <TableSkeleton columns={6} rows={8} /> : (
             <>
-              {active === "sales" && sales.data && <SalesView d={sales.data} sections={sections} hidden={hiddenCols} />}
-              {active === "outstanding" && outstanding.data && <OutstandingView d={outstanding.data} sections={sections} hidden={hiddenCols} />}
-              {active === "collections" && collections.data && <CollectionsView d={collections.data} sections={sections} hidden={hiddenCols} />}
-              {active === "profit" && profit.data && <ProfitView d={profit.data} sections={sections} hidden={hiddenCols} />}
-              {active === "purchases" && purchases.data && <PurchasesView d={purchases.data} sections={sections} hidden={hiddenCols} />}
-              {active === "stockAging" && stockAging.data && <StockAgingView d={stockAging.data} sections={sections} hidden={hiddenCols} />}
-              {active === "stock" && stock.data && <StockView d={stock.data} sections={sections} hidden={hiddenCols} asOfDate={asOfDate} />}
-              {active === "poStatus" && poStatus.data && <POStatusView d={poStatus.data} rows={poRows} sections={sections} hidden={hiddenCols} />}
+              {active === "sales" && sales.data && <SalesView d={sales.data} sections={sections} hidden={hiddenCols} onExport={exportReport} meta={metaLines} />}
+              {active === "deliveries" && deliveries.data && <DeliveriesView d={deliveries.data} sections={sections} hidden={hiddenCols} onExport={exportReport} meta={metaLines} />}
+              {active === "outstanding" && outstanding.data && <OutstandingView d={outstanding.data} sections={sections} hidden={hiddenCols} onExport={exportReport} />}
+              {active === "collections" && collections.data && <CollectionsView d={collections.data} sections={sections} hidden={hiddenCols} onExport={exportReport} meta={metaLines} />}
+              {active === "profit" && profit.data && <ProfitView d={profit.data} sections={sections} hidden={hiddenCols} onExport={exportReport} />}
+              {active === "purchases" && purchases.data && <PurchasesView d={purchases.data} sections={sections} hidden={hiddenCols} onExport={exportReport} meta={metaLines} />}
+              {active === "stockAging" && stockAging.data && <StockAgingView d={stockAging.data} sections={sections} hidden={hiddenCols} onExport={exportReport} />}
+              {active === "stock" && stock.data && <StockView d={stock.data} sections={sections} hidden={hiddenCols} asOfDate={asOfDate} onExport={exportReport} />}
+              {active === "poStatus" && poStatus.data && <POStatusView d={poStatus.data} rows={poRows} sections={sections} hidden={hiddenCols} onExport={exportReport} />}
               {active === "stockPosition" && stockPosition.data && (
-                <StockPositionView d={stockPosition.data} sections={sections} hidden={hiddenCols} unit={stockUnit} setUnit={setStockUnit} />
+                <StockPositionView d={stockPosition.data} sections={sections} hidden={hiddenCols} unit={stockUnit} setUnit={setStockUnit} onExport={exportReport} />
               )}
             </>
           )}
@@ -837,33 +922,47 @@ export default function ReportsPage() {
 // ---------- views ----------
 type Sections = Record<SectionKey, boolean>
 type Hidden = Record<string, boolean>
+type ExportFn = (f: "pdf" | "excel") => void
+/** Export buttons for a report's main detail table — reuses the toolbar export
+ *  so the Columns / Sections toggles still apply. */
+const detailExport = (onExport: ExportFn) => <ExportButtons onPdf={() => onExport("pdf")} onExcel={() => onExport("excel")} />
 
-function SalesView({ d, sections, hidden }: { d: SalesReport; sections: Sections; hidden: Hidden }) {
+function SalesView({ d, sections, hidden, onExport, meta }: { d: SalesReport; sections: Sections; hidden: Hidden; onExport: ExportFn; meta: string[] }) {
   return (
     <>
       {sections.summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <MoneyKpi label="Sales Value" amount={d.summary.value} sub={`${d.summary.orders} orders`} icon={<TrendingUp size={18} />} tone="green" />
-          <Kpi label="Panels Sold" value={d.summary.panels.toLocaleString()} icon={<Package size={18} />} tone="blue" />
-          <Kpi label="Delivered" value={d.summary.delivered} sub={`${d.summary.pending} pending`} icon={<ShoppingCart size={18} />} tone="purple" />
+          <Kpi label="Panels Sold" value={d.summary.panels.toLocaleString()} sub={`${ctr1(d.summary.watts / 1000)} kW`} icon={<Package size={18} />} tone="blue" />
+          <MoneyKpi label="Collected" amount={d.summary.collected} sub={`${compactMoney(d.summary.balance)} balance`} icon={<Banknote size={18} />} tone="purple" />
           <MoneyKpi label="Avg Order" amount={d.summary.orders ? d.summary.value / d.summary.orders : 0} icon={<LineIcon size={18} />} tone="yellow" />
         </div>
       )}
       {sections.chart && <TrendChart data={d.byMonth} xKey="month" yKey="value" label="Monthly Sales" color="#16a34a" />}
       {sections.breakdowns && (
         <div className="grid lg:grid-cols-2 gap-5">
-          <BreakdownCard title="Top Customers" data={d.byCustomer} columns={[{ key: "customer", header: "Customer", sortable: true }, numCol("panels", "Panels"), moneyCol("value", "Value", true)]} />
-          <BreakdownCard title="By Brand" data={d.byBrand} columns={[{ key: "brand", header: "Brand", sortable: true }, numCol("panels", "Panels"), moneyCol("value", "Value", true)]} />
+          <BreakdownCard title="Top Customers" data={d.byCustomer} meta={meta} fileName="report-sales-top-customers"
+            exportCols={[{ key: "customer", header: "Customer", cell: (r) => r.customer }, { key: "orders", header: "Orders", align: "right", cell: (r) => n(r.orders) }, { key: "panels", header: "Panels", align: "right", cell: (r) => n(r.panels) }, { key: "value", header: "Value (Rs)", align: "right", cell: (r) => n(r.value) }]}
+            columns={[{ key: "customer", header: "Customer", sortable: true }, numCol("panels", "Panels"), moneyCol("value", "Value", true)]} />
+          <BreakdownCard title="By Brand" data={d.byBrand} meta={meta} fileName="report-sales-by-brand"
+            exportCols={[{ key: "brand", header: "Brand", cell: (r) => r.brand }, { key: "panels", header: "Panels", align: "right", cell: (r) => n(r.panels) }, { key: "value", header: "Value (Rs)", align: "right", cell: (r) => n(r.value) }]}
+            columns={[{ key: "brand", header: "Brand", sortable: true }, numCol("panels", "Panels"), moneyCol("value", "Value", true)]} />
         </div>
       )}
       {sections.table && (
-        <SectionCard title="Sales Orders" subtitle={`${d.rows.length} orders`}>
+        <SectionCard title="Sales Orders" subtitle={`${d.rows.length} orders`} headerExtra={detailExport(onExport)}>
           <Table data={d.rows} searchPlaceholder="Search SO #, customer…" columns={vis<SalesReport["rows"][0]>([
             { key: "soNumber", header: "SO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.soNumber}</span> },
             { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
             { key: "customer", header: "Customer", sortable: true },
+            { key: "items", header: "Items", render: (r) => <span className="block max-w-[22rem] truncate text-secondary" title={r.items}>{r.items || "—"}</span> },
+            { key: "brand", header: "Brand", sortable: true, render: (r) => <span className="whitespace-nowrap">{r.brand}</span> },
             { key: "status", header: "Status", render: (r) => <Badge status={r.status} /> },
-            numCol("panels", "Panels"), moneyCol("value", "Value", true),
+            numCol("panels", "Panels"),
+            { key: "kw", header: "kW", className: "text-right", numeric: true, value: (r) => r.watts, render: (r) => <span className="whitespace-nowrap">{ctr1(r.watts / 1000)}</span> },
+            moneyCol("value", "Value", true),
+            { key: "collected", header: "Collected (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="text-green-700 dark:text-green-300 whitespace-nowrap">{formatAmount(r.collected)}</span> },
+            { key: "balance", header: "Balance (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`whitespace-nowrap ${r.balance > 0 ? "text-red-600 dark:text-red-300 font-medium" : "text-tertiary"}`}>{formatAmount(r.balance)}</span> },
           ], hidden)} emptyMessage="No sales orders" />
         </SectionCard>
       )}
@@ -871,7 +970,53 @@ function SalesView({ d, sections, hidden }: { d: SalesReport; sections: Sections
   )
 }
 
-function OutstandingView({ d, sections, hidden }: { d: Outstanding; sections: Sections; hidden: Hidden }) {
+function DeliveriesView({ d, sections, hidden, onExport, meta }: { d: DeliveriesReport; sections: Sections; hidden: Hidden; onExport: ExportFn; meta: string[] }) {
+  return (
+    <>
+      {sections.summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <Kpi label="Delivery Orders" value={d.summary.dos.toLocaleString()} sub={`${d.summary.dispatched} dispatched · ${d.summary.pending} pending`} icon={<Truck size={18} />} tone="blue" />
+          <Kpi label="Panels on DOs" value={d.summary.panels.toLocaleString()} sub={`${ctr1(d.summary.watts / 1000)} kW`} icon={<Package size={18} />} tone="purple" />
+          <Kpi label="Lifted" value={d.summary.lifted.toLocaleString()} sub={`${d.summary.balance.toLocaleString()} balance reserved`} icon={<ShoppingCart size={18} />} tone="green" />
+          <Kpi label="Pallets" value={d.summary.pallets.toLocaleString()} sub="across all DOs" icon={<Boxes size={18} />} tone="yellow" />
+        </div>
+      )}
+      {sections.chart && <TrendChart data={d.byMonth} xKey="month" yKey="panels" label="Monthly Deliveries (panels)" color="#2563eb" />}
+      {sections.breakdowns && (
+        <div className="grid lg:grid-cols-2 gap-5">
+          <BreakdownCard title="By Customer" data={d.byCustomer} meta={meta} fileName="report-deliveries-by-customer"
+            exportCols={[{ key: "customer", header: "Customer", cell: (r) => r.customer }, { key: "dos", header: "DOs", align: "right", cell: (r) => n(r.dos) }, { key: "panels", header: "Panels", align: "right", cell: (r) => n(r.panels) }, { key: "lifted", header: "Lifted", align: "right", cell: (r) => n(r.lifted) }]}
+            columns={[{ key: "customer", header: "Customer", sortable: true }, numCol("dos", "DOs"), numCol("panels", "Panels"), numCol("lifted", "Lifted")]} />
+          <BreakdownCard title="By Warehouse" data={d.byWarehouse} meta={meta} fileName="report-deliveries-by-warehouse"
+            exportCols={[{ key: "warehouse", header: "Warehouse", cell: (r) => r.warehouse }, { key: "dos", header: "DOs", align: "right", cell: (r) => n(r.dos) }, { key: "panels", header: "Panels", align: "right", cell: (r) => n(r.panels) }, { key: "lifted", header: "Lifted", align: "right", cell: (r) => n(r.lifted) }]}
+            columns={[{ key: "warehouse", header: "Warehouse", sortable: true }, numCol("dos", "DOs"), numCol("panels", "Panels"), numCol("lifted", "Lifted")]} />
+        </div>
+      )}
+      {sections.table && (
+        <SectionCard title="Delivery Orders" subtitle={`${d.rows.length} DOs`} headerExtra={detailExport(onExport)}>
+          <Table data={d.rows} searchPlaceholder="Search DO #, customer, SO…" columns={vis<DeliveriesReport["rows"][0]>([
+            { key: "doNumber", header: "DO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.doNumber}</span> },
+            { key: "referenceNo", header: "Customer Ref", render: (r) => <span className="whitespace-nowrap">{r.referenceNo || "—"}</span> },
+            { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
+            { key: "customer", header: "Customer", sortable: true },
+            { key: "soNumber", header: "SO #", sortable: true, render: (r) => <span className="whitespace-nowrap text-secondary">{r.soNumber}</span> },
+            { key: "warehouse", header: "Warehouse", sortable: true },
+            { key: "items", header: "Items", render: (r) => <span className="block max-w-[20rem] truncate text-secondary" title={r.items}>{r.items || "—"}</span> },
+            { key: "brand", header: "Brand", sortable: true, render: (r) => <span className="whitespace-nowrap">{r.brand}</span> },
+            { key: "status", header: "Status", render: (r) => <Badge status={r.status} /> },
+            numCol("panels", "Panels"),
+            { key: "kw", header: "kW", className: "text-right", numeric: true, value: (r) => r.watts, render: (r) => <span className="whitespace-nowrap">{ctr1(r.watts / 1000)}</span> },
+            { key: "lifted", header: "Lifted", sortable: true, className: "text-right", numeric: true, render: (r) => <span className="text-green-700 dark:text-green-300 whitespace-nowrap">{r.lifted.toLocaleString()}</span> },
+            { key: "balance", header: "Balance", sortable: true, className: "text-right", numeric: true, render: (r) => r.balance ? <span className="text-amber-700 dark:text-amber-300 whitespace-nowrap">{r.balance.toLocaleString()}</span> : <span className="text-tertiary">—</span> },
+            numCol("pallets", "Pallets"),
+          ], hidden)} emptyMessage="No delivery orders" />
+        </SectionCard>
+      )}
+    </>
+  )
+}
+
+function OutstandingView({ d, sections, hidden, onExport }: { d: Outstanding; sections: Sections; hidden: Hidden; onExport: ExportFn }) {
   return (
     <>
       {sections.summary && (
@@ -891,7 +1036,7 @@ function OutstandingView({ d, sections, hidden }: { d: Outstanding; sections: Se
         ]} />
       )}
       {sections.table && (
-        <SectionCard title="Customer Outstanding" subtitle="Sales − Collections, aged by oldest unpaid order">
+        <SectionCard title="Customer Outstanding" subtitle="Sales − Collections, aged by oldest unpaid order" headerExtra={detailExport(onExport)}>
           <Table data={d.rows} keyField="customerId" searchPlaceholder="Search customer…" columns={vis<Outstanding["rows"][0]>([
             { key: "customer", header: "Customer", sortable: true, value: (r) => r.customer, render: (r) => <Link href={`/ledger?customerId=${r.customerId}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{r.customer}</Link> },
             moneyCol("soTotal", "Sales"),
@@ -906,7 +1051,7 @@ function OutstandingView({ d, sections, hidden }: { d: Outstanding; sections: Se
   )
 }
 
-function CollectionsView({ d, sections, hidden }: { d: Collections; sections: Sections; hidden: Hidden }) {
+function CollectionsView({ d, sections, hidden, onExport, meta }: { d: Collections; sections: Sections; hidden: Hidden; onExport: ExportFn; meta: string[] }) {
   return (
     <>
       {sections.summary && (
@@ -918,12 +1063,16 @@ function CollectionsView({ d, sections, hidden }: { d: Collections; sections: Se
       {sections.chart && <TrendChart data={d.byMonth} xKey="month" yKey="total" label="Monthly Collections" color="#0ea5e9" />}
       {sections.breakdowns && (
         <div className="grid lg:grid-cols-2 gap-5">
-          <BreakdownCard title="By Bank" data={d.byBank} columns={[{ key: "bank", header: "Bank", sortable: true }, numCol("count", "Receipts"), moneyCol("total", "Total", true)]} />
-          <BreakdownCard title="Top Parties" data={d.byParty} columns={[{ key: "customer", header: "Customer", sortable: true }, numCol("count", "Receipts"), moneyCol("total", "Total", true)]} />
+          <BreakdownCard title="By Bank" data={d.byBank} meta={meta} fileName="report-collections-by-bank"
+            exportCols={[{ key: "bank", header: "Bank", cell: (r) => r.bank }, { key: "count", header: "Receipts", align: "right", cell: (r) => n(r.count) }, { key: "total", header: "Total (Rs)", align: "right", cell: (r) => n(r.total) }]}
+            columns={[{ key: "bank", header: "Bank", sortable: true }, numCol("count", "Receipts"), moneyCol("total", "Total", true)]} />
+          <BreakdownCard title="Top Parties" data={d.byParty} meta={meta} fileName="report-collections-top-parties"
+            exportCols={[{ key: "customer", header: "Customer", cell: (r) => r.customer }, { key: "count", header: "Receipts", align: "right", cell: (r) => n(r.count) }, { key: "total", header: "Total (Rs)", align: "right", cell: (r) => n(r.total) }]}
+            columns={[{ key: "customer", header: "Customer", sortable: true }, numCol("count", "Receipts"), moneyCol("total", "Total", true)]} />
         </div>
       )}
       {sections.table && (
-        <SectionCard title="Collection Receipts" subtitle={`${d.rows.length} receipts`}>
+        <SectionCard title="Collection Receipts" subtitle={`${d.rows.length} receipts`} headerExtra={detailExport(onExport)}>
           <Table data={d.rows} searchPlaceholder="Search receipt, customer, ref…" columns={vis<Collections["rows"][0]>([
             { key: "receiptNo", header: "Receipt #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.receiptNo}</span> },
             { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
@@ -938,7 +1087,7 @@ function CollectionsView({ d, sections, hidden }: { d: Collections; sections: Se
   )
 }
 
-function ProfitView({ d, sections, hidden }: { d: Profit; sections: Sections; hidden: Hidden }) {
+function ProfitView({ d, sections, hidden, onExport }: { d: Profit; sections: Sections; hidden: Hidden; onExport: ExportFn }) {
   return (
     <>
       {sections.summary && (
@@ -950,7 +1099,7 @@ function ProfitView({ d, sections, hidden }: { d: Profit; sections: Sections; hi
         </div>
       )}
       {sections.table && (
-        <SectionCard title="Gross Profit by Product" subtitle="Delivered sales − FIFO landed cost">
+        <SectionCard title="Gross Profit by Product" subtitle="Delivered sales − FIFO landed cost" headerExtra={detailExport(onExport)}>
           <Table data={d.rows} keyField="product" searchPlaceholder="Search product…" columns={vis<Profit["rows"][0]>([
             { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.product}</span> },
             { key: "brand", header: "Brand", sortable: true },
@@ -964,7 +1113,7 @@ function ProfitView({ d, sections, hidden }: { d: Profit; sections: Sections; hi
   )
 }
 
-function PurchasesView({ d, sections, hidden }: { d: Purchases; sections: Sections; hidden: Hidden }) {
+function PurchasesView({ d, sections, hidden, onExport, meta }: { d: Purchases; sections: Sections; hidden: Hidden; onExport: ExportFn; meta: string[] }) {
   return (
     <>
       {sections.summary && (
@@ -976,10 +1125,12 @@ function PurchasesView({ d, sections, hidden }: { d: Purchases; sections: Sectio
       )}
       {sections.chart && <TrendChart data={d.byMonth} xKey="month" yKey="value" label="Monthly Purchases" color="#8b5cf6" />}
       {sections.breakdowns && (
-        <BreakdownCard title="By Supplier" data={d.bySupplier} columns={[{ key: "supplier", header: "Supplier", sortable: true }, numCol("orders", "POs"), numCol("panels", "Panels"), moneyCol("value", "Value", true)]} />
+        <BreakdownCard title="By Supplier" data={d.bySupplier} meta={meta} fileName="report-purchases-by-supplier"
+          exportCols={[{ key: "supplier", header: "Supplier", cell: (r) => r.supplier }, { key: "orders", header: "POs", align: "right", cell: (r) => n(r.orders) }, { key: "panels", header: "Panels", align: "right", cell: (r) => n(r.panels) }, { key: "value", header: "Value (Rs)", align: "right", cell: (r) => n(r.value) }]}
+          columns={[{ key: "supplier", header: "Supplier", sortable: true }, numCol("orders", "POs"), numCol("panels", "Panels"), moneyCol("value", "Value", true)]} />
       )}
       {sections.table && (
-        <SectionCard title="Purchase Orders" subtitle={`${d.rows.length} POs`}>
+        <SectionCard title="Purchase Orders" subtitle={`${d.rows.length} POs`} headerExtra={detailExport(onExport)}>
           <Table data={d.rows} searchPlaceholder="Search PO, supplier, product…" columns={vis<Purchases["rows"][0]>([
             { key: "poNumber", header: "PO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.poNumber}</span> },
             { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
@@ -994,7 +1145,7 @@ function PurchasesView({ d, sections, hidden }: { d: Purchases; sections: Sectio
   )
 }
 
-function StockAgingView({ d, sections, hidden }: { d: StockAging; sections: Sections; hidden: Hidden }) {
+function StockAgingView({ d, sections, hidden, onExport }: { d: StockAging; sections: Sections; hidden: Hidden; onExport: ExportFn }) {
   const tone: Record<string, string> = { "0to30": "border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 text-green-800 dark:text-green-300", "31to60": "border-yellow-200 dark:border-yellow-500/30 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-800 dark:text-yellow-300", "61to90": "border-orange-200 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-500/10 text-orange-800 dark:text-orange-300", over90: "border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300" }
   const labels: Record<string, string> = { "0to30": "0–30 days", "31to60": "31–60 days", "61to90": "61–90 days", over90: "90+ days" }
   return (
@@ -1011,7 +1162,7 @@ function StockAgingView({ d, sections, hidden }: { d: StockAging; sections: Sect
         </div>
       )}
       {sections.table && (
-        <SectionCard title="Stock Aging" subtitle="Available batches by age — watch the 90+ day dead stock">
+        <SectionCard title="Stock Aging" subtitle="Available batches by age — watch the 90+ day dead stock" headerExtra={detailExport(onExport)}>
           <Table data={d.rows} searchPlaceholder="Search product…" columns={vis<StockAging["rows"][0]>([
             { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.product}</span> },
             { key: "warehouse", header: "Warehouse", sortable: true },
@@ -1026,7 +1177,7 @@ function StockAgingView({ d, sections, hidden }: { d: StockAging; sections: Sect
   )
 }
 
-function StockView({ d, sections, hidden, asOfDate }: { d: StockSummary; sections: Sections; hidden: Hidden; asOfDate: string }) {
+function StockView({ d, sections, hidden, asOfDate, onExport }: { d: StockSummary; sections: Sections; hidden: Hidden; asOfDate: string; onExport: ExportFn }) {
   return (
     <>
       {sections.summary && (
@@ -1038,7 +1189,7 @@ function StockView({ d, sections, hidden, asOfDate }: { d: StockSummary; section
         </div>
       )}
       {sections.table && (
-        <SectionCard title="Stock by Batch" subtitle={`${d.rows.length} batches${asOfDate ? ` — as of ${formatDate(asOfDate)}` : ""}`}>
+        <SectionCard title="Stock by Batch" subtitle={`${d.rows.length} batches${asOfDate ? ` — as of ${formatDate(asOfDate)}` : ""}`} headerExtra={detailExport(onExport)}>
           <Table data={d.rows} searchPlaceholder="Search product…" columns={vis<StockSummary["rows"][0]>([
             { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.product}</span> },
             { key: "warehouse", header: "Warehouse", sortable: true },
@@ -1052,12 +1203,13 @@ function StockView({ d, sections, hidden, asOfDate }: { d: StockSummary; section
   )
 }
 
-function StockPositionView({ d, sections, hidden, unit, setUnit }: {
+function StockPositionView({ d, sections, hidden, unit, setUnit, onExport }: {
   d: StockPosition
   sections: Sections
   hidden: Hidden
   unit: StockUnit
   setUnit: (u: StockUnit) => void
+  onExport: ExportFn
 }) {
   const num = (v: number) => v.toLocaleString()
   const totalAvailValue = d.rows.reduce((s, r) => s + availValue(r), 0)
@@ -1088,13 +1240,16 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
           title="Stock Position"
           subtitle={`As of ${formatDate(d.asOf)} — received → sold → delivered → available, like the manual stock sheet`}
           headerExtra={
-            <div className="flex gap-1">
-              {([["panels", "Panels"], ["containers", "Containers"], ["value", "PKR Value"]] as const).map(([k, l]) => (
-                <button key={k} onClick={() => setUnit(k)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${unit === k ? "bg-blue-600 text-white" : "bg-muted text-secondary hover:bg-muted"}`}>
-                  {l}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex gap-1">
+                {([["panels", "Panels"], ["containers", "Containers"], ["value", "PKR Value"]] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setUnit(k)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${unit === k ? "bg-blue-600 text-white" : "bg-muted text-secondary hover:bg-muted"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {detailExport(onExport)}
             </div>
           }
         >
@@ -1154,7 +1309,7 @@ function StockPositionView({ d, sections, hidden, unit, setUnit }: {
   )
 }
 
-function POStatusView({ d, rows, sections, hidden }: { d: POStatus; rows: POStatus["rows"]; sections: Sections; hidden: Hidden }) {
+function POStatusView({ d, rows, sections, hidden, onExport }: { d: POStatus; rows: POStatus["rows"]; sections: Sections; hidden: Hidden; onExport: ExportFn }) {
   return (
     <>
       {sections.summary && (
@@ -1163,7 +1318,7 @@ function POStatusView({ d, rows, sections, hidden }: { d: POStatus; rows: POStat
         </div>
       )}
       {sections.table && (
-        <SectionCard title="Purchase Order Status" subtitle={`${rows.length} POs`}>
+        <SectionCard title="Purchase Order Status" subtitle={`${rows.length} POs`} headerExtra={detailExport(onExport)}>
           <Table data={rows} searchPlaceholder="Search PO, supplier…" columns={vis<POStatus["rows"][0]>([
             { key: "poNumber", header: "PO #", sortable: true, render: (r) => <span className="font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">{r.poNumber}</span> },
             { key: "supplier", header: "Supplier", sortable: true },

@@ -18,6 +18,7 @@ export type ModuleKey =
   | "ledger"
   | "expenses"
   | "reports.sales"
+  | "reports.deliveries"
   | "reports.receivables"
   | "reports.collections"
   | "reports.profitability"
@@ -90,6 +91,7 @@ export const MODULES: ModuleDef[] = [
   { key: "expenses", label: "Expenses", section: "Finance" },
 
   { key: "reports.sales", label: "Sales Report", section: "Reports" },
+  { key: "reports.deliveries", label: "Deliveries Report", section: "Reports" },
   { key: "reports.receivables", label: "Receivables Report", section: "Reports" },
   { key: "reports.collections", label: "Collections Report", section: "Reports" },
   { key: "reports.profitability", label: "Profitability Report", section: "Reports" },
@@ -205,6 +207,7 @@ export const DEFAULT_REPORT_VIEW = "outstanding"
 /** Maps a report's ?view= key to its module. */
 export const REPORT_VIEW_TO_MODULE: Record<string, ModuleKey> = {
   sales: "reports.sales",
+  deliveries: "reports.deliveries",
   outstanding: "reports.receivables",
   collections: "reports.collections",
   profit: "reports.profitability",

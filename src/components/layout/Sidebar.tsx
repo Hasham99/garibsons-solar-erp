@@ -61,6 +61,7 @@ export const navSections: NavSection[] = [
         icon: <BarChart3 size={18} />,
         children: [
           { label: "Sales", href: "/reports?view=sales", icon: <TrendingUp size={16} />, module: "reports.sales" },
+          { label: "Deliveries", href: "/reports?view=deliveries", icon: <Truck size={16} />, module: "reports.deliveries" },
           { label: "Receivables", href: "/reports?view=outstanding", icon: <Wallet size={16} />, module: "reports.receivables" },
           { label: "Collections", href: "/reports?view=collections", icon: <Banknote size={16} />, module: "reports.collections" },
           { label: "Profitability", href: "/reports?view=profit", icon: <LineChart size={16} />, module: "reports.profitability" },
