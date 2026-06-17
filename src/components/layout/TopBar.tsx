@@ -3,13 +3,15 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
-import { Search, ChevronDown, ChevronRight, LogOut, UserRound, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react"
+import { Search, ChevronDown, ChevronRight, LogOut, UserRound, PanelLeftClose, PanelLeftOpen, Menu, RotateCw } from "lucide-react"
 import { clsx } from "clsx"
 import { CommandPalette } from "@/components/layout/CommandPalette"
 import { NotificationBell } from "@/components/layout/NotificationBell"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { navSections, NavItem } from "@/components/layout/Sidebar"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { useLookups } from "@/components/lookups/LookupsProvider"
+import { useRefreshRegistry } from "@/components/refresh/RefreshProvider"
 import { TOPBAR_SURFACE } from "@/lib/surfaces"
 
 const DEFAULT_REPORT_VIEW = "outstanding"
@@ -77,6 +79,14 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar, onOpenMobileSi
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { refresh: refreshLookups } = useLookups()
+  const { refreshAll, refreshing } = useRefreshRegistry()
+
+  // Re-pull the shared lookup caches AND whatever the current page fetched.
+  const handleRefresh = () => {
+    refreshLookups()
+    refreshAll()
+  }
 
   // Global ⌘K / Ctrl+K shortcut
   useEffect(() => {
@@ -197,6 +207,16 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar, onOpenMobileSi
               className="sm:hidden shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
             >
               <Search size={18} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              title="Refresh data"
+              aria-label="Refresh data"
+              className="shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <RotateCw size={18} className={refreshing ? "animate-spin" : ""} />
             </button>
 
             <ThemeToggle />

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRefreshRegistry } from "@/components/refresh/RefreshProvider"
 
 interface FetchState<T> {
   data: T | null
@@ -18,6 +19,11 @@ export function useFetch<T>(url: string, deps: unknown[] = []): FetchState<T> {
   const refetch = useCallback(() => {
     setTick((t) => t + 1)
   }, [])
+
+  // Register with the page-wide refresh registry so the TopBar refresh button
+  // re-pulls this data along with everything else the page loaded.
+  const { register } = useRefreshRegistry()
+  useEffect(() => register(refetch), [register, refetch])
 
   useEffect(() => {
     if (!url) {

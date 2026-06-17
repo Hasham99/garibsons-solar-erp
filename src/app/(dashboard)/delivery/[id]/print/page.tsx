@@ -69,12 +69,13 @@ function computePallets(panels: number, product: PrintLine["product"]): number |
 /* Company contact details shown in the footer of the printed DO. The label is the
    simple title; `text` is the friendly link text (no raw URLs) and `href` the real link. */
 const CONTACT_DETAILS: Array<{ label: string; text: string; href?: string }> = [
-  { label: "Website", text: "garibsons.com/solar", href: "https://garibsons.com/solar" },
-  { label: "Email", text: "contact@garibsons.com", href: "mailto:contact@garibsons.com" },
-  { label: "Phone", text: "+92 21 111 427 421", href: "tel:+9221111427421" },
-  { label: "Fax", text: "+92 21 111 427 422" },
-  { label: "LinkedIn", text: "Garibsons", href: "https://www.linkedin.com/company/garibsons" },
-  { label: "Facebook", text: "Garibsons (Pvt) Ltd", href: "https://www.facebook.com/people/Garibsons-PVT-LTD/100079335071351" },
+  { label: "Website", text: "gsenergysystems.com", href: "https://gsenergysystems.com" },
+  { label: "Email", text: "info@gsenergysystems.com", href: "mailto:info@gsenergysystems.com" },
+  { label: "Phone", text: "+92 21 35641842", href: "tel:+922135641842" },
+  { label: "WhatsApp", text: "+92 336 9533566", href: "https://wa.me/923369533566" },
+  { label: "Instagram", text: "gsenergypakistan", href: "https://www.instagram.com/gsenergypakistan?igsh=cnplZ2t3dGN5OWFj" },
+  { label: "LinkedIn", text: "GS Energy Systems", href: "https://www.linkedin.com/company/gs-energy-systems/" },
+  { label: "Facebook", text: "GS Energy Systems", href: "https://www.facebook.com/share/1BQh3QPueT/" },
 ]
 
 function ContactRow({ label, text, href }: { label: string; text: string; href?: string }) {

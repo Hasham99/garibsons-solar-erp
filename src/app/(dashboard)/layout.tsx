@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useIdleTimeout } from "@/hooks/useIdleTimeout"
 import { AuthProvider } from "@/components/auth/AuthProvider"
 import { LookupsProvider } from "@/components/lookups/LookupsProvider"
+import { RefreshProvider } from "@/components/refresh/RefreshProvider"
 
 const SIDEBAR_PREF_KEY = "gbs-sidebar-collapsed"
 
@@ -31,7 +32,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <AuthProvider>
       <LookupsProvider>
-        <DashboardShell>{children}</DashboardShell>
+        <RefreshProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </RefreshProvider>
       </LookupsProvider>
     </AuthProvider>
   )

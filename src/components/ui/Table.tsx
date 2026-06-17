@@ -1,7 +1,7 @@
 "use client"
 
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react"
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search, SlidersHorizontal, X, Inbox, SearchX } from "lucide-react"
+import { ChevronUp, ChevronDown, ChevronsUpDown, Search, SlidersHorizontal, X, Inbox, SearchX, Columns3 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,6 +75,8 @@ function getPath(obj: unknown, path: string): unknown {
 interface PersistedTableState {
   pageSize?: number
   filterState?: Record<string, string | { from?: string; to?: string }>
+  /** Keys of columns the user has hidden via the column picker. */
+  hiddenColumns?: string[]
 }
 
 function readTableState(key: string | null): PersistedTableState | null {
@@ -126,11 +128,20 @@ export function Table<T extends Record<string, any>>({
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  // Columns the user has hidden via the column picker (persisted per table).
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(
+    () => new Set(readTableState(persistKey)?.hiddenColumns ?? [])
+  )
+  const [colsOpen, setColsOpen] = useState(false)
+  const colsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!persistKey) return
-    localStorage.setItem(persistKey, JSON.stringify({ pageSize, filterState }))
-  }, [persistKey, pageSize, filterState])
+    localStorage.setItem(
+      persistKey,
+      JSON.stringify({ pageSize, filterState, hiddenColumns: [...hiddenKeys] })
+    )
+  }, [persistKey, pageSize, filterState, hiddenKeys])
 
   // "/" focuses the table search from anywhere on the page
   useEffect(() => {
@@ -160,6 +171,39 @@ export function Table<T extends Record<string, any>>({
       document.removeEventListener("keydown", onKey)
     }
   }, [filterOpen])
+
+  // Close columns popover on outside click / Escape
+  useEffect(() => {
+    if (!colsOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (colsRef.current && !colsRef.current.contains(e.target as Node)) setColsOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setColsOpen(false)
+    document.addEventListener("mousedown", onClick)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onClick)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [colsOpen])
+
+  // The columns actually rendered — search/sort/filter still run over the full
+  // set, so hiding a column never changes which rows match.
+  const visibleColumns = useMemo(() => columns.filter((c) => !hiddenKeys.has(c.key)), [columns, hiddenKeys])
+
+  // Never let the user hide the last visible column — there'd be nothing to show.
+  const toggleColumn = (key: string) => {
+    setHiddenKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        if (columns.length - next.size <= 1) return prev
+        next.add(key)
+      }
+      return next
+    })
+  }
 
   const colByKey = useMemo(() => Object.fromEntries(columns.map((c) => [c.key, c])), [columns])
 
@@ -306,7 +350,8 @@ export function Table<T extends Record<string, any>>({
     : `px-3 py-2 text-left text-[10px] font-semibold text-secondary uppercase tracking-wide whitespace-nowrap`
   const tdClass = compact ? `px-2 py-1.5 text-xs text-foreground` : `px-3 py-2 text-[12px] text-foreground`
 
-  const showToolbar = searchable || resolvedFilters.length > 0
+  const showColumnPicker = columns.length > 1
+  const showToolbar = searchable || resolvedFilters.length > 0 || showColumnPicker
 
   const clearFilters = () => setFilterState({})
 
@@ -340,8 +385,80 @@ export function Table<T extends Record<string, any>>({
             </div>
           )}
 
+          <div className="ml-auto flex items-center gap-2">
+          {showColumnPicker && (
+            <div className="relative" ref={colsRef}>
+              <button
+                type="button"
+                onClick={() => setColsOpen((o) => !o)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] shadow-sm transition-colors ${
+                  hiddenKeys.size > 0
+                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"
+                    : "border-line-strong bg-surface text-secondary hover:bg-muted"
+                }`}
+                title="Show or hide columns"
+                aria-label="Show or hide columns"
+              >
+                <Columns3 size={15} />
+                <span className="hidden sm:inline">Columns</span>
+                {hiddenKeys.size > 0 && (
+                  <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-medium text-white">
+                    {hiddenKeys.size}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+              {colsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                  className="absolute right-0 z-20 mt-2 w-60 origin-top-right rounded-xl border border-line bg-elevated p-2 shadow-pop">
+                  <div className="mb-1 flex items-center justify-between px-2 py-1.5">
+                    <span className="text-sm font-semibold text-foreground">Columns</span>
+                    {hiddenKeys.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setHiddenKeys(new Set())}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-300"
+                      >
+                        Show all
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-72 overflow-y-auto">
+                    {columns.map((c) => {
+                      const visible = !hiddenKeys.has(c.key)
+                      const isLastVisible = visible && columns.length - hiddenKeys.size <= 1
+                      return (
+                        <label
+                          key={c.key}
+                          className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] text-secondary ${
+                            isLastVisible ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-muted"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={visible}
+                            disabled={isLastVisible}
+                            onChange={() => toggleColumn(c.key)}
+                            className="h-4 w-4 rounded border-line-strong text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="truncate">{c.header || c.key}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </motion.div>
+              )}
+              </AnimatePresence>
+            </div>
+          )}
+
           {resolvedFilters.length > 0 && (
-            <div className="relative ml-auto" ref={filterRef}>
+            <div className="relative" ref={filterRef}>
               <button
                 type="button"
                 onClick={() => setFilterOpen((o) => !o)}
@@ -437,6 +554,7 @@ export function Table<T extends Record<string, any>>({
               </AnimatePresence>
             </div>
           )}
+          </div>
         </div>
       )}
 
@@ -449,7 +567,7 @@ export function Table<T extends Record<string, any>>({
               className={`px-4 py-3 space-y-2 ${onRowClick ? "cursor-pointer active:bg-muted" : ""} ${rowClassName?.(row) || ""}`}
               onClick={() => onRowClick?.(row)}
             >
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <div key={col.key} className="flex items-start justify-between gap-3">
                   <span className="shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
                     {col.header}
@@ -468,7 +586,7 @@ export function Table<T extends Record<string, any>>({
         <table className="w-full divide-y divide-line">
           <thead className="bg-muted">
             <tr>
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <th
                   key={col.key}
                   className={`${thClass} ${col.sortable ? "cursor-pointer hover:bg-muted select-none" : ""} ${col.className || ""}`}
@@ -500,7 +618,7 @@ export function Table<T extends Record<string, any>>({
           >
             {pageData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-14">
+                <td colSpan={visibleColumns.length} className="px-4 py-14">
                   <div className="flex flex-col items-center gap-2.5 text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-tertiary">
                       {query || activeFilterCount > 0 ? <SearchX size={22} /> : <Inbox size={22} />}
@@ -521,7 +639,7 @@ export function Table<T extends Record<string, any>>({
                   className={`hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors duration-150 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) || "bg-surface"}`}
                   onClick={() => onRowClick?.(row)}
                 >
-                  {columns.map((col) => (
+                  {visibleColumns.map((col) => (
                     <td key={col.key} className={`${tdClass} ${col.numeric ? "tabular-nums" : ""} ${col.className || ""}`}>
                       {col.render ? col.render(row) : String(row[col.key] ?? "")}
                     </td>
