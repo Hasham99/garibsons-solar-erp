@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getIronSession } from "iron-session"
 import { SESSION_COOKIE_NAME, SESSION_PASSWORD } from "@/lib/session-config"
+import { PORTAL_COOKIE_NAME, PORTAL_SESSION_PASSWORD } from "@/lib/portal-session-config"
 import {
   can,
   hasAnyReportAccess,
@@ -21,6 +22,16 @@ const SESSION_OPTIONS = {
   },
 }
 
+const PORTAL_OPTIONS = {
+  password: PORTAL_SESSION_PASSWORD,
+  cookieName: PORTAL_COOKIE_NAME,
+  cookieOptions: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "lax" as const,
+  },
+}
+
 interface ProxySession {
   userId?: string
   isLoggedIn?: boolean
@@ -28,7 +39,40 @@ interface ProxySession {
   perms?: PermMap
 }
 
+interface PortalProxySession {
+  customerUserId?: string
+  isLoggedIn?: boolean
+}
+
 const publicPaths = ["/login", "/api/auth/login"]
+const portalPublicPaths = ["/portal/login", "/api/portal/auth/login"]
+
+/**
+ * Party portal surface — gated on its OWN sealed cookie, fully isolated from the
+ * staff session. A party login never reaches internal admin routes (those read
+ * the staff cookie, which a party does not have) and vice-versa.
+ */
+async function portalProxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  if (portalPublicPaths.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    return NextResponse.next()
+  }
+
+  const response = NextResponse.next()
+  const unauthorized = () =>
+    pathname.startsWith("/api/")
+      ? Response.json({ error: "Unauthorized" }, { status: 401 })
+      : NextResponse.redirect(new URL("/portal/login", request.url))
+
+  try {
+    const session = await getIronSession<PortalProxySession>(request, response, PORTAL_OPTIONS)
+    if (!session.isLoggedIn || !session.customerUserId) return unauthorized()
+  } catch {
+    return unauthorized()
+  }
+  return response
+}
 
 /**
  * Optimistic auth + module-boundary gating (Next.js 16 Proxy, Node runtime).
@@ -40,13 +84,19 @@ const publicPaths = ["/login", "/api/auth/login"]
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public paths
-  if (publicPaths.some((p) => pathname.startsWith(p))) {
+  // Allow static files and Next.js internals
+  if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname.includes(".")) {
     return NextResponse.next()
   }
 
-  // Allow static files and Next.js internals
-  if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname.includes(".")) {
+  // Party portal is a separate, isolated auth surface — handle it before any
+  // staff-session logic so the two never cross.
+  if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
+    return portalProxy(request)
+  }
+
+  // Allow staff public paths
+  if (publicPaths.some((p) => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 

@@ -29,6 +29,7 @@ import {
   Clock,
   ClipboardList,
   ShieldCheck,
+  FileCheck,
 } from "lucide-react"
 import { clsx } from "clsx"
 import { can, type Access, type ModuleKey, type PermMap } from "@/lib/permissions/modules"
@@ -107,6 +108,7 @@ export const navSections: NavSection[] = [
     label: "Finance",
     items: [
       { label: "Party Ledger", href: "/ledger", icon: <BookOpen size={18} />, module: "ledger" },
+      { label: "Payment Slips", href: "/payment-slips", icon: <FileCheck size={18} />, module: "payments.slips" },
       { label: "Expenses", href: "/expenses", icon: <Wallet size={18} />, module: "expenses" },
     ],
   },
@@ -330,15 +332,17 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
   return (
     <div className="relative flex flex-col h-full border-r border-white/5" style={SIDEBAR_SURFACE}>
       {/* Logo */}
-      <div className={clsx("border-b border-white/10 flex items-center", collapsed ? "justify-center px-2 py-4" : "px-5 py-4 gap-3")}>
-        <div className="h-9 w-9 shrink-0 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-black/30 p-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-emblem.png" alt="GS Energy Systems" className="h-full w-full object-contain" />
-        </div>
-        {!collapsed && (
+      <div className={clsx("border-b border-white/10 flex items-center", collapsed ? "justify-center px-2 py-4" : "px-5 py-4")}>
+        {collapsed ? (
+          <div className="h-9 w-9 shrink-0 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-black/30 p-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/garibsons-logo.png" alt="Garibsons" className="h-full w-full object-contain" />
+          </div>
+        ) : (
           <div className="min-w-0 animate-fade-in leading-none">
-            <p className="text-white text-[15px] font-bold tracking-tight truncate">GS Energy</p>
-            <p className="text-[#f6a040] text-[11px] mt-1 tracking-[0.16em] font-semibold">SOLAR ERP</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/gbs-logo-inverted.png" alt="Garibsons (Pvt) Ltd" className="h-4 w-auto object-contain" />
+            <p className="text-[#f6a040] text-[10px] mt-2 tracking-[0.18em] font-semibold">SOLAR ERP</p>
           </div>
         )}
       </div>

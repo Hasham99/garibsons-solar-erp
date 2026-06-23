@@ -7,7 +7,7 @@ interface BadgeProps {
   className?: string
 }
 
-/* Soft 100-level background + 800-level text — the GS Energy badge map.
+/* Soft 100-level background + 800-level text — the Garibsons badge map.
    One hue per semantic meaning, flat (no ring). */
 const tones = {
   neutral: "bg-slate-100 text-slate-700 dark:bg-slate-400/10 dark:text-slate-300",

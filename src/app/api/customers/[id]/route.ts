@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
+import { deleteBlob } from "@/lib/storage"
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -75,33 +76,46 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     })
     if (!customer) return Response.json({ error: "Customer not found" }, { status: 404 })
 
-    // A party with transactions cannot be deleted — that would corrupt
-    // ledgers and history. They must stay (deactivate instead).
+    // Whether the party has any history that must be preserved. If so we don't
+    // physically delete (its sales orders / receipts / quotations reference it);
+    // we archive it instead — hidden from lists & dropdowns, kept for reference.
     const c = customer._count
-    if (c.salesOrders > 0 || c.receipts > 0 || c.quotations > 0 || c.ledgerEntries > 0) {
-      const parts = [
-        c.salesOrders > 0 ? `${c.salesOrders} sales order(s)` : null,
-        c.receipts > 0 ? `${c.receipts} collection(s)` : null,
-        c.quotations > 0 ? `${c.quotations} quotation(s)` : null,
-      ].filter(Boolean)
-      return Response.json(
-        { error: `Cannot delete "${customer.name}" — it has ${parts.join(", ")}. Transfer or remove those first, or deactivate the party instead.` },
-        { status: 422 }
-      )
-    }
+    const hasHistory =
+      c.salesOrders > 0 || c.receipts > 0 || c.quotations > 0 || c.ledgerEntries > 0
 
+    // Either way, the party's editable/current data goes: contacts, portal
+    // logins, and any pending/rejected payment slips (purge their blob images
+    // first). A VERIFIED slip would have created a receipt — counted above as
+    // history — so its slip is preserved alongside the receipt it produced.
+    const slips = await prisma.paymentSlip.findMany({
+      where: { customerId: id, linkedReceiptId: null },
+      select: { id: true, imageUrl: true, imagePurgedAt: true },
+    })
+    for (const s of slips) {
+      if (s.imageUrl && !s.imagePurgedAt) await deleteBlob(s.imageUrl)
+    }
+    await prisma.paymentSlip.deleteMany({ where: { id: { in: slips.map((s) => s.id) } } })
+    await prisma.customerUser.deleteMany({ where: { customerId: id } })
     await prisma.customerContact.deleteMany({ where: { customerId: id } })
-    await prisma.customer.delete({ where: { id } })
+
+    if (hasHistory) {
+      await prisma.customer.update({
+        where: { id },
+        data: { archivedAt: new Date(), active: false },
+      })
+    } else {
+      await prisma.customer.delete({ where: { id } })
+    }
 
     await writeAuditLog({
       userId: session.userId,
-      action: "DELETE",
+      action: hasHistory ? "ARCHIVE" : "DELETE",
       entity: "Customer",
       entityId: id,
-      changes: { name: customer.name },
+      changes: { name: customer.name, archived: hasHistory },
     })
 
-    return Response.json({ success: true })
+    return Response.json({ success: true, archived: hasHistory })
   } catch (error) {
     console.error(error)
     return Response.json({ error: "Failed to delete customer" }, { status: 500 })

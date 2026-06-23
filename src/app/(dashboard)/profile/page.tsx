@@ -66,7 +66,7 @@ export default function ProfilePage() {
   const access = accessOf(user)
 
   return (
-    <div className="space-y-6 animate-fade-in-up max-w-5xl">
+    <div className="mx-auto space-y-6 animate-fade-in-up max-w-5xl">
       <Header title="My Profile" breadcrumbs={[{ label: "Profile" }]} />
 
       {/* Identity banner */}

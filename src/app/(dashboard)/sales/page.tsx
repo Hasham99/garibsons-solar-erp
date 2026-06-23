@@ -4,7 +4,7 @@ import { type ChangeEvent, useDeferredValue, useEffect, useRef, useState } from 
 import Image from "next/image"
 import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
-import { CheckCircle, Eye, Pencil, Plus, Trash2, Truck, Upload } from "lucide-react"
+import { ArrowLeftRight, CheckCircle, Eye, Pencil, Plus, Trash2, Truck, Upload } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -73,6 +73,7 @@ interface CustomerOption {
   creditLimit: number | null
   paymentTerms: string
   contactPhone: string | null
+  active?: boolean
 }
 
 interface ProductOption {
@@ -143,6 +144,9 @@ export default function SalesPage() {
   const [balanceOrder, setBalanceOrder] = useState<SalesOrder | null>(null)
   const [cancellingBalance, setCancellingBalance] = useState(false)
   const [detailRow, setDetailRow] = useState<SalesOrder | null>(null)
+  const [transferOrder, setTransferOrder] = useState<SalesOrder | null>(null)
+  const [transferTargetId, setTransferTargetId] = useState("")
+  const [transferring, setTransferring] = useState(false)
   const [lastUsedProductId, setLastUsedProductId] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -418,6 +422,30 @@ export default function SalesPage() {
     else toast.error("Failed to verify payment")
   }
 
+  const handleTransfer = async () => {
+    if (!transferOrder || !transferTargetId) return
+    setTransferring(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${transferOrder.id}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId: transferTargetId }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(`${data.soNumber} moved to ${data.customerName}`)
+        setTransferOrder(null)
+        setTransferTargetId("")
+        refetch()
+      } else {
+        const data = await response.json().catch(() => ({ error: "Failed" }))
+        toast.error(data.error || "Failed to change party")
+      }
+    } finally {
+      setTransferring(false)
+    }
+  }
+
   const triggerProofUpload = (id: string) => {
     setPendingUploadId(id)
     fileInputRef.current?.click()
@@ -488,6 +516,16 @@ export default function SalesPage() {
     // Create DO while there are panels left to deliver.
     if (["PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status) && remaining > 0) {
       actions.push({ label: "Create DO", icon: <Truck size={15} />, onClick: () => (window.location.href = `/delivery?soId=${row.id}`) })
+    }
+
+    // Change party — fix a mis-attributed order (e.g. import typo duplicate).
+    // Safe at any live status: stock is untouched and balances are derived.
+    if (row.status !== "CANCELLED" && can(accessOf(user), "sales", "write")) {
+      actions.push({
+        label: "Change Party",
+        icon: <ArrowLeftRight size={15} />,
+        onClick: () => { setTransferOrder(row); setTransferTargetId("") },
+      })
     }
 
     if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status)) {
@@ -712,6 +750,40 @@ export default function SalesPage() {
           </span>
         }
       />
+
+      {/* Change Party — reassign this SO (and its DOs) to the correct customer */}
+      <Modal
+        isOpen={Boolean(transferOrder)}
+        onClose={() => { if (!transferring) { setTransferOrder(null); setTransferTargetId("") } }}
+        title={`Change Party — ${transferOrder?.soNumber || ""}`}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-line bg-muted/40 p-3 text-[13px] text-secondary">
+            Currently on <strong className="text-foreground">{transferOrder?.customer?.name}</strong>. Moving it reassigns
+            this sales order and <strong className="text-foreground">all its delivery orders</strong> to the chosen party.
+            Stock stays put; both customers&rsquo; balances update automatically.
+          </div>
+          <SearchableSelect
+            label="Move to customer"
+            required
+            placeholder="Search the correct party…"
+            value={transferTargetId}
+            onChange={setTransferTargetId}
+            options={(customers || [])
+              .filter((c) => c.id !== transferOrder?.customerId && c.active !== false)
+              .map((c) => ({ value: c.id, label: c.name, sublabel: c.contactPhone || c.type }))}
+          />
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => { setTransferOrder(null); setTransferTargetId("") }} disabled={transferring}>
+              Cancel
+            </Button>
+            <Button onClick={handleTransfer} loading={transferring} disabled={!transferTargetId}>
+              Move Sales Order
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Proof viewer */}
       <Modal isOpen={Boolean(viewProof)} onClose={() => setViewProof(null)} title={`Payment Proof — ${viewProof?.soNumber}`} size="lg">

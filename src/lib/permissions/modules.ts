@@ -16,6 +16,7 @@ export type ModuleKey =
   | "delivery"
   | "invoices"
   | "ledger"
+  | "payments.slips"
   | "expenses"
   | "reports.sales"
   | "reports.deliveries"
@@ -88,6 +89,7 @@ export const MODULES: ModuleDef[] = [
   { key: "invoices", label: "Invoices", section: "Sales" },
 
   { key: "ledger", label: "Party Ledger", section: "Finance" },
+  { key: "payments.slips", label: "Payment Slips", section: "Finance" },
   { key: "expenses", label: "Expenses", section: "Finance" },
 
   { key: "reports.sales", label: "Sales Report", section: "Reports" },
@@ -171,6 +173,7 @@ const PAGE_RULES: Array<{ prefix: string; module: ModuleKey }> = [
   { prefix: "/delivery", module: "delivery" },
   { prefix: "/invoices", module: "invoices" },
   { prefix: "/ledger", module: "ledger" },
+  { prefix: "/payment-slips", module: "payments.slips" },
   { prefix: "/expenses", module: "expenses" },
   // Reporting pages — most specific first so /reporting/unlifted wins over /reporting.
   { prefix: "/reporting/unlifted", module: "reports.unliftedDos" },

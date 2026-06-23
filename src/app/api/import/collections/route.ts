@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
 import { writeAuditLog } from "@/lib/audit"
 import { canonicalCustomerKey, cleanStr, norm, parseDate, parseNum, pick, resolveBankId, type Row } from "@/lib/import"
+import { normalizeReferenceKey } from "@/lib/collections/reference"
 
 /**
  * Bulk-import party collections from the admin's "Collection Bank" sheet.
@@ -32,10 +33,12 @@ export async function POST(request: Request) {
 
     const errors: { row: number; message: string }[] = []
     const valid: {
+      line: number
       customerId: string
       bankId: string
       amount: number
       reference: string | null
+      referenceKey: string | null
       valueDate: Date
       notes: string | null
     }[] = []
@@ -75,14 +78,36 @@ export async function POST(request: Request) {
       const ref = cleanStr(pick(row, "Bank Ref #", "Bank Ref", "Reference", "Ref"))
       const sno = cleanStr(pick(row, "S.NO", "SNO", "Serial No", "Serial"))
       valid.push({
+        line,
         customerId,
         bankId,
         amount,
         reference: ref || null,
+        referenceKey: normalizeReferenceKey(ref),
         valueDate,
         notes: sno ? `S.NO ${sno}` : null,
       })
     })
+
+    // Non-blocking duplicate warnings: flag rows whose (bank + reference + amount)
+    // already exists in the system. The import still proceeds (it's a backfill
+    // tool); staff review the warnings afterward.
+    const warnings: { row: number; message: string }[] = []
+    const keyed = valid.filter((v) => v.referenceKey)
+    if (keyed.length > 0) {
+      const existing = await prisma.customerReceipt.findMany({
+        where: { OR: keyed.map((v) => ({ bankId: v.bankId, referenceKey: v.referenceKey })) },
+        select: { bankId: true, referenceKey: true, amount: true, receiptNo: true },
+      })
+      const existKey = (b: string, r: string | null, a: number) => `${b}|${r}|${a.toFixed(2)}`
+      const existSet = new Map(existing.map((e) => [existKey(e.bankId, e.referenceKey, e.amount), e.receiptNo]))
+      for (const v of keyed) {
+        const hit = existSet.get(existKey(v.bankId, v.referenceKey, v.amount))
+        if (hit) {
+          warnings.push({ row: v.line, message: `Possible duplicate of ${hit} — same bank, reference "${v.reference}" and amount` })
+        }
+      }
+    }
 
     let inserted = 0
     if (valid.length > 0) {
@@ -94,7 +119,13 @@ export async function POST(request: Request) {
       })
       const startSerial = counter.value - valid.length + 1
       const data = valid.map((v, idx) => ({
-        ...v,
+        customerId: v.customerId,
+        bankId: v.bankId,
+        amount: v.amount,
+        reference: v.reference,
+        referenceKey: v.referenceKey,
+        valueDate: v.valueDate,
+        notes: v.notes,
         receiptNo: `RCP-${year}-${String(startSerial + idx).padStart(4, "0")}`,
         createdById: session.userId || null,
       }))
@@ -107,10 +138,10 @@ export async function POST(request: Request) {
       action: "IMPORT",
       entity: "CustomerReceipt",
       entityId: "bulk",
-      changes: { inserted, errors: errors.length },
+      changes: { inserted, errors: errors.length, warnings: warnings.length },
     })
 
-    return Response.json({ inserted, skipped: 0, errors })
+    return Response.json({ inserted, skipped: 0, errors, warnings })
   } catch (error) {
     console.error(error)
     return Response.json({ error: "Failed to import collections" }, { status: 500 })

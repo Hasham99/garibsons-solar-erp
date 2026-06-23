@@ -11,7 +11,7 @@ import type { CSSProperties } from "react"
  * (and to CSS layering / purge / HMR ordering issues), so the chrome is never
  * white.
  */
-// GS Energy design system: solid navy chrome (#1e2533), no gradient. Kept as an
+// Garibsons design system: solid navy chrome (#1e2533), no gradient. Kept as an
 // inline style (not a Tailwind class) for the robust solid-colour fallback noted
 // above — solid `background-color` is immune to the gradient white-fallback bug.
 export const SIDEBAR_SURFACE: CSSProperties = {

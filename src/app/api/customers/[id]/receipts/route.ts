@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
 import { writeAuditLog } from "@/lib/audit"
 import { getNextRef } from "@/lib/counter"
+import { normalizeReferenceKey } from "@/lib/collections/reference"
+import { findDuplicateReceipts } from "@/lib/collections/duplicate"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -36,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { id: customerId } = await params
     const data = await request.json()
-    const { bankId, amount, reference, valueDate, whatsappDate, notes } = data
+    const { bankId, amount, reference, valueDate, whatsappDate, notes, confirmDuplicate } = data
 
     if (!bankId || !amount || !valueDate) {
       return Response.json({ error: "bankId, amount, and valueDate are required" }, { status: 400 })
@@ -50,6 +52,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const customer = await prisma.customer.findUnique({ where: { id: customerId } })
     if (!customer) return Response.json({ error: "Customer not found" }, { status: 404 })
 
+    // Warn-and-confirm duplicate detection (references are not unique in this
+    // system, so we surface matches rather than hard-blocking). The client
+    // re-submits with confirmDuplicate=true after the user acknowledges.
+    if (!confirmDuplicate) {
+      const dup = await findDuplicateReceipts(bankId, reference, parsedAmount)
+      if (dup.matches.length > 0) {
+        return Response.json({ duplicateWarning: dup }, { status: 409 })
+      }
+    }
+
     const receiptNo = await getNextRef("RCP", "RCP", { includeYear: true, padStart: 4 })
 
     const receipt = await prisma.customerReceipt.create({
@@ -59,6 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         bankId,
         amount: parsedAmount,
         reference: reference || null,
+        referenceKey: normalizeReferenceKey(reference),
         valueDate: new Date(valueDate),
         whatsappDate: whatsappDate ? new Date(whatsappDate) : null,
         notes: notes || null,

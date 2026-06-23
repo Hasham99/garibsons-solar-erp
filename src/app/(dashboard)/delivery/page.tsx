@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
-import { CheckCircle, Eye, Pencil, Plus, Printer, Truck, XCircle } from "lucide-react"
+import { ArrowLeftRight, CheckCircle, Eye, Pencil, Plus, Printer, Truck, XCircle } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -93,6 +93,7 @@ export default function DeliveryPage() {
   const { data: dos, loading, refetch } = useFetch<DeliveryOrder[]>("/api/delivery-orders")
   const { data: orders } = useFetch<SalesOrderOption[]>("/api/sales-orders")
   const warehouses = useLookups().warehouses as { id: string; name: string }[]
+  const customers = useLookups().customers as { id: string; name: string; type: string; contactPhone: string | null; active?: boolean }[]
 
   const [showCreate, setShowCreate] = useState(Boolean(presetSoId))
   const [editDO, setEditDO] = useState<DeliveryOrder | null>(null)
@@ -102,6 +103,9 @@ export default function DeliveryPage() {
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOrder | null>(null)
   const [cancelDO, setCancelDO] = useState<DeliveryOrder | null>(null)
   const [cancellingDO, setCancellingDO] = useState(false)
+  const [transferDO, setTransferDO] = useState<DeliveryOrder | null>(null)
+  const [transferTargetId, setTransferTargetId] = useState("")
+  const [transferring, setTransferring] = useState(false)
 
   // Partial-dispatch (lifting) modal
   const [dispatchDO, setDispatchDO] = useState<DeliveryOrder | null>(null)
@@ -329,6 +333,31 @@ export default function DeliveryPage() {
   }
 
   // Shared by the 3-dot menu and the details panel footer
+  const handleTransfer = async () => {
+    if (!transferDO || !transferTargetId) return
+    setTransferring(true)
+    try {
+      // A DO has no party of its own — it inherits from its SO, so we move the SO.
+      const response = await fetch(`/api/sales-orders/${transferDO.soId}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId: transferTargetId }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(`${data.soNumber} (and its DOs) moved to ${data.customerName}`)
+        setTransferDO(null)
+        setTransferTargetId("")
+        refetch()
+      } else {
+        const data = await response.json().catch(() => ({ error: "Failed" }))
+        toast.error(data.error || "Failed to change party")
+      }
+    } finally {
+      setTransferring(false)
+    }
+  }
+
   const doRowActions = (row: DeliveryOrder): RowAction[] => {
     const actions: RowAction[] = [
       { label: "Print", icon: <Printer size={15} />, onClick: () => window.open(`/delivery/${row.id}/print`, "_blank") },
@@ -353,6 +382,14 @@ export default function DeliveryPage() {
     // Partially lifted: can't void the whole DO, but can write off the un-lifted balance.
     if (row.status === "PARTIALLY_DISPATCHED" && canWriteDelivery) {
       actions.push({ label: "Cancel Balance", icon: <XCircle size={15} />, danger: true, onClick: () => setCancelDO(row) })
+    }
+    // Change party — fix a mis-attributed order (moves the underlying SO + sibling DOs).
+    if (row.status !== "CANCELLED" && canWriteDelivery && can(accessOf(user), "sales", "write")) {
+      actions.push({
+        label: "Change Party",
+        icon: <ArrowLeftRight size={15} />,
+        onClick: () => { setTransferDO(row); setTransferTargetId("") },
+      })
     }
     return actions
   }
@@ -448,6 +485,41 @@ export default function DeliveryPage() {
           )
         }
       />
+
+      {/* ── Change Party — reassigns the underlying SO (and its sibling DOs) ── */}
+      <Modal
+        isOpen={Boolean(transferDO)}
+        onClose={() => { if (!transferring) { setTransferDO(null); setTransferTargetId("") } }}
+        title={`Change Party — ${transferDO?.doNumber || ""}`}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-line bg-muted/40 p-3 text-[13px] text-secondary">
+            This DO belongs to <strong className="text-foreground">{transferDO?.salesOrder.soNumber}</strong>, currently on{" "}
+            <strong className="text-foreground">{transferDO?.salesOrder.customer.name}</strong>. Since a delivery order takes
+            its party from its sales order, moving it reassigns <strong className="text-foreground">{transferDO?.salesOrder.soNumber}</strong>{" "}
+            and every delivery order under it. Stock is untouched and balances update automatically.
+          </div>
+          <SearchableSelect
+            label="Move to customer"
+            required
+            placeholder="Search the correct party…"
+            value={transferTargetId}
+            onChange={setTransferTargetId}
+            options={(customers || [])
+              .filter((c) => c.name !== transferDO?.salesOrder.customer.name && c.active !== false)
+              .map((c) => ({ value: c.id, label: c.name, sublabel: c.contactPhone || c.type }))}
+          />
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => { setTransferDO(null); setTransferTargetId("") }} disabled={transferring}>
+              Cancel
+            </Button>
+            <Button onClick={handleTransfer} loading={transferring} disabled={!transferTargetId}>
+              Move Sales Order
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ── Create / Edit DO Modal ── */}
       <Modal

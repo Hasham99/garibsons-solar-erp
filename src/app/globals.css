@@ -25,7 +25,7 @@
 }
 
 @theme {
-  /* Chrome — solid navy sidebar (GS Energy design system: #1e2533, no gradient) */
+  /* Chrome — solid navy sidebar (Garibsons design system: #1e2533, no gradient) */
   --color-sidebar: #1e2533;
   --color-sidebar-light: #283042;
 
@@ -36,7 +36,7 @@
   --color-brand-600: #2563eb;
   --color-brand-700: #1d4ed8;
 
-  /* GS Energy Systems brand marks — identity & print only, never an action colour.
+  /* Garibsons brand marks — identity & print only, never an action colour.
      In data views, red still means negative/overdue. */
   --color-energy-red: #e61b23;       /* isometric solar panel */
   --color-energy-red-dark: #c1141b;
@@ -104,7 +104,7 @@ html {
   --line: #e2e8f0;
   --line-strong: #cbd5e1;
 
-  /* Flat canvas — no ambient surface gradients (GS Energy design system) */
+  /* Flat canvas — no ambient surface gradients (Garibsons design system) */
   --body-glow: none;
   --selection-bg: #bfdbfe;
   --selection-fg: #1e3a8a;

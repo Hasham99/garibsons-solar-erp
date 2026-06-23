@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const [customers, salesOrders, deliveryOrders, purchaseOrders, quotations, invoices, receipts, products] =
       await Promise.all([
         prisma.customer.findMany({
-          where: { name: contains },
+          where: { name: contains, archivedAt: null },
           select: { id: true, name: true, contactPhone: true },
           orderBy: { name: "asc" },
           take: 5,

@@ -22,6 +22,7 @@ export async function GET() {
           include: { defaultSupplier: { select: { id: true, name: true } } },
         }),
         prisma.customer.findMany({
+          where: { archivedAt: null },
           orderBy: { name: "asc" },
           include: { contacts: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] } },
         }),

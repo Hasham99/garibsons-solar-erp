@@ -315,7 +315,7 @@ export function TopBar({ user, sidebarCollapsed, onToggleSidebar, onOpenMobileSi
       <ConfirmDialog
         isOpen={confirmOpen}
         title="Sign out"
-        message={`You'll be signed out of GS Energy Solar ERP${user ? ` as ${user.name}` : ""}. Continue?`}
+        message={`You'll be signed out of Garibsons Solar ERP${user ? ` as ${user.name}` : ""}. Continue?`}
         confirmLabel="Sign out"
         cancelLabel="Stay signed in"
         variant="danger"

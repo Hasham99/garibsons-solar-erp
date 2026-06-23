@@ -128,7 +128,7 @@ export default function CustomersPage() {
       const res = await fetch(`/api/customers/${deleteTarget.id}`, { method: "DELETE" })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        toast.success(`"${deleteTarget.name}" deleted`)
+        toast.success(data.archived ? `"${deleteTarget.name}" archived` : `"${deleteTarget.name}" deleted`)
         setDeleteTarget(null)
         refetch()
       } else {
@@ -324,7 +324,7 @@ export default function CustomersPage() {
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title="Delete Customer"
-        message={<>Delete customer <span className="font-semibold text-foreground">&ldquo;{deleteTarget?.name}&rdquo;</span>? This is only possible if the party has no sales orders, collections or quotations.</>}
+        message={<>Delete customer <span className="font-semibold text-foreground">&ldquo;{deleteTarget?.name}&rdquo;</span>? Its contacts and portal logins are removed and the party is hidden everywhere. Any past data — sales orders, collections and quotations — stays in the database for reference.</>}
         confirmLabel="Delete"
         variant="danger"
         loading={deleting}

@@ -200,7 +200,7 @@ export default function DashboardPage() {
       {/* Hero header — deep navy gradient with soft solar glows.
           Inline style (not a Tailwind v4 gradient util) so it never falls back
           to white on browsers without CSS @property support. Navy start aligned
-          to the GS Energy chrome (#1e2533). */}
+          to the Garibsons chrome (#1e2533). */}
       <div
         className="relative overflow-hidden rounded-2xl px-6 py-7 sm:px-8 text-white shadow-pop"
         style={{ backgroundColor: "#142447", backgroundImage: "linear-gradient(135deg, #1e2533 0%, #142447 50%, #1e3a8a 100%)" }}
@@ -218,7 +218,7 @@ export default function DashboardPage() {
               {greeting}
               {firstName ? `, ${firstName}` : ""}
             </h1>
-            <p className="mt-1.5 text-[15px] text-slate-300/90">Here&rsquo;s how GS Energy Solar is doing.</p>
+            <p className="mt-1.5 text-[15px] text-slate-300/90">Here&rsquo;s how Garibsons Solar is doing.</p>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium ring-1 ring-inset ring-white/15 backdrop-blur-sm">

@@ -1,16 +1,24 @@
 "use client"
 
 import Link from "next/link"
+import { useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import toast from "react-hot-toast"
 import { useFetch } from "@/hooks/useFetch"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Card, StatCard } from "@/components/ui/Card"
 import { Table, Column } from "@/components/ui/Table"
+import { Modal } from "@/components/ui/Modal"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { Skeleton, StatCardSkeleton, TableSkeleton } from "@/components/ui/Skeleton"
 import { Stagger, StaggerItem } from "@/components/motion/Motion"
+import { PortalLogins, type PortalLoginsHandle } from "@/components/customers/PortalLogins"
+import { useLookups } from "@/components/lookups/LookupsProvider"
+import { useAuth, accessOf } from "@/hooks/useAuth"
+import { can } from "@/lib/permissions/modules"
 import { formatCurrency, formatAmount, formatDate } from "@/lib/utils"
-import { ArrowLeft, BookOpen, Banknote, Star, TrendingUp, Wallet } from "lucide-react"
+import { ArrowLeft, BookOpen, Banknote, GitMerge, Star, TrendingUp, Wallet, UserPlus } from "lucide-react"
 
 interface Contact {
   id: string
@@ -75,6 +83,14 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 export default function CustomerProfilePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const { user } = useAuth()
+  const canManageCustomers = can(accessOf(user), "masters.customers", "write")
+  const portalLoginsRef = useRef<PortalLoginsHandle>(null)
+  const [loginCount, setLoginCount] = useState<number | null>(null)
+  const allCustomers = useLookups().customers as { id: string; name: string; type: string; contactPhone: string | null; active?: boolean }[]
+  const [showMerge, setShowMerge] = useState(false)
+  const [mergeTargetId, setMergeTargetId] = useState("")
+  const [merging, setMerging] = useState(false)
 
   const { data: customer, loading: loadingCustomer } = useFetch<Customer>(`/api/customers/${id}`)
   const { data: balance, loading: loadingBalance } = useFetch<BalanceResponse>(`/api/customers/${id}/balance`)
@@ -82,6 +98,29 @@ export default function CustomerProfilePage() {
 
   const outstanding = (balance?.totalSOValue || 0) - (balance?.totalCollected || 0)
   const recent = (ledger?.rows || []).slice(-12).reverse()
+
+  const handleMerge = async () => {
+    if (!mergeTargetId) return
+    setMerging(true)
+    try {
+      const response = await fetch(`/api/customers/${id}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetCustomerId: mergeTargetId }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const moved = Object.values(data.moved as Record<string, number>).reduce((s, n) => s + n, 0)
+        toast.success(`Moved ${moved} record${moved === 1 ? "" : "s"} to ${data.targetName}. ${data.sourceName} deactivated.`)
+        router.push(`/masters/customers/${mergeTargetId}`)
+      } else {
+        const data = await response.json().catch(() => ({ error: "Failed" }))
+        toast.error(data.error || "Failed to merge customer")
+      }
+    } finally {
+      setMerging(false)
+    }
+  }
 
   const columns: Column<LedgerRow>[] = [
     {
@@ -160,6 +199,18 @@ export default function CustomerProfilePage() {
               <BookOpen size={15} className="mr-2" />
               Full Ledger
             </Button>
+            {canManageCustomers && loginCount === 0 && (
+              <Button variant="secondary" onClick={() => portalLoginsRef.current?.openAdd()}>
+                <UserPlus size={15} className="mr-2" />
+                Add Login
+              </Button>
+            )}
+            {canManageCustomers && (
+              <Button variant="secondary" onClick={() => { setMergeTargetId(""); setShowMerge(true) }}>
+                <GitMerge size={15} className="mr-2" />
+                Merge / Transfer
+              </Button>
+            )}
           </>
         }
       />
@@ -247,6 +298,41 @@ export default function CustomerProfilePage() {
           )}
         </Card>
       </div>
+
+      <PortalLogins ref={portalLoginsRef} customerId={id} customerName={customer.name} canWrite={canManageCustomers} onCountChange={setLoginCount} />
+
+      {/* Merge / Transfer — fold a duplicate (import-typo) party into the correct one */}
+      <Modal
+        isOpen={showMerge}
+        onClose={() => { if (!merging) setShowMerge(false) }}
+        title={`Merge ${customer.name} into…`}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 p-3 text-[13px] text-amber-800 dark:text-amber-200">
+            Moves <strong>everything</strong> from <strong>{customer.name}</strong> to the customer you pick — all sales
+            orders (with their delivery orders), quotations, collections/receipts, payment slips, contacts and portal
+            logins. Balances follow automatically. <strong>{customer.name}</strong> is then deactivated (kept for audit).
+            This cannot be auto-undone.
+          </div>
+          <SearchableSelect
+            label="Correct customer to keep"
+            required
+            placeholder="Search the real party…"
+            value={mergeTargetId}
+            onChange={setMergeTargetId}
+            options={(allCustomers || [])
+              .filter((c) => c.id !== id && c.active !== false)
+              .map((c) => ({ value: c.id, label: c.name, sublabel: c.contactPhone || c.type }))}
+          />
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setShowMerge(false)} disabled={merging}>Cancel</Button>
+            <Button variant="danger" onClick={handleMerge} loading={merging} disabled={!mergeTargetId}>
+              Merge &amp; Deactivate
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

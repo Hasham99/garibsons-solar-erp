@@ -15,6 +15,7 @@ import { formatCurrency, formatAmount, formatDate } from "@/lib/utils"
 import { useAuth, accessOf } from "@/hooks/useAuth"
 import { can } from "@/lib/permissions/modules"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import type { DuplicateResult } from "@/lib/collections/duplicate"
 import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { ArrowLeft, ArrowRightLeft, CheckSquare, Plus, Pencil, Trash2, TrendingDown, TrendingUp, Wallet, X } from "lucide-react"
@@ -80,6 +81,7 @@ export default function CustomerReceiptsPage() {
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<{ kind: "single"; receipt: Receipt } | { kind: "bulk" } | null>(null)
   const [detailRow, setDetailRow] = useState<Receipt | null>(null)
+  const [dupWarn, setDupWarn] = useState<DuplicateResult | null>(null)
 
   const { data: customer } = useFetch<Customer>(`/api/customers/${customerId}`)
   const { data: allCustomers } = useFetch<Customer[]>("/api/customers")
@@ -177,7 +179,7 @@ export default function CustomerReceiptsPage() {
     setShowModal(true)
   }
 
-  const handleSave = async () => {
+  const handleSave = async (confirmDuplicate = false) => {
     if (!form.bankId || !form.amount || !form.valueDate) {
       return toast.error("Bank, amount, and Bank Value Date are required")
     }
@@ -196,13 +198,20 @@ export default function CustomerReceiptsPage() {
           valueDate: form.valueDate,
           whatsappDate: form.whatsappDate || null,
           notes: form.notes || null,
+          confirmDuplicate,
         }),
       })
       if (res.ok) {
         toast.success(editId ? "Receipt updated" : "Receipt recorded")
         setShowModal(false)
+        setDupWarn(null)
         refetch()
         refetchBalance()
+      } else if (res.status === 409) {
+        // Possible duplicate — surface the matches and let the user confirm.
+        const data = await res.json()
+        if (data.duplicateWarning) setDupWarn(data.duplicateWarning as DuplicateResult)
+        else toast.error("Failed to save receipt")
       } else {
         const data = await res.json()
         toast.error(data.error || "Failed to save receipt")
@@ -470,10 +479,42 @@ export default function CustomerReceiptsPage() {
           />
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button onClick={handleSave} loading={saving}>{editId ? "Save Changes" : "Record Receipt"}</Button>
+            <Button onClick={() => handleSave()} loading={saving}>{editId ? "Save Changes" : "Record Receipt"}</Button>
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={dupWarn !== null}
+        title={dupWarn?.strong ? "Likely duplicate payment" : "Possible duplicate payment"}
+        variant={dupWarn?.strong ? "danger" : "primary"}
+        confirmLabel="Record Anyway"
+        cancelLabel="Cancel"
+        loading={saving}
+        onClose={() => setDupWarn(null)}
+        onConfirm={() => handleSave(true)}
+        message={
+          <div className="space-y-2">
+            <p>
+              {dupWarn?.strong
+                ? "A receipt with the same bank, reference and amount already exists:"
+                : "A receipt with the same bank and reference already exists:"}
+            </p>
+            <ul className="space-y-1.5">
+              {dupWarn?.matches.map((m) => (
+                <li key={m.id} className="rounded-md border border-line bg-muted px-3 py-2 text-xs">
+                  <span className="font-semibold text-foreground">{m.receiptNo}</span>
+                  {" — "}{m.customerName}
+                  <br />
+                  {formatCurrency(m.amount)} · {m.bankName} · {formatDate(m.valueDate)}
+                  {m.amountMatches && <span className="ml-1 font-medium text-red-500">· same amount</span>}
+                </li>
+              ))}
+            </ul>
+            <p className="text-tertiary">Record this as a new payment only if it is genuinely different.</p>
+          </div>
+        }
+      />
     </div>
   )
 }

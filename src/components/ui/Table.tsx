@@ -558,31 +558,7 @@ export function Table<T extends Record<string, any>>({
         </div>
       )}
 
-      {/* Mobile: rows render as stacked label/value cards — squeezed tables are unreadable on phones */}
-      {!compact && pageData.length > 0 && (
-        <div className="md:hidden divide-y divide-line">
-          {pageData.map((row, idx) => (
-            <div
-              key={rowKeys[idx]}
-              className={`px-4 py-3 space-y-2 ${onRowClick ? "cursor-pointer active:bg-muted" : ""} ${rowClassName?.(row) || ""}`}
-              onClick={() => onRowClick?.(row)}
-            >
-              {visibleColumns.map((col) => (
-                <div key={col.key} className="flex items-start justify-between gap-3">
-                  <span className="shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
-                    {col.header}
-                  </span>
-                  <div className={`min-w-0 text-right text-[13px] text-foreground ${col.numeric ? "tabular-nums" : ""}`}>
-                    {col.render ? col.render(row) : String(row[col.key] ?? "")}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className={`${compact ? "w-full" : "overflow-x-auto"} ${!compact && pageData.length > 0 ? "hidden md:block" : ""}`}>
+      <div className={compact ? "w-full" : "overflow-x-auto"}>
         <table className="w-full divide-y divide-line">
           <thead className="bg-muted">
             <tr>

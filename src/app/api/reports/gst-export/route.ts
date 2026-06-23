@@ -101,7 +101,7 @@ export async function GET(request: Request) {
       ["Total Import Cost", pos.reduce((s, p) => s + (p.totalLandedCost || p.poAmountPkr), 0).toFixed(2)],
       [],
       ["Generated on", new Date().toLocaleString("en-PK")],
-      ["System", "GS Energy Solar ERP"],
+      ["System", "Garibsons Solar ERP"],
     ]
     const ws3 = XLSX.utils.aoa_to_sheet(summaryRows)
     ws3["!cols"] = [{ wch: 35 }, { wch: 20 }]

@@ -58,8 +58,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Brand panel — flat navy with a solar-panel array motif (no photography) */}
+      {/* Brand panel — Garibsons solar hero photo under a navy wash for legibility */}
       <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between overflow-hidden bg-[#1e2533] p-12 text-white">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/login-hero.png" alt="" aria-hidden className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+        {/* Navy wash so the logo, copy and footer stay readable over the photo */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#1e2533]/85 via-[#1e2533]/80 to-[#1e2533]/92" />
         {/* PV-module lattice: a grid of solar cells drawn in CSS */}
         <div
           aria-hidden
@@ -88,10 +92,10 @@ export default function LoginPage() {
           <div className="flex items-center gap-3">
             <div className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center shadow-lg shadow-black/30 p-1.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo-emblem.png" alt="GS Energy Systems" className="h-full w-full object-contain" />
+              <img src="/garibsons-logo.png" alt="Garibsons" className="h-full w-full object-contain" />
             </div>
             <div className="leading-none">
-              <p className="text-white text-lg font-bold tracking-tight">GS Energy</p>
+              <p className="text-white text-lg font-bold tracking-tight">Garibsons</p>
               <p className="text-[#f6a040] text-[11px] mt-1.5 tracking-[0.2em] font-semibold">SOLAR ERP</p>
             </div>
           </div>
@@ -99,7 +103,7 @@ export default function LoginPage() {
 
         <div className="relative max-w-md">
           <h2 className="text-3xl font-bold leading-snug">
-            GS Energy Solar ERP.
+            Garibsons Solar ERP.
           </h2>
           <p className="mt-3 text-slate-300/90 text-[15px] leading-relaxed">
             Purchases, stock, sales orders, deliveries and collections — all in one system.
@@ -118,7 +122,7 @@ export default function LoginPage() {
         </div>
 
         <p className="relative text-xs text-slate-400">
-          GS Energy Systems (Private) Limited &copy; {new Date().getFullYear()}
+          Garibsons (Pvt) Ltd &copy; {new Date().getFullYear()}
         </p>
       </div>
 
@@ -129,9 +133,9 @@ export default function LoginPage() {
           <div className="text-center mb-8 lg:hidden">
             <div className="inline-flex h-14 w-14 rounded-2xl bg-surface border border-line items-center justify-center shadow-lg shadow-slate-200 mb-4 p-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo-emblem.png" alt="GS Energy Systems" className="h-full w-full object-contain" />
+              <img src="/garibsons-logo.png" alt="Garibsons" className="h-full w-full object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">GS Energy Systems</h1>
+            <h1 className="text-2xl font-bold text-foreground">Garibsons (Pvt) Ltd</h1>
             <p className="text-secondary mt-1 text-sm">Solar ERP</p>
           </div>
 
@@ -157,7 +161,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    placeholder="you@gsenergy.com"
+                    placeholder="you@garibsons.com"
                     className="block w-full rounded-md border border-line-strong bg-surface pl-10 pr-3 py-2.5 text-sm text-foreground placeholder-tertiary transition-shadow focus:outline-none focus:ring-[3px] focus:ring-blue-100 focus:border-blue-500"
                   />
                 </div>
@@ -216,7 +220,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-sm text-secondary mt-6 lg:hidden">
-            GS Energy Systems (Private) Limited &copy; {new Date().getFullYear()}
+            Garibsons (Pvt) Ltd &copy; {new Date().getFullYear()}
           </p>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
+import { normalizeReferenceKey } from "@/lib/collections/reference"
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string; rid: string }> }) {
   try {
@@ -32,6 +33,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         bankId,
         amount: parsedAmount,
         reference: reference || null,
+        referenceKey: normalizeReferenceKey(reference),
         valueDate: new Date(valueDate),
         whatsappDate: whatsappDate ? new Date(whatsappDate) : null,
         notes: notes || null,

@@ -8,8 +8,8 @@ const geist = Geist({ subsets: ["latin"] })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
 export const metadata: Metadata = {
-  title: "GS Energy Solar ERP",
-  description: "Enterprise Resource Planning for GS Energy Systems (Private) Limited",
+  title: "Garibsons Solar ERP",
+  description: "Enterprise Resource Planning for Garibsons (Pvt) Ltd",
 }
 
 export default function RootLayout({

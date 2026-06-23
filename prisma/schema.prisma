@@ -215,6 +215,9 @@ model Customer {
   creditLimit   Float?
   paymentTerms  PaymentTerms @default(FULL_PAYMENT)
   active        Boolean      @default(true)
+  // Set when a party with transaction history is "deleted": the row + its past
+  // records stay for reference, but it's hidden from lists and dropdowns.
+  archivedAt    DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -223,6 +226,8 @@ model Customer {
   quotations    Quotation[]
   contacts      CustomerContact[]
   receipts      CustomerReceipt[]
+  portalUsers   CustomerUser[]
+  paymentSlips  PaymentSlip[]
 }
 
 model CustomerContact {
@@ -661,11 +666,68 @@ model CustomerReceipt {
   bank         Bank      @relation(fields: [bankId], references: [id])
   amount       Float
   reference    String?
+  referenceKey String?   // normalized reference (trim/collapse-space/upper) for duplicate lookups; non-unique
   valueDate    DateTime
   whatsappDate DateTime?
   notes        String?
   createdById  String?
   createdBy    User?     @relation(fields: [createdById], references: [id])
+  slip         PaymentSlip?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  @@index([bankId, referenceKey])
+}
+
+enum PaymentSlipStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  ALREADY_RECEIVED
+}
+
+// A portal login for a customer/party. Many logins may belong to one Customer.
+model CustomerUser {
+  id          String    @id @default(cuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  email       String    @unique
+  password    String
+  name        String
+  active      Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdById String?   // staff User who provisioned the login
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  slips       PaymentSlip[]
+
+  @@index([customerId])
+}
+
+// A payment slip submitted by a party (or staff). Reviewed -> becomes a CustomerReceipt.
+model PaymentSlip {
+  id               String            @id @default(cuid())
+  customerId       String
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  submittedById    String?           // CustomerUser who uploaded; null if staff-uploaded
+  submittedBy      CustomerUser?     @relation(fields: [submittedById], references: [id])
+  imageUrl         String?           // Vercel Blob URL (server-side only); nulled after retention purge
+  fileType         String
+  imagePurgedAt    DateTime?         // set when the blob image is auto-deleted
+  status           PaymentSlipStatus @default(PENDING)
+  // party-submitted values — the minimal form is only amount + date + image
+  claimedAmount    Float?
+  claimedValueDate DateTime?
+  // review outcome (staff)
+  reviewedById     String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  linkedReceiptId  String?           @unique
+  linkedReceipt    CustomerReceipt?  @relation(fields: [linkedReceiptId], references: [id])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([status])
+  @@index([customerId])
 }
