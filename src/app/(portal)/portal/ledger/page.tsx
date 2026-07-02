@@ -11,7 +11,7 @@ import { TrendingUp, Banknote, Wallet } from "lucide-react"
 interface LedgerRow {
   id: string
   date: string
-  type: "SO" | "DO" | "PARTIAL" | "RECEIPT"
+  type: "OPENING" | "SO" | "DO" | "PARTIAL" | "RECEIPT"
   reference: string
   description: string
   debit: number
@@ -23,11 +23,15 @@ interface LedgerResp {
   totalDebits: number
   totalCredits: number
   balance: number
+  opening: { amount: number; direction: "RECEIVABLE" | "ADVANCE"; date: string } | null
 }
 
 export default function PortalLedgerPage() {
   const { data, loading } = useFetch<LedgerResp>("/api/portal/ledger")
   const rows = (data?.rows || []).slice().reverse()
+  // Show opening separately from the pure billed/paid totals (matches staff views).
+  const openingDebit = data?.opening?.direction === "RECEIVABLE" ? data.opening.amount : 0
+  const openingCredit = data?.opening?.direction === "ADVANCE" ? data.opening.amount : 0
 
   const columns: Column<LedgerRow>[] = [
     {
@@ -73,8 +77,8 @@ export default function PortalLedgerPage() {
       <Header title="Ledger" />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard title="Billed" value={data ? formatCurrency(data.totalDebits) : "…"} icon={<TrendingUp size={18} />} color="blue" />
-        <StatCard title="Paid" value={data ? formatCurrency(data.totalCredits) : "…"} icon={<Banknote size={18} />} color="emerald" />
+        <StatCard title="Billed" value={data ? formatCurrency(data.totalDebits - openingDebit) : "…"} icon={<TrendingUp size={18} />} color="blue" />
+        <StatCard title="Paid" value={data ? formatCurrency(data.totalCredits - openingCredit) : "…"} icon={<Banknote size={18} />} color="emerald" />
         <StatCard title="Balance" value={data ? formatCurrency(data.balance) : "…"} icon={<Wallet size={18} />} color="amber" />
       </div>
 
@@ -92,6 +96,7 @@ export default function PortalLedgerPage() {
               label: "Type",
               value: (r) => r.type,
               options: [
+                { value: "OPENING", label: "Opening Balance" },
                 { value: "SO", label: "Sales Order" },
                 { value: "DO", label: "Delivery" },
                 { value: "PARTIAL", label: "Partial Lift" },

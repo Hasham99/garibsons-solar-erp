@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 export type LedgerRow = {
   id: string
   date: string
-  type: "SO" | "DO" | "PARTIAL" | "RECEIPT"
+  type: "OPENING" | "SO" | "DO" | "PARTIAL" | "RECEIPT" | "RETURN"
   reference: string
   soNumber?: string
   doNumber?: string
@@ -36,6 +36,12 @@ export interface LedgerResult {
   totalDebits: number
   totalCredits: number
   balance: number
+  /**
+   * The party's opening balance, when a single `customerId` is queried and one
+   * exists. Lets callers show a clean SO-only "Total Sales" while `balance` and
+   * each row's `runningBalance` already fold the opening figure in.
+   */
+  opening: { amount: number; direction: "RECEIVABLE" | "ADVANCE"; date: string } | null
 }
 
 /**
@@ -73,7 +79,44 @@ export async function computeLedger(opts: {
     orderBy: { valueDate: "asc" },
   })
 
+  // Sales returns / exchanges credit the customer (goods came back). VOID excluded.
+  const salesReturns = await prisma.salesReturn.findMany({
+    where: { status: "COMPLETED", ...(customerId ? { customerId } : {}) },
+    include: {
+      customer: { select: { id: true, name: true } },
+      lines: { include: { product: { select: { name: true } } } },
+    },
+    orderBy: { returnDate: "asc" },
+  })
+
+  // Opening balances seed the ledger with a pre-system starting figure.
+  // RECEIVABLE → opening debit (party owed us); ADVANCE → opening credit.
+  const openingBalances = await prisma.openingBalance.findMany({
+    where: customerId ? { customerId } : {},
+    include: { customer: { select: { id: true, name: true } } },
+  })
+
   const rows: LedgerRow[] = []
+
+  for (const ob of openingBalances) {
+    rows.push({
+      id: `opening-${ob.id}`,
+      date: ob.date.toISOString(),
+      type: "OPENING",
+      reference: "Opening Balance",
+      description:
+        ob.direction === "RECEIVABLE"
+          ? "Opening balance — receivable brought forward"
+          : "Opening balance — advance / credit brought forward",
+      qtyTotal: 0,
+      qtyDelivered: 0,
+      qtyRemaining: 0,
+      debit: ob.direction === "RECEIVABLE" ? ob.amount : 0,
+      credit: ob.direction === "ADVANCE" ? ob.amount : 0,
+      customerId: ob.customer.id,
+      customerName: ob.customer.name,
+    })
+  }
 
   const compactName = (name: string) => name.replace(/\s*-\s*/g, "-")
   const lineDesc = (name: string, qty: number, rate: number) =>
@@ -198,7 +241,36 @@ export async function computeLedger(opts: {
     })
   }
 
-  rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  for (const ret of salesReturns) {
+    const desc =
+      ret.lines.map((l) => lineDesc(l.product.name, l.quantity, l.ratePerWatt)).join(" · ") ||
+      `${ret.type === "EXCHANGE" ? "Exchange" : "Return"}`
+    rows.push({
+      id: ret.id,
+      date: ret.returnDate.toISOString(),
+      type: "RETURN",
+      reference: ret.returnNumber,
+      description: `${ret.type === "EXCHANGE" ? "Exchange" : "Return"} — ${desc}`,
+      qtyTotal: 0,
+      qtyDelivered: 0,
+      qtyRemaining: 0,
+      debit: 0,
+      credit: ret.creditAmount,
+      customerId: ret.customer.id,
+      customerName: ret.customer.name,
+      soId: ret.soId,
+      doId: ret.doId,
+    })
+  }
+
+  rows.sort((a, b) => {
+    const diff = new Date(a.date).getTime() - new Date(b.date).getTime()
+    if (diff !== 0) return diff
+    // On a date tie, the opening balance always leads.
+    if (a.type === "OPENING") return -1
+    if (b.type === "OPENING") return 1
+    return 0
+  })
 
   let runningBalance = 0
   let ledger = rows.map((row) => {
@@ -218,5 +290,14 @@ export async function computeLedger(opts: {
   const totalDebits = ledger.reduce((s, r) => s + r.debit, 0)
   const totalCredits = ledger.reduce((s, r) => s + r.credit, 0)
 
-  return { rows: ledger, totalDebits, totalCredits, balance: totalDebits - totalCredits }
+  const singleOpening = customerId && openingBalances.length === 1 ? openingBalances[0] : null
+  const opening = singleOpening
+    ? {
+        amount: singleOpening.amount,
+        direction: singleOpening.direction as "RECEIVABLE" | "ADVANCE",
+        date: singleOpening.date.toISOString(),
+      }
+    : null
+
+  return { rows: ledger, totalDebits, totalCredits, balance: totalDebits - totalCredits, opening }
 }

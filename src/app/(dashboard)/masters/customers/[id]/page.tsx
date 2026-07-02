@@ -14,11 +14,12 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { Skeleton, StatCardSkeleton, TableSkeleton } from "@/components/ui/Skeleton"
 import { Stagger, StaggerItem } from "@/components/motion/Motion"
 import { PortalLogins, type PortalLoginsHandle } from "@/components/customers/PortalLogins"
+import { OpeningBalanceModal, type OpeningBalance } from "@/components/customers/OpeningBalanceModal"
 import { useLookups } from "@/components/lookups/LookupsProvider"
 import { useAuth, accessOf } from "@/hooks/useAuth"
 import { can } from "@/lib/permissions/modules"
 import { formatCurrency, formatAmount, formatDate } from "@/lib/utils"
-import { ArrowLeft, BookOpen, Banknote, GitMerge, Star, TrendingUp, Wallet, UserPlus } from "lucide-react"
+import { ArrowLeft, BookmarkPlus, BookOpen, Banknote, GitMerge, Star, TrendingUp, Wallet, UserPlus } from "lucide-react"
 
 interface Contact {
   id: string
@@ -47,12 +48,13 @@ interface BalanceResponse {
   totalCollected: number
   totalSOValue: number
   balance: number
+  opening: { amount: number; direction: "RECEIVABLE" | "ADVANCE"; date: string } | null
 }
 
 interface LedgerRow {
   id: string
   date: string
-  type: "SO" | "DO" | "PARTIAL" | "RECEIPT"
+  type: "OPENING" | "SO" | "DO" | "PARTIAL" | "RECEIPT"
   reference: string
   description: string
   debit: number
@@ -65,6 +67,7 @@ interface LedgerResponse {
 }
 
 const TYPE_CHIPS: Record<string, string> = {
+  OPENING: "bg-slate-50 dark:bg-slate-500/10 text-slate-700 dark:text-slate-300 ring-slate-600/15 dark:ring-slate-500/25",
   SO: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-blue-600/15 dark:ring-blue-500/25",
   DO: "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 ring-indigo-600/15 dark:ring-indigo-500/25",
   PARTIAL: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-600/20 dark:ring-amber-500/25",
@@ -85,18 +88,25 @@ export default function CustomerProfilePage() {
   const router = useRouter()
   const { user } = useAuth()
   const canManageCustomers = can(accessOf(user), "masters.customers", "write")
+  const canLedgerWrite = can(accessOf(user), "ledger", "write")
   const portalLoginsRef = useRef<PortalLoginsHandle>(null)
   const [loginCount, setLoginCount] = useState<number | null>(null)
   const allCustomers = useLookups().customers as { id: string; name: string; type: string; contactPhone: string | null; active?: boolean }[]
   const [showMerge, setShowMerge] = useState(false)
   const [mergeTargetId, setMergeTargetId] = useState("")
   const [merging, setMerging] = useState(false)
+  const [showOpeningBalance, setShowOpeningBalance] = useState(false)
 
   const { data: customer, loading: loadingCustomer } = useFetch<Customer>(`/api/customers/${id}`)
-  const { data: balance, loading: loadingBalance } = useFetch<BalanceResponse>(`/api/customers/${id}/balance`)
-  const { data: ledger, loading: loadingLedger } = useFetch<LedgerResponse>(`/api/ledger?customerId=${id}`)
+  const { data: balance, loading: loadingBalance, refetch: refetchBalance } = useFetch<BalanceResponse>(`/api/customers/${id}/balance`)
+  const { data: ledger, loading: loadingLedger, refetch: refetchLedger } = useFetch<LedgerResponse>(`/api/ledger?customerId=${id}`)
+  const { data: openingBalance, refetch: refetchOpening } = useFetch<OpeningBalance | null>(`/api/customers/${id}/opening-balance`)
 
-  const outstanding = (balance?.totalSOValue || 0) - (balance?.totalCollected || 0)
+  // Outstanding folds the opening balance in (RECEIVABLE adds to what they owe,
+  // ADVANCE reduces it), matching the ledger's running balance.
+  const openingDebit = balance?.opening?.direction === "RECEIVABLE" ? balance.opening.amount : 0
+  const openingCredit = balance?.opening?.direction === "ADVANCE" ? balance.opening.amount : 0
+  const outstanding = (balance?.totalSOValue || 0) + openingDebit - (balance?.totalCollected || 0) - openingCredit
   const recent = (ledger?.rows || []).slice(-12).reverse()
 
   const handleMerge = async () => {
@@ -199,6 +209,12 @@ export default function CustomerProfilePage() {
               <BookOpen size={15} className="mr-2" />
               Full Ledger
             </Button>
+            {canLedgerWrite && (
+              <Button variant="secondary" onClick={() => setShowOpeningBalance(true)}>
+                <BookmarkPlus size={15} className="mr-2" />
+                {openingBalance ? "Edit Opening Balance" : "Opening Balance"}
+              </Button>
+            )}
             {canManageCustomers && loginCount === 0 && (
               <Button variant="secondary" onClick={() => portalLoginsRef.current?.openAdd()}>
                 <UserPlus size={15} className="mr-2" />
@@ -237,7 +253,11 @@ export default function CustomerProfilePage() {
           <StatCard
             title="Outstanding"
             value={loadingBalance ? "…" : formatCurrency(outstanding)}
-            subtitle={outstanding > 0 ? "Receivable from customer" : "Fully settled"}
+            subtitle={
+              balance?.opening
+                ? `Incl. opening ${balance.opening.direction === "RECEIVABLE" ? "receivable" : "advance"} ${formatCurrency(balance.opening.amount)} (${formatDate(balance.opening.date)})`
+                : outstanding > 0 ? "Receivable from customer" : "Fully settled"
+            }
             icon={<Wallet size={20} />}
             color={outstanding > 0 ? "rose" : "green"}
           />
@@ -300,6 +320,16 @@ export default function CustomerProfilePage() {
       </div>
 
       <PortalLogins ref={portalLoginsRef} customerId={id} customerName={customer.name} canWrite={canManageCustomers} onCountChange={setLoginCount} />
+
+      {/* Opening Balance — seed a pre-system starting figure for this party */}
+      <OpeningBalanceModal
+        isOpen={showOpeningBalance}
+        onClose={() => setShowOpeningBalance(false)}
+        customerId={id}
+        customerName={customer.name}
+        existing={openingBalance ?? null}
+        onSaved={() => { refetchOpening(); refetchBalance(); refetchLedger() }}
+      />
 
       {/* Merge / Transfer — fold a duplicate (import-typo) party into the correct one */}
       <Modal

@@ -4,7 +4,7 @@ import { type ChangeEvent, useDeferredValue, useEffect, useRef, useState } from 
 import Image from "next/image"
 import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
-import { ArrowLeftRight, CheckCircle, Eye, Pencil, Plus, Trash2, Truck, Upload } from "lucide-react"
+import { ArrowLeftRight, CheckCircle, Eye, Pencil, Plus, Printer, Trash2, Truck, Upload } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -96,6 +96,21 @@ interface DraftLine {
 
 const LAST_PRODUCT_KEY = "garibsons-solar:last-product-id"
 
+// Statuses at which an SO's lines can still be edited. DO_ISSUED is allowed too —
+// saving re-plans the SO's pending/authorized DOs — but only while nothing is lifted.
+const EDITABLE_SO_STATUSES = ["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED", "DO_ISSUED"]
+
+interface SoReturn {
+  id: string
+  returnNumber: string
+  type: "RETURN" | "EXCHANGE"
+  status: "COMPLETED" | "VOID"
+  returnDate: string
+  creditAmount: number
+  deliveryOrder: { doNumber: string } | null
+  lines: Array<{ product: { name: string }; quantity: number }>
+}
+
 const emptyOrderForm = {
   customerId: "",
   customerType: "DIRECT",
@@ -144,6 +159,15 @@ export default function SalesPage() {
   const [balanceOrder, setBalanceOrder] = useState<SalesOrder | null>(null)
   const [cancellingBalance, setCancellingBalance] = useState(false)
   const [detailRow, setDetailRow] = useState<SalesOrder | null>(null)
+  const [soReturns, setSoReturns] = useState<SoReturn[] | null>(null)
+  useEffect(() => {
+    if (!detailRow) { setSoReturns(null); return }
+    setSoReturns(null)
+    fetch(`/api/sales-returns?soId=${detailRow.id}`)
+      .then((r) => r.json())
+      .then((d) => setSoReturns(Array.isArray(d) ? d : []))
+      .catch(() => setSoReturns([]))
+  }, [detailRow])
   const [transferOrder, setTransferOrder] = useState<SalesOrder | null>(null)
   const [transferTargetId, setTransferTargetId] = useState("")
   const [transferring, setTransferring] = useState(false)
@@ -281,8 +305,9 @@ export default function SalesPage() {
     const order = orders.find((o) => o.id === editIdParam)
     if (!order) return
     openedEditRef.current = true
-    if (!["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED"].includes(order.status)) {
-      toast.error(`${order.soNumber} is ${order.status.replace(/_/g, " ")} — orders can be edited until a delivery order is issued`)
+    const anyLifted = (order.deliveryOrders || []).some((d) => ["DISPATCHED", "PARTIALLY_DISPATCHED"].includes(d.status))
+    if (!EDITABLE_SO_STATUSES.includes(order.status) || anyLifted) {
+      toast.error(`${order.soNumber} is ${order.status.replace(/_/g, " ")} — dispatched orders can't be edited, use Return/Exchange`)
       return
     }
     openEditModal(order)
@@ -355,7 +380,15 @@ export default function SalesPage() {
         return
       }
 
-      toast.success(editOrderId ? "Sales order updated" : "Sales order created")
+      const saved = await response.json().catch(() => ({}))
+      const replanned = saved?.replannedDOs ?? 0
+      toast.success(
+        editOrderId
+          ? replanned > 0
+            ? `Sales order updated — ${replanned} delivery order${replanned > 1 ? "s" : ""} re-planned`
+            : "Sales order updated"
+          : "Sales order created"
+      )
       setShowCreate(false)
       resetOrderForm()
       refetch()
@@ -492,14 +525,20 @@ export default function SalesPage() {
   // table's 3-dot menu and the details panel's footer buttons.
   const soRowActions = (row: SalesOrder): RowAction[] => {
     const actions: RowAction[] = []
+    const dos = row.deliveryOrders || []
+    const activeDOs = dos.filter((d) => d.status !== "CANCELLED")
+    const remaining = row.remainingPanels ?? 0
+    const anyLifted = dos.some((d) => ["DISPATCHED", "PARTIALLY_DISPATCHED"].includes(d.status))
+
     if (row.status === "DRAFT") {
       actions.push(
         { label: "Confirm Order", icon: <CheckCircle size={15} />, onClick: () => handleConfirm(row.id) },
         { label: "Upload Payment Proof", icon: <Upload size={15} />, onClick: () => triggerProofUpload(row.id), disabled: uploadingProof === row.id },
       )
     }
-    // Editable until a DO is issued — no stock is reserved before that
-    if (["DRAFT", "PENDING_PAYMENT", "PAYMENT_CONFIRMED"].includes(row.status)) {
+    // Editable until goods are lifted. With pending/authorized DOs, saving re-plans
+    // them to the new lines; a dispatched/lifted DO blocks editing (use Return/Exchange).
+    if (EDITABLE_SO_STATUSES.includes(row.status) && !anyLifted) {
       actions.push({ label: "Edit SO", icon: <Pencil size={15} />, onClick: () => openEditModal(row) })
     }
     if (row.paymentProofUrl) {
@@ -508,10 +547,6 @@ export default function SalesPage() {
     if (row.status === "PENDING_PAYMENT" && can(accessOf(user), "sales", "write")) {
       actions.push({ label: "Verify Payment", icon: <CheckCircle size={15} />, onClick: () => handleVerifyPayment(row.id) })
     }
-    const dos = row.deliveryOrders || []
-    const activeDOs = dos.filter((d) => d.status !== "CANCELLED")
-    const remaining = row.remainingPanels ?? 0
-    const anyLifted = dos.some((d) => ["DISPATCHED", "PARTIALLY_DISPATCHED"].includes(d.status))
 
     // Create DO while there are panels left to deliver.
     if (["PAYMENT_CONFIRMED", "DO_ISSUED"].includes(row.status) && remaining > 0) {
@@ -710,6 +745,47 @@ export default function SalesPage() {
             </p>
           </div>
         ) : null}
+
+        {soReturns && soReturns.length > 0 ? (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-tertiary mb-1.5">Returns / Exchanges</p>
+            <div className="rounded-lg border border-line overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-xs text-secondary uppercase">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Return #</th>
+                    <th className="px-3 py-2 text-left">Type</th>
+                    <th className="px-3 py-2 text-left">Against DO</th>
+                    <th className="px-3 py-2 text-right">Panels</th>
+                    <th className="px-3 py-2 text-right">Credit</th>
+                    <th className="px-3 py-2 text-right">Print</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {soReturns.map((r) => (
+                    <tr key={r.id} className={r.status === "VOID" ? "opacity-50" : ""}>
+                      <td className="px-3 py-2 font-medium text-foreground">{r.returnNumber}</td>
+                      <td className="px-3 py-2"><Badge status={r.status === "VOID" ? "VOID" : r.type} /></td>
+                      <td className="px-3 py-2">{r.deliveryOrder?.doNumber || "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{r.lines.reduce((s, l) => s + l.quantity, 0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-emerald-700 dark:text-emerald-300">{formatAmount(r.creditAmount)}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          title="Print credit note"
+                          onClick={() => window.open(`/sales-returns/${r.id}/print`, "_blank")}
+                          className="rounded-md p-1.5 text-secondary hover:bg-muted"
+                        >
+                          <Printer size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
       </DetailsModal>
 
       {/* Cancel confirmation */}
@@ -809,6 +885,16 @@ export default function SalesPage() {
         size="xl"
       >
         <div className="space-y-5">
+          {editOrderId && (() => {
+            const editing = orders?.find((o) => o.id === editOrderId)
+            const pendingDOs = (editing?.deliveryOrders || []).filter((d) => ["PENDING", "AUTHORIZED"].includes(d.status))
+            if (!pendingDOs.length) return null
+            return (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
+                Saving will release &amp; re-reserve stock on this order&apos;s pending delivery order{pendingDOs.length > 1 ? "s" : ""}: {pendingDOs.map((d) => d.doNumber).join(", ")}.
+              </div>
+            )
+          })()}
           <div className="rounded-xl border border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 p-4">
             <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3">Customer</p>
             <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr]">

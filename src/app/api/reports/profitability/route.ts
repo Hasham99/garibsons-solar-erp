@@ -34,6 +34,21 @@ export async function GET(request: Request) {
       a.cogs += m.quantity * e.costPerPanel
     }
 
+    // Net out completed sales returns for these SOs: they reduce delivered units,
+    // COGS (goods went back to the original cost layer) and revenue (the credit note).
+    const returnLines = soIds.length
+      ? await prisma.salesReturnLine.findMany({
+          where: { salesReturn: { status: "COMPLETED", soId: { in: soIds } } },
+          select: { productId: true, quantity: true, amount: true, stockEntry: { select: { costPerPanel: true } } },
+        })
+      : []
+    for (const r of returnLines) {
+      const a = get(r.productId)
+      a.panels -= r.quantity
+      a.revenue -= r.amount
+      a.cogs -= r.quantity * (r.stockEntry?.costPerPanel ?? 0)
+    }
+
     // Resolve product name/brand by id directly. The revenue loop above seeds
     // each entry with placeholder "—", and only rows that also had a stock
     // movement got their real name backfilled — so look every product up here
@@ -57,10 +72,33 @@ export async function GET(request: Request) {
     if (f.brand) rows = rows.filter((r) => r.brand === f.brand)
     rows.sort((a, b) => b.grossProfit - a.grossProfit)
 
+    // Operating expenses + inventory adjustments over the same window → Net Profit.
+    const range = dateRange(f)
+    const [expenseAgg, adjMovements, foundEntries] = await Promise.all([
+      prisma.expense.aggregate({ _sum: { amount: true }, where: range ? { date: range } : {} }),
+      prisma.stockMovement.findMany({
+        where: { type: "ADJUSTMENT", returnId: null, quantity: { lt: 0 }, ...(range ? { createdAt: range } : {}) },
+        select: { quantity: true, unitCost: true, stockEntry: { select: { costPerPanel: true } } },
+      }),
+      prisma.stockEntry.findMany({
+        where: { origin: "ADJUSTMENT", ...(range ? { createdAt: range } : {}) },
+        select: { totalValue: true },
+      }),
+    ])
+    const operatingExpenses = expenseAgg._sum.amount || 0
+    const writeOffLoss = adjMovements.reduce((s, m) => s + Math.abs(m.quantity) * (m.unitCost ?? m.stockEntry?.costPerPanel ?? 0), 0)
+    const foundGain = foundEntries.reduce((s, e) => s + e.totalValue, 0)
+
+    const grossProfit = rows.reduce((s, r) => s + r.grossProfit, 0)
+    const netProfit = grossProfit + foundGain - writeOffLoss - operatingExpenses
     const summary = {
       revenue: rows.reduce((s, r) => s + r.revenue, 0),
       cogs: rows.reduce((s, r) => s + r.cogs, 0),
-      grossProfit: rows.reduce((s, r) => s + r.grossProfit, 0),
+      grossProfit,
+      operatingExpenses,
+      writeOffLoss,
+      foundGain,
+      netProfit,
     }
     return Response.json({ rows, summary: { ...summary, marginPct: summary.revenue > 0 ? (summary.grossProfit / summary.revenue) * 100 : 0 } })
   } catch (e) {

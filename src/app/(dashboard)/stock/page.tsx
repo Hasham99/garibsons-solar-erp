@@ -81,6 +81,24 @@ function agingBadge(days: number) {
 
 type UnitView = "panel" | "watt" | "container" | "pallet"
 
+// Adjustment reason categories. DECREASE = write-off/loss; INCREASE = found stock/gain.
+const ADJUST_CATEGORIES: Record<"DECREASE" | "INCREASE", { value: string; label: string }[]> = {
+  DECREASE: [
+    { value: "COUNT_SHORTAGE", label: "Count shortage" },
+    { value: "DAMAGE", label: "Damaged" },
+    { value: "THEFT_LOSS", label: "Theft / loss" },
+    { value: "SAMPLE", label: "Sample / promo" },
+    { value: "CORRECTION", label: "Correction" },
+    { value: "OTHER", label: "Other" },
+  ],
+  INCREASE: [
+    { value: "COUNT_SURPLUS", label: "Count surplus" },
+    { value: "FOUND", label: "Found stock" },
+    { value: "CORRECTION", label: "Correction" },
+    { value: "OTHER", label: "Other" },
+  ],
+}
+
 export default function StockPage() {
   const { user } = useAuth()
   const { data: stock, loading, refetch } = useFetch<StockEntry[]>("/api/stock")
@@ -106,6 +124,8 @@ export default function StockPage() {
     adjustmentType: "DECREASE",
     quantity: "",
     reason: "",
+    category: "COUNT_SHORTAGE",
+    unitCost: "",
   })
 
   const [editForm, setEditForm] = useState({
@@ -161,9 +181,14 @@ export default function StockPage() {
         body: JSON.stringify({ stockEntryId: selectedEntry.id, ...adjustForm }),
       })
       if (res.ok) {
-        toast.success("Stock adjustment recorded")
+        const saved = await res.json().catch(() => ({}))
+        toast.success(
+          saved?.value
+            ? `Stock ${adjustForm.adjustmentType === "INCREASE" ? "added" : "written off"} — ${formatCurrency(saved.value)} ${adjustForm.adjustmentType === "INCREASE" ? "gain" : "loss"}`
+            : "Stock adjustment recorded"
+        )
         setShowAdjust(false)
-        setAdjustForm({ adjustmentType: "DECREASE", quantity: "", reason: "" })
+        setAdjustForm({ adjustmentType: "DECREASE", quantity: "", reason: "", category: "COUNT_SHORTAGE", unitCost: "" })
         setSelectedEntry(null)
         refetch()
         refetchDash()
@@ -251,7 +276,11 @@ export default function StockPage() {
         })
         setShowEdit(true)
       } },
-      { label: "Adjust Stock", icon: <SlidersHorizontal size={15} />, onClick: () => { setSelectedEntry(row); setShowAdjust(true) } },
+      { label: "Adjust Stock", icon: <SlidersHorizontal size={15} />, onClick: () => {
+        setSelectedEntry(row)
+        setAdjustForm({ adjustmentType: "DECREASE", quantity: "", reason: "", category: "COUNT_SHORTAGE", unitCost: String(row.costPerPanel.toFixed(2)) })
+        setShowAdjust(true)
+      } },
     ] : []
 
   const columns = [
@@ -715,11 +744,17 @@ export default function StockPage() {
 
       {/* Edit Stock Entry Modal */}
       <Modal isOpen={showEdit} onClose={() => { setShowEdit(false); setEditingEntry(null) }} title="Edit Stock Entry">
-        {editingEntry && (
+        {editingEntry && (() => {
+          const entryHasActivity = (editingEntry.panelsSold || 0) > 0 || (editingEntry.reservedQuantity || 0) > 0
+          return (
           <div className="space-y-4">
             <div className="bg-muted rounded-lg p-3 text-sm">
               <p className="font-medium text-foreground">{editingEntry.product.name}</p>
               <p className="text-secondary">{editingEntry.warehouse.name} · PO: {editingEntry.po?.poNumber || "—"}</p>
+            </div>
+
+            <div className="rounded-lg border border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 p-3 text-xs text-blue-800 dark:text-blue-300">
+              Use this only to <strong>correct a data-entry mistake</strong> on the original receipt (wrong cost or count typed in). For real stock changes (write-off, damage, found stock) use <strong>Adjust Stock</strong> — that records the cost &amp; P&amp;L impact.
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -727,6 +762,7 @@ export default function StockPage() {
                 label="Number of Panels"
                 type="number"
                 required
+                disabled={entryHasActivity}
                 value={editForm.panelQuantity}
                 onChange={(e) => setEditForm({ ...editForm, panelQuantity: e.target.value })}
               />
@@ -738,6 +774,12 @@ export default function StockPage() {
                 onChange={(e) => setEditForm({ ...editForm, costPerPanel: e.target.value })}
               />
             </div>
+
+            {entryHasActivity ? (
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                Panels are locked — this batch has already been dispatched/reserved. Use Adjust Stock to change quantity.
+              </p>
+            ) : null}
 
             <div className="grid grid-cols-2 gap-4">
               <Input
@@ -762,7 +804,8 @@ export default function StockPage() {
               <Button onClick={handleEdit} loading={saving}>Save Changes</Button>
             </div>
           </div>
-        )}
+          )
+        })()}
       </Modal>
 
       {/* Stock Adjustment Modal */}
@@ -779,10 +822,28 @@ export default function StockPage() {
             <Select
               label="Adjustment Type"
               value={adjustForm.adjustmentType}
-              onChange={(e) => setAdjustForm({ ...adjustForm, adjustmentType: e.target.value })}
+              onChange={(e) => {
+                const t = e.target.value as "DECREASE" | "INCREASE"
+                setAdjustForm({
+                  ...adjustForm,
+                  adjustmentType: t,
+                  category: ADJUST_CATEGORIES[t][0].value,
+                  unitCost: t === "INCREASE" ? String(selectedEntry.costPerPanel.toFixed(2)) : adjustForm.unitCost,
+                })
+              }}
             >
               <option value="DECREASE">Decrease (write-off, damage, discrepancy)</option>
               <option value="INCREASE">Increase (found stock, correction)</option>
+            </Select>
+
+            <Select
+              label="Category"
+              value={adjustForm.category}
+              onChange={(e) => setAdjustForm({ ...adjustForm, category: e.target.value })}
+            >
+              {ADJUST_CATEGORIES[adjustForm.adjustmentType as "DECREASE" | "INCREASE"].map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
             </Select>
 
             <Input
@@ -792,6 +853,17 @@ export default function StockPage() {
               value={adjustForm.quantity}
               onChange={(e) => setAdjustForm({ ...adjustForm, quantity: e.target.value })}
             />
+
+            {adjustForm.adjustmentType === "INCREASE" ? (
+              <Input
+                label="Cost / Panel (PKR)"
+                type="number"
+                step="0.01"
+                required
+                value={adjustForm.unitCost}
+                onChange={(e) => setAdjustForm({ ...adjustForm, unitCost: e.target.value })}
+              />
+            ) : null}
 
             <div>
               <label className="block text-sm font-medium text-secondary mb-1">Reason (required) *</label>
@@ -803,6 +875,23 @@ export default function StockPage() {
                 className="block w-full rounded-lg border border-line-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            {(() => {
+              const qty = parseInt(adjustForm.quantity) || 0
+              const cost = adjustForm.adjustmentType === "INCREASE"
+                ? (parseFloat(adjustForm.unitCost) || 0)
+                : selectedEntry.costPerPanel
+              const value = qty * cost
+              if (qty <= 0) return null
+              const isInc = adjustForm.adjustmentType === "INCREASE"
+              return (
+                <div className={`rounded-lg border p-3 text-sm ${isInc ? "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-300" : "border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-800 dark:text-rose-300"}`}>
+                  {isInc
+                    ? <>Adds <strong>{qty.toLocaleString()}</strong> panels as a new cost layer @ {formatCurrency(cost)}/panel · inventory value <strong>+{formatCurrency(value)}</strong> (found-stock gain)</>
+                    : <>Writes off <strong>{qty.toLocaleString()}</strong> panels @ {formatCurrency(cost)}/panel · P&amp;L <strong>−{formatCurrency(value)}</strong> (write-off loss)</>}
+                </div>
+              )
+            })()}
 
             <p className="text-xs text-secondary">
               This adjustment will be logged with your name and timestamp for audit purposes.

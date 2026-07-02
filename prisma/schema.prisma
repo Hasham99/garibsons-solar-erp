@@ -89,6 +89,8 @@ model User {
   deliveryOrders   DeliveryOrder[]
   expenses         Expense[]
   customerReceipts CustomerReceipt[]
+  salesReturns     SalesReturn[]
+  openingBalances  OpeningBalance[]
 }
 
 // A named, admin-managed role title that carries a set of default module permissions.
@@ -181,6 +183,7 @@ model Product {
   salesOrderLines   SalesOrderLine[]
   quotationLines    QuotationLine[]
   deliveryOrderLines DeliveryOrderLine[]
+  salesReturnLines  SalesReturnLine[]
 }
 
 model Supplier {
@@ -228,6 +231,8 @@ model Customer {
   receipts      CustomerReceipt[]
   portalUsers   CustomerUser[]
   paymentSlips  PaymentSlip[]
+  salesReturns  SalesReturn[]
+  openingBalance OpeningBalance?
 }
 
 model CustomerContact {
@@ -254,6 +259,7 @@ model Warehouse {
   purchaseOrders PurchaseOrder[]
   deliveryOrders DeliveryOrder[]
   contacts       WarehouseContact[]
+  salesReturns   SalesReturn[]
 }
 
 model WarehouseContact {
@@ -409,11 +415,18 @@ model StockEntry {
   costPerWatt   Float
   totalValue    Float
 
+  // origin = PURCHASE (received against a PO) or ADJUSTMENT (found-stock increase,
+  // a self-standing cost layer at an admin-entered cost, poId null).
+  origin             String  @default("PURCHASE")
+  adjustmentCategory String?
+  adjustmentReason   String?
+
   receivedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   movements StockMovement[]
+  returnLines SalesReturnLine[]
 }
 
 model StockMovement {
@@ -429,6 +442,11 @@ model StockMovement {
   salesOrder   SalesOrder?       @relation(fields: [soId], references: [id])
   doId         String?
   deliveryOrder DeliveryOrder?   @relation(fields: [doId], references: [id])
+  returnId     String?
+  salesReturn  SalesReturn?      @relation(fields: [returnId], references: [id])
+  // Cost snapshot + classification for manual DECREASE adjustments (write-offs).
+  unitCost     Float?
+  category     String?
   reason       String?
   approvedBy   String?
   userId       String?
@@ -503,6 +521,7 @@ model SalesOrder {
   stockMovements StockMovement[]
   invoices       Invoice[]
   ledgerEntries  PartyLedger[]
+  salesReturns   SalesReturn[]
 }
 
 model SalesOrderLine {
@@ -519,6 +538,7 @@ model SalesOrderLine {
   stockEntryId String?
 
   deliveryLines DeliveryOrderLine[]
+  returnLines   SalesReturnLine[]
 }
 
 model DeliveryOrder {
@@ -548,6 +568,7 @@ model DeliveryOrder {
   lines          DeliveryOrderLine[]
   stockMovements StockMovement[]
   invoices       Invoice[]
+  salesReturns   SalesReturn[]
 }
 
 model DeliveryOrderLine {
@@ -555,12 +576,80 @@ model DeliveryOrderLine {
   doId          String
   deliveryOrder DeliveryOrder @relation(fields: [doId], references: [id], onDelete: Cascade)
   soLineId      String?
-  salesOrderLine SalesOrderLine? @relation(fields: [soLineId], references: [id])
+  salesOrderLine SalesOrderLine? @relation(fields: [soLineId], references: [id], onDelete: SetNull)
   productId     String
   product       Product       @relation(fields: [productId], references: [id])
   quantity      Int
   watts         Int
   createdAt     DateTime      @default(now())
+}
+
+enum SalesReturnType {
+  RETURN
+  EXCHANGE
+}
+
+enum SalesReturnStatus {
+  COMPLETED
+  VOID
+}
+
+// A customer return / exchange of goods that were already dispatched on a DO.
+// Puts stock back onto the original cost layers (via positive ADJUSTMENT
+// movements) and issues a credit note that computeLedger reads as a credit.
+// Money stays SO-driven: an EXCHANGE's replacement value flows through an SO edit.
+model SalesReturn {
+  id           String            @id @default(cuid())
+  returnNumber String            @unique
+  type         SalesReturnType   @default(RETURN)
+  status       SalesReturnStatus @default(COMPLETED)
+
+  doId          String
+  deliveryOrder DeliveryOrder @relation(fields: [doId], references: [id])
+  soId          String
+  salesOrder    SalesOrder    @relation(fields: [soId], references: [id])
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  warehouseId   String
+  warehouse     Warehouse     @relation(fields: [warehouseId], references: [id])
+
+  creditAmount Float  @default(0)
+  reason       String?
+  notes        String?
+  returnDate   DateTime @default(now())
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+  voidedAt    DateTime?
+  voidedById  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines          SalesReturnLine[]
+  stockMovements StockMovement[]
+
+  @@index([customerId])
+  @@index([doId])
+}
+
+model SalesReturnLine {
+  id          String      @id @default(cuid())
+  returnId    String
+  salesReturn SalesReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product     @relation(fields: [productId], references: [id])
+  // Original cost layer the goods return to (the StockEntry the DO's STOCK_OUT drew from).
+  stockEntryId String?
+  stockEntry   StockEntry? @relation(fields: [stockEntryId], references: [id])
+  soLineId    String?
+  salesOrderLine SalesOrderLine? @relation(fields: [soLineId], references: [id], onDelete: SetNull)
+
+  quantity    Int
+  watts       Int
+  ratePerWatt Float  @default(0) // editable; defaults to the matched SO line rate
+  amount      Float  @default(0) // credit value for this line
+  createdAt   DateTime @default(now())
 }
 
 model Invoice {
@@ -655,6 +744,29 @@ model ExpenseCategoryDef {
   isSystem  Boolean  @default(false)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+enum OpeningDirection {
+  RECEIVABLE // party owed us money before we started tracking (opening debit)
+  ADVANCE    // party had paid ahead / we owed them (opening credit)
+}
+
+// A party's opening balance as of a cut-off date. One per party. Seeds the
+// derived ledger with a starting figure so pre-system history is reflected
+// without back-filling every old SO/collection. Consumed by computeLedger
+// (a synthetic OPENING row) and the /balance aggregate route.
+model OpeningBalance {
+  id          String           @id @default(cuid())
+  customerId  String           @unique
+  customer    Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  date        DateTime         // "as of" date
+  amount      Float            // always positive PKR
+  direction   OpeningDirection
+  notes       String?
+  createdById String?
+  createdBy   User?            @relation(fields: [createdById], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
 model CustomerReceipt {

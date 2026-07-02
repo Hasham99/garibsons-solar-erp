@@ -30,6 +30,7 @@ import {
   ClipboardList,
   ShieldCheck,
   FileCheck,
+  SlidersHorizontal,
 } from "lucide-react"
 import { clsx } from "clsx"
 import { can, type Access, type ModuleKey, type PermMap } from "@/lib/permissions/modules"
@@ -73,6 +74,7 @@ export const navSections: NavSection[] = [
               { label: "Stock Position", href: "/reports?view=stockPosition", icon: <Warehouse size={15} />, module: "reports.stockPosition" },
               { label: "Stock Summary", href: "/reports?view=stock", icon: <Package size={15} />, module: "reports.stockSummary" },
               { label: "Stock Aging", href: "/reports?view=stockAging", icon: <Clock size={15} />, module: "reports.stockAging" },
+              { label: "Stock Adjustments", href: "/reports?view=inventoryAdjustments", icon: <SlidersHorizontal size={15} />, module: "reports.profitability" },
             ],
           },
           {

@@ -214,6 +214,7 @@ export const REPORT_VIEW_TO_MODULE: Record<string, ModuleKey> = {
   outstanding: "reports.receivables",
   collections: "reports.collections",
   profit: "reports.profitability",
+  inventoryAdjustments: "reports.profitability",
   stockPosition: "reports.stockPosition",
   stock: "reports.stockSummary",
   stockAging: "reports.stockAging",

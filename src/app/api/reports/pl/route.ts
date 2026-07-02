@@ -47,6 +47,20 @@ export async function GET() {
       soRevenue[key] = (soRevenue[key] || 0) + inv.subTotal // exclude GST for revenue
     }
 
+    // Completed returns net out against the PO whose cost layer the goods went back to.
+    const returnLines = await prisma.salesReturnLine.findMany({
+      where: { salesReturn: { status: "COMPLETED" } },
+      select: { quantity: true, amount: true, stockEntry: { select: { poId: true } } },
+    })
+    const returnedQtyByPo: Record<string, number> = {}
+    const returnCreditByPo: Record<string, number> = {}
+    for (const r of returnLines) {
+      const poId = r.stockEntry?.poId
+      if (!poId) continue
+      returnedQtyByPo[poId] = (returnedQtyByPo[poId] || 0) + r.quantity
+      returnCreditByPo[poId] = (returnCreditByPo[poId] || 0) + r.amount
+    }
+
     const plData = pos.map((po) => {
       const landedCostPerPanel = po.landedCostPerPanel || (po.totalLandedCost ? po.totalLandedCost / po.noOfPanels : po.poAmountPkr / po.noOfPanels)
       const totalLandedCost = po.totalLandedCost || po.poAmountPkr
@@ -62,11 +76,15 @@ export async function GET() {
         }
       }
 
-      // Revenue from invoices linked to these SOs
+      // Net out returned panels (goods came back to this PO's cost layers).
+      panelsSold = Math.max(0, panelsSold - (returnedQtyByPo[po.id] || 0))
+
+      // Revenue from invoices linked to these SOs, less any return credit notes.
       let salesRevenue = 0
       for (const soId of linkedSOIds) {
         salesRevenue += soRevenue[soId] || 0
       }
+      salesRevenue = Math.max(0, salesRevenue - (returnCreditByPo[po.id] || 0))
 
       const costOfSales = panelsSold * landedCostPerPanel
       const grossProfit = salesRevenue - costOfSales

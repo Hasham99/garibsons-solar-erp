@@ -3,6 +3,7 @@ import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 import { buildReservationPlan, getOutstandingReservations } from "@/lib/stock"
 import { committedPanels, liftedPanels } from "@/lib/delivery"
+import { computeReturnableLayers, returnableByProduct } from "@/lib/returns"
 
 class DeliveryOrderError extends Error {
   status: number
@@ -82,10 +83,38 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       }
     })
 
+    // Returnable quantities per product (lifted − already returned), for the Return/Exchange modal.
+    const returnedLines = await prisma.salesReturnLine.findMany({
+      where: { salesReturn: { doId: id, status: "COMPLETED" } },
+      select: { stockEntryId: true, quantity: true },
+    })
+    const returnedByEntry: Record<string, number> = {}
+    for (const r of returnedLines) {
+      if (r.stockEntryId) returnedByEntry[r.stockEntryId] = (returnedByEntry[r.stockEntryId] || 0) + r.quantity
+    }
+    const nameByProduct: Record<string, { name: string; wattage: number }> = {}
+    for (const line of deliveryOrder.lines) {
+      nameByProduct[line.productId] = { name: line.product?.name ?? "", wattage: line.product?.wattage ?? 0 }
+    }
+    // Default credit rate = the matched SO line's ratePerWatt (editable in the UI).
+    const rateByProduct: Record<string, number> = {}
+    for (const line of deliveryOrder.salesOrder?.lines ?? []) {
+      if (!(line.productId in rateByProduct)) rateByProduct[line.productId] = line.ratePerWatt
+    }
+    const returnable = returnableByProduct(
+      computeReturnableLayers(deliveryOrder.stockMovements, returnedByEntry)
+    ).map((r) => ({
+      ...r,
+      productName: nameByProduct[r.productId]?.name ?? "",
+      wattage: nameByProduct[r.productId]?.wattage ?? Math.round(r.wattsPerPanel),
+      ratePerWatt: rateByProduct[r.productId] ?? 0,
+    }))
+
     return Response.json({
       ...deliveryOrder,
       outstandingReservations,
       lineProgress,
+      returnableByProduct: returnable,
       liftedQuantity: liftedPanels(deliveryOrder.stockMovements),
       balanceQuantity: outstandingReservations.reduce((t, r) => t + r.quantity, 0),
     })

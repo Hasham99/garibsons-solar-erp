@@ -1,23 +1,43 @@
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/auth"
+import { requireModule } from "@/lib/permissions/guard"
 import { writeAuditLog } from "@/lib/audit"
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireModule("stock", "write")
+    if (auth instanceof Response) return auth
+    const session = auth.session
+
     const { id } = await params
     const data = await request.json()
-    const session = await getSession()
 
     const existing = await prisma.stockEntry.findUnique({
       where: { id },
-      include: { product: true },
+      include: { product: true, movements: { select: { type: true } } },
     })
     if (!existing) return Response.json({ error: "Stock entry not found" }, { status: 404 })
 
-    const panelQuantity = parseInt(data.panelQuantity) || existing.panelQuantity
+    // Edit Entry only corrects the original receipt. Once stock has moved
+    // (dispatched, reserved or adjusted) the quantity is locked — real changes
+    // go through Adjust Stock so they carry a cost/P&L impact.
+    const hasActivity = existing.movements.some((m) =>
+      ["STOCK_OUT", "RESERVATION", "RELEASE", "ADJUSTMENT"].includes(m.type)
+    )
+    const requestedQty =
+      data.panelQuantity !== undefined && data.panelQuantity !== "" ? parseInt(data.panelQuantity) : existing.panelQuantity
+    if (hasActivity && requestedQty !== existing.panelQuantity) {
+      return Response.json(
+        { error: "This batch already has stock movements — quantity can't be edited here. Use Adjust Stock to increase/decrease." },
+        { status: 422 }
+      )
+    }
+
+    const panelQuantity = Number.isFinite(requestedQty) && requestedQty > 0 ? requestedQty : existing.panelQuantity
     const wattQuantity = panelQuantity * existing.product.wattage
-    const costPerPanel = parseFloat(data.costPerPanel) || existing.costPerPanel
-    const costPerWatt = parseFloat(data.costPerWatt) || existing.costPerWatt
+    const costPerPanel =
+      data.costPerPanel !== undefined && data.costPerPanel !== "" ? parseFloat(data.costPerPanel) : existing.costPerPanel
+    const costPerWatt =
+      data.costPerWatt !== undefined && data.costPerWatt !== "" ? parseFloat(data.costPerWatt) : existing.costPerWatt
     const totalValue = costPerPanel * panelQuantity
     const receivedAt = data.receivedAt ? new Date(data.receivedAt) : existing.receivedAt
 

@@ -54,7 +54,11 @@ type Collections = {
 }
 type Profit = {
   rows: { product: string; brand: string; panels: number; revenue: number; cogs: number; grossProfit: number; marginPct: number }[]
-  summary: { revenue: number; cogs: number; grossProfit: number; marginPct: number }
+  summary: { revenue: number; cogs: number; grossProfit: number; marginPct: number; operatingExpenses: number; writeOffLoss: number; foundGain: number; netProfit: number }
+}
+type InventoryAdjustments = {
+  rows: { id: string; date: string; type: "DECREASE" | "INCREASE"; category: string | null; product: string; brand: string; warehouse: string; quantity: number; unitCost: number; value: number; reason: string | null; user: string | null }[]
+  summary: { writeOffLoss: number; foundGain: number; net: number; count: number }
 }
 type Purchases = {
   rows: { id: string; poNumber: string; date: string; supplier: string; product: string; lcType: string; lcNumber: string | null; panels: number; watts: number; value: number; status: string }[]
@@ -125,6 +129,7 @@ const GROUPS: { group: string; items: ReportDef[] }[] = [
   ]},
   { group: "Profitability", items: [
     { key: "profit", label: "Gross Profit", icon: <LineIcon size={16} />, dateMode: "range", dims: ["brand"], sections: ["summary", "table"] },
+    { key: "inventoryAdjustments", label: "Stock Adjustments", icon: <SlidersHorizontal size={16} />, dateMode: "range", dims: ["warehouseId", "brand"], sections: ["summary", "table"] },
   ]},
   { group: "Inventory", items: [
     { key: "stockPosition", label: "Stock Position", icon: <Boxes size={16} />, dateMode: "asOf", dims: [], sections: ["summary", "table"] },
@@ -424,13 +429,14 @@ export default function ReportsPage() {
   const outstanding = useFetch<Outstanding>(url("outstanding", "outstanding"), [active, qs])
   const collections = useFetch<Collections>(url("collections", "collections"), [active, qs])
   const profit = useFetch<Profit>(url("profit", "profitability"), [active, qs])
+  const inventoryAdjustments = useFetch<InventoryAdjustments>(url("inventoryAdjustments", "inventory-adjustments"), [active, qs])
   const purchases = useFetch<Purchases>(url("purchases", "purchases"), [active, qs])
   const stockAging = useFetch<StockAging>(url("stockAging", "inventory-aging"), [active, qs])
   const stock = useFetch<StockSummary>(url("stock", "stock-summary"), [active, qs])
   const poStatus = useFetch<POStatus>(url("poStatus", "po-status"), [active])
   const stockPosition = useFetch<StockPosition>(url("stockPosition", "stock-position"), [active, qs])
 
-  const loading = [sales, deliveries, outstanding, collections, profit, purchases, stockAging, stock, poStatus, stockPosition].some((q) => q.loading)
+  const loading = [sales, deliveries, outstanding, collections, profit, inventoryAdjustments, purchases, stockAging, stock, poStatus, stockPosition].some((q) => q.loading)
 
   // PO Status rows with client-side status filter applied
   const poRows = useMemo(
@@ -625,6 +631,13 @@ export default function ReportsPage() {
         kpis: [{ label: "Revenue", value: formatCurrency(d.summary.revenue) }, { label: "Cost (FIFO)", value: formatCurrency(d.summary.cogs) }, { label: "Gross Profit", value: formatCurrency(d.summary.grossProfit) }, { label: "Margin", value: `${d.summary.marginPct.toFixed(1)}%` }],
         dataRows: d.rows,
         totals: { product: "TOTAL", revenue: n(d.summary.revenue), cogs: n(d.summary.cogs), grossProfit: n(d.summary.grossProfit), marginPct: `${d.summary.marginPct.toFixed(1)}%` } }
+    }
+    if (active === "inventoryAdjustments" && inventoryAdjustments.data) {
+      const d = inventoryAdjustments.data
+      return { title: "Stock Adjustments",
+        kpis: [{ label: "Write-off Loss", value: formatCurrency(d.summary.writeOffLoss) }, { label: "Found-stock Gain", value: formatCurrency(d.summary.foundGain) }, { label: "Net Impact", value: formatCurrency(d.summary.net) }, { label: "Entries", value: String(d.summary.count) }],
+        dataRows: d.rows,
+        totals: { product: "TOTAL", value: n(d.summary.net) } }
     }
     if (active === "purchases" && purchases.data) {
       const d = purchases.data
@@ -905,6 +918,7 @@ export default function ReportsPage() {
               {active === "outstanding" && outstanding.data && <OutstandingView d={outstanding.data} sections={sections} hidden={hiddenCols} onExport={exportReport} />}
               {active === "collections" && collections.data && <CollectionsView d={collections.data} sections={sections} hidden={hiddenCols} onExport={exportReport} meta={metaLines} />}
               {active === "profit" && profit.data && <ProfitView d={profit.data} sections={sections} hidden={hiddenCols} onExport={exportReport} />}
+              {active === "inventoryAdjustments" && inventoryAdjustments.data && <InventoryAdjustmentsView d={inventoryAdjustments.data} sections={sections} hidden={hiddenCols} onExport={exportReport} />}
               {active === "purchases" && purchases.data && <PurchasesView d={purchases.data} sections={sections} hidden={hiddenCols} onExport={exportReport} meta={metaLines} />}
               {active === "stockAging" && stockAging.data && <StockAgingView d={stockAging.data} sections={sections} hidden={hiddenCols} onExport={exportReport} />}
               {active === "stock" && stock.data && <StockView d={stock.data} sections={sections} hidden={hiddenCols} asOfDate={asOfDate} onExport={exportReport} />}
@@ -1091,12 +1105,20 @@ function ProfitView({ d, sections, hidden, onExport }: { d: Profit; sections: Se
   return (
     <>
       {sections.summary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <MoneyKpi label="Revenue" amount={d.summary.revenue} icon={<TrendingUp size={18} />} tone="green" />
-          <MoneyKpi label="Cost (FIFO)" amount={d.summary.cogs} icon={<Package size={18} />} tone="red" />
-          <MoneyKpi label="Gross Profit" amount={d.summary.grossProfit} icon={<LineIcon size={18} />} tone="blue" />
-          <Kpi label="Margin" value={`${d.summary.marginPct.toFixed(1)}%`} icon={<Wallet size={18} />} tone="purple" />
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <MoneyKpi label="Revenue" amount={d.summary.revenue} icon={<TrendingUp size={18} />} tone="green" />
+            <MoneyKpi label="Cost (FIFO)" amount={d.summary.cogs} icon={<Package size={18} />} tone="red" />
+            <MoneyKpi label="Gross Profit" amount={d.summary.grossProfit} icon={<LineIcon size={18} />} tone="blue" />
+            <Kpi label="Margin" value={`${d.summary.marginPct.toFixed(1)}%`} icon={<Wallet size={18} />} tone="purple" />
+          </div>
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <MoneyKpi label="Found-stock Gain" amount={d.summary.foundGain} sub="inventory adjustments" icon={<SlidersHorizontal size={18} />} tone="green" />
+            <MoneyKpi label="Write-off Loss" amount={d.summary.writeOffLoss} sub="inventory adjustments" icon={<SlidersHorizontal size={18} />} tone="red" />
+            <MoneyKpi label="Operating Expenses" amount={d.summary.operatingExpenses} icon={<Wallet size={18} />} tone="yellow" />
+            <MoneyKpi label="Net Profit" amount={d.summary.netProfit} sub="after expenses & adjustments" icon={<LineIcon size={18} />} tone={d.summary.netProfit >= 0 ? "green" : "red"} />
+          </div>
+        </>
       )}
       {sections.table && (
         <SectionCard title="Gross Profit by Product" subtitle="Delivered sales − FIFO landed cost" headerExtra={detailExport(onExport)}>
@@ -1107,6 +1129,36 @@ function ProfitView({ d, sections, hidden, onExport }: { d: Profit; sections: Se
             { key: "grossProfit", header: "Gross Profit (PKR)", sortable: true, className: "text-right", numeric: true, render: (r) => <span className={`font-semibold whitespace-nowrap ${r.grossProfit >= 0 ? "text-green-700 dark:text-green-300" : "text-red-600 dark:text-red-300"}`}>{formatAmount(r.grossProfit)}</span> },
             { key: "marginPct", header: "Margin", sortable: true, className: "text-right", numeric: true, render: (r) => `${r.marginPct.toFixed(1)}%` },
           ], hidden)} emptyMessage="No delivered sales in range" />
+        </SectionCard>
+      )}
+    </>
+  )
+}
+
+function InventoryAdjustmentsView({ d, sections, hidden, onExport }: { d: InventoryAdjustments; sections: Sections; hidden: Hidden; onExport: ExportFn }) {
+  return (
+    <>
+      {sections.summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <MoneyKpi label="Found-stock Gain" amount={d.summary.foundGain} icon={<TrendingUp size={18} />} tone="green" />
+          <MoneyKpi label="Write-off Loss" amount={d.summary.writeOffLoss} icon={<Package size={18} />} tone="red" />
+          <MoneyKpi label="Net Impact" amount={d.summary.net} icon={<LineIcon size={18} />} tone={d.summary.net >= 0 ? "green" : "red"} />
+          <Kpi label="Entries" value={String(d.summary.count)} icon={<SlidersHorizontal size={18} />} tone="blue" />
+        </div>
+      )}
+      {sections.table && (
+        <SectionCard title="Stock Adjustments" subtitle="Manual stock write-offs & found-stock — excludes returns" headerExtra={detailExport(onExport)}>
+          <Table data={d.rows} searchPlaceholder="Search product, warehouse, reason…" columns={vis<InventoryAdjustments["rows"][0]>([
+            { key: "date", header: "Date", sortable: true, numeric: true, render: (r) => <span className="whitespace-nowrap">{formatDate(r.date)}</span> },
+            { key: "type", header: "Type", render: (r) => <Badge status={r.type} /> },
+            { key: "category", header: "Category", render: (r) => (r.category ? r.category.replace(/_/g, " ") : "—") },
+            { key: "product", header: "Product", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.product}</span> },
+            { key: "warehouse", header: "Warehouse", sortable: true },
+            numCol("quantity", "Panels"),
+            moneyCol("unitCost", "Cost/Panel"),
+            { key: "value", header: "Value (PKR)", sortable: true, numeric: true, className: "text-right", render: (r) => <span className={`font-semibold whitespace-nowrap ${r.value >= 0 ? "text-green-700 dark:text-green-300" : "text-red-600 dark:text-red-300"}`}>{formatAmount(r.value)}</span> },
+            { key: "reason", header: "Reason", render: (r) => <span className="text-secondary">{r.reason || "—"}</span> },
+          ], hidden)} emptyMessage="No inventory adjustments in range" />
         </SectionCard>
       )}
     </>

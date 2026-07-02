@@ -21,10 +21,11 @@ import { Popover } from "@/components/ui/Popover"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { RowActionsMenu, type RowAction } from "@/components/ui/RowActionsMenu"
 import { StatCardSkeleton, TableSkeleton } from "@/components/ui/Skeleton"
+import { OpeningBalanceModal, type OpeningBalance } from "@/components/customers/OpeningBalanceModal"
 import { formatAmount, formatCurrency, formatDate } from "@/lib/utils"
 import { downloadPdf } from "@/lib/pdf"
 import { downloadExcel } from "@/lib/excel"
-import { Banknote, CheckSquare, Eye, FileDown, FileSpreadsheet, Pencil, Plus, SlidersHorizontal, Trash2, TrendingDown, TrendingUp, Wallet, X } from "lucide-react"
+import { Banknote, BookmarkPlus, CheckSquare, Eye, FileDown, FileSpreadsheet, Pencil, Plus, SlidersHorizontal, Trash2, TrendingDown, TrendingUp, Wallet, X } from "lucide-react"
 import toast from "react-hot-toast"
 
 interface ReceiptDetail {
@@ -42,7 +43,7 @@ interface ReceiptDetail {
 interface LedgerRow {
   id: string
   date: string
-  type: "SO" | "DO" | "PARTIAL" | "RECEIPT"
+  type: "OPENING" | "SO" | "DO" | "PARTIAL" | "RECEIPT" | "RETURN"
   reference: string
   soNumber?: string
   doNumber?: string
@@ -65,6 +66,7 @@ interface LedgerResponse {
   totalDebits: number
   totalCredits: number
   balance: number
+  opening: { amount: number; direction: "RECEIVABLE" | "ADVANCE"; date: string } | null
 }
 
 interface Customer {
@@ -134,21 +136,30 @@ interface DODetail {
 }
 
 const TYPE_STYLES: Record<string, string> = {
+  OPENING: "bg-slate-50 dark:bg-slate-500/10 border-l-4 border-l-slate-400",
   SO:      "bg-blue-50 dark:bg-blue-500/10 border-l-4 border-l-blue-400",
   DO:      "bg-green-50 dark:bg-green-500/10 border-l-4 border-l-green-400",
   PARTIAL: "bg-amber-50 dark:bg-amber-500/10 border-l-4 border-l-amber-400",
   RECEIPT: "bg-purple-50 dark:bg-purple-500/10 border-l-4 border-l-purple-400",
+  RETURN:  "bg-rose-50 dark:bg-rose-500/10 border-l-4 border-l-rose-400",
 }
 
 const TYPE_BADGE: Record<string, string> = {
+  OPENING: "bg-slate-100 dark:bg-slate-500/10 text-slate-700 dark:text-slate-300",
   SO:      "bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300",
   DO:      "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300",
   PARTIAL: "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300",
   RECEIPT: "bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300",
+  RETURN:  "bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300",
 }
 
 const TYPE_LABEL = (row: LedgerRow) =>
-  row.type === "SO" ? "Sales Order" : row.type === "DO" ? "Delivery" : row.type === "PARTIAL" ? "Partial" : "Collection"
+  row.type === "OPENING" ? "Opening"
+    : row.type === "SO" ? "Sales Order"
+    : row.type === "DO" ? "Delivery"
+    : row.type === "PARTIAL" ? "Partial"
+    : row.type === "RETURN" ? "Return"
+    : "Collection"
 
 const emptyReceiptForm = {
   bankId: "",
@@ -185,6 +196,7 @@ export default function LedgerPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ kind: "single"; row: LedgerRow } | { kind: "bulk" } | null>(null)
   const [viewSOId, setViewSOId] = useState<string | null>(null)
   const [viewDOId, setViewDOId] = useState<string | null>(null)
+  const [showOpeningBalance, setShowOpeningBalance] = useState(false)
 
   const lookups = useLookups()
   const customers = lookups.customers as Customer[]
@@ -202,13 +214,23 @@ export default function LedgerPage() {
     tab === "customer" ? ledgerUrl : "",
     [tab, customerId, rangeQs]
   )
+  const { data: openingBalance, refetch: refetchOpening } = useFetch<OpeningBalance | null>(
+    customerId ? `/api/customers/${customerId}/opening-balance` : "",
+    [customerId]
+  )
   const { data: pos, loading: posLoading } = useFetch<PO[]>("/api/purchase-orders")
   const { data: soDetail, loading: soDetailLoading } = useFetch<SODetail>(viewSOId ? `/api/sales-orders/${viewSOId}` : "", [viewSOId])
   const { data: doDetail, loading: doDetailLoading } = useFetch<DODetail>(viewDOId ? `/api/delivery-orders/${viewDOId}` : "", [viewDOId])
 
   const rows = ledgerData?.rows || []
-  const totalDebits = ledgerData?.totalDebits || 0
-  const totalCredits = ledgerData?.totalCredits || 0
+  const opening = ledgerData?.opening || null
+  // Opening figure is folded into `balance` but shown separately from the pure
+  // sales/collection totals (per the "show separately" design choice). Derived
+  // from the visible OPENING rows so it also respects any active date filter.
+  const openingDebit = rows.filter((r) => r.type === "OPENING").reduce((s, r) => s + r.debit, 0)
+  const openingCredit = rows.filter((r) => r.type === "OPENING").reduce((s, r) => s + r.credit, 0)
+  const totalDebits = (ledgerData?.totalDebits || 0) - openingDebit
+  const totalCredits = (ledgerData?.totalCredits || 0) - openingCredit
   const balance = ledgerData?.balance || 0
   const receiptCount = rows.filter((r) => r.type === "RECEIPT").length
 
@@ -482,8 +504,10 @@ export default function LedgerPage() {
   // ── Shared column builders ──
   // Clicking a ledger row opens the matching record dialog (SO / DO / collection)
   const handleRowOpen = (row: LedgerRow) => {
-    if ((row.type === "SO" || row.type === "PARTIAL") && row.soId) setViewSOId(row.soId)
+    if (row.type === "OPENING" && customerId && canDelete) setShowOpeningBalance(true)
+    else if ((row.type === "SO" || row.type === "PARTIAL") && row.soId) setViewSOId(row.soId)
     else if (row.type === "DO" && row.doId) setViewDOId(row.doId)
+    else if (row.type === "RETURN") window.open(`/sales-returns/${row.id}/print`, "_blank")
     else if (row.type === "RECEIPT" && row.receipt) openEditReceipt(row)
   }
 
@@ -572,6 +596,12 @@ export default function LedgerPage() {
                 ]}
                 onComplete={() => refetchLedger()}
               />
+              {customerId && canDelete && (
+                <Button variant="secondary" onClick={() => setShowOpeningBalance(true)}>
+                  <BookmarkPlus size={16} className="mr-2" />
+                  {openingBalance ? "Edit Opening Balance" : "Opening Balance"}
+                </Button>
+              )}
               {customerId && (
                 <Button onClick={() => setShowReceipt(true)}>
                   <Plus size={16} className="mr-2" />Record Collection
@@ -688,6 +718,9 @@ export default function LedgerPage() {
                       </p>
                       <p className="text-xs text-secondary mt-0.5">
                         Total SO value: {formatCurrency(totalDebits)} · Total collected: {formatCurrency(totalCredits)}
+                        {opening && (
+                          <> · Opening {opening.direction === "RECEIVABLE" ? "receivable" : "advance"}: {formatCurrency(opening.amount)} (as of {formatDate(opening.date)})</>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -734,6 +767,7 @@ export default function LedgerPage() {
                   </div>
                   <div className="flex items-center gap-4 text-xs text-secondary">
                     {[
+                      { color: "bg-slate-100 dark:bg-slate-500/10 text-slate-700 dark:text-slate-300", label: "Opening" },
                       { color: "bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300",   label: "Sales Order" },
                       { color: "bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300", label: "Delivery Order" },
                       { color: "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300", label: "Partial" },
@@ -765,10 +799,12 @@ export default function LedgerPage() {
                         label: "Entry Type",
                         value: (row: LedgerRow) => row.type,
                         options: [
+                          { value: "OPENING", label: "Opening Balance" },
                           { value: "SO", label: "Sales Order" },
                           { value: "DO", label: "Delivery Order" },
                           { value: "PARTIAL", label: "Partial" },
                           { value: "RECEIPT", label: "Collection" },
+                          { value: "RETURN", label: "Return / Exchange" },
                         ],
                       },
                     ]}
@@ -778,7 +814,7 @@ export default function LedgerPage() {
                         key: "type", header: "Type",
                         render: (row: LedgerRow) => (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${TYPE_BADGE[row.type]}`}>
-                            {row.type === "SO" ? "Sales Order" : row.type === "DO" ? `DO (${row.soNumber})` : row.type === "PARTIAL" ? "Partial" : "Collection"}
+                            {row.type === "OPENING" ? "Opening" : row.type === "SO" ? "Sales Order" : row.type === "DO" ? `DO (${row.soNumber})` : row.type === "PARTIAL" ? "Partial" : "Collection"}
                           </span>
                         ),
                       },
@@ -870,10 +906,12 @@ export default function LedgerPage() {
                         label: "Entry Type",
                         value: (row: LedgerRow) => row.type,
                         options: [
+                          { value: "OPENING", label: "Opening Balance" },
                           { value: "SO", label: "Sales Order" },
                           { value: "DO", label: "Delivery Order" },
                           { value: "PARTIAL", label: "Partial" },
                           { value: "RECEIPT", label: "Collection" },
+                          { value: "RETURN", label: "Return / Exchange" },
                         ],
                       },
                       { key: "date", label: "Date Range", type: "date", value: (row: LedgerRow) => row.date },
@@ -902,6 +940,18 @@ export default function LedgerPage() {
             </>
           )}
         </>
+      )}
+
+      {/* ── Opening Balance Modal ── */}
+      {customerId && (
+        <OpeningBalanceModal
+          isOpen={showOpeningBalance}
+          onClose={() => setShowOpeningBalance(false)}
+          customerId={customerId}
+          customerName={partyName}
+          existing={openingBalance ?? null}
+          onSaved={() => { refetchOpening(); refetchLedger() }}
+        />
       )}
 
       {/* ── Record Collection Modal ── */}

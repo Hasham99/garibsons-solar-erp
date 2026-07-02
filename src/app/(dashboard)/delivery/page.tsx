@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
-import { ArrowLeftRight, CheckCircle, Eye, Pencil, Plus, Printer, Truck, XCircle } from "lucide-react"
+import { ArrowLeftRight, CheckCircle, Eye, Pencil, Plus, Printer, RotateCcw, Truck, XCircle } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -16,7 +16,7 @@ import { Modal } from "@/components/ui/Modal"
 import { DetailsModal } from "@/components/ui/DetailsModal"
 import { Table } from "@/components/ui/Table"
 import { TableSkeleton } from "@/components/ui/Skeleton"
-import { formatDate, statusRowClass } from "@/lib/utils"
+import { formatAmount, formatDate, statusRowClass } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { useAuth, accessOf } from "@/hooks/useAuth"
 import { can } from "@/lib/permissions/modules"
@@ -68,6 +68,25 @@ interface LineProgress {
   balance: number
 }
 
+interface ReturnableRow {
+  productId: string
+  productName: string
+  returnable: number
+  wattsPerPanel: number
+  wattage: number
+  ratePerWatt: number
+}
+
+interface DoReturn {
+  id: string
+  returnNumber: string
+  type: "RETURN" | "EXCHANGE"
+  status: "COMPLETED" | "VOID"
+  returnDate: string
+  creditAmount: number
+  lines: Array<{ product: { name: string }; quantity: number }>
+}
+
 interface SalesOrderOption {
   id: string
   soNumber: string
@@ -112,6 +131,18 @@ export default function DeliveryPage() {
   const [dispatchProgress, setDispatchProgress] = useState<LineProgress[] | null>(null)
   const [liftQtys, setLiftQtys] = useState<Record<string, string>>({})
   const [dispatching, setDispatching] = useState(false)
+
+  const [returnDO, setReturnDO] = useState<DeliveryOrder | null>(null)
+  const [returnRows, setReturnRows] = useState<ReturnableRow[] | null>(null)
+  const [returnType, setReturnType] = useState<"RETURN" | "EXCHANGE">("RETURN")
+  const [returnReason, setReturnReason] = useState("")
+  const [returnQtys, setReturnQtys] = useState<Record<string, string>>({})
+  const [returnRates, setReturnRates] = useState<Record<string, string>>({})
+  const [submittingReturn, setSubmittingReturn] = useState(false)
+  const [exchangeFollowUp, setExchangeFollowUp] = useState<{ soId: string; soNumber: string } | null>(null)
+  const [doReturns, setDoReturns] = useState<DoReturn[] | null>(null)
+  const [voidReturnRow, setVoidReturnRow] = useState<DoReturn | null>(null)
+  const [voidingReturn, setVoidingReturn] = useState(false)
 
   useEffect(() => {
     if (presetSoId) {
@@ -320,6 +351,115 @@ export default function DeliveryPage() {
     }
   }
 
+  // Load returns/exchanges booked against the DO currently open in the details panel.
+  const loadDoReturns = (doId: string) => {
+    fetch(`/api/sales-returns?doId=${doId}`)
+      .then((r) => r.json())
+      .then((d) => setDoReturns(Array.isArray(d) ? d : []))
+      .catch(() => setDoReturns([]))
+  }
+  useEffect(() => {
+    if (!selectedDelivery) { setDoReturns(null); return }
+    setDoReturns(null)
+    loadDoReturns(selectedDelivery.id)
+  }, [selectedDelivery])
+
+  const handleVoidReturn = async () => {
+    if (!voidReturnRow) return
+    setVoidingReturn(true)
+    try {
+      const res = await fetch(`/api/sales-returns/${voidReturnRow.id}/void`, { method: "POST" })
+      if (res.ok) {
+        toast.success(`${voidReturnRow.returnNumber} voided — stock & credit reversed`)
+        refetch()
+        if (selectedDelivery) loadDoReturns(selectedDelivery.id)
+      } else {
+        const data = await res.json().catch(() => ({ error: "Failed" }))
+        toast.error(data.error || "Failed to void return")
+      }
+    } finally {
+      setVoidingReturn(false)
+      setVoidReturnRow(null)
+    }
+  }
+
+  const openReturnModal = async (row: DeliveryOrder) => {
+    setReturnDO(row)
+    setReturnRows(null)
+    setReturnType("RETURN")
+    setReturnReason("")
+    setReturnQtys({})
+    setReturnRates({})
+    try {
+      const res = await fetch(`/api/delivery-orders/${row.id}`)
+      if (!res.ok) throw new Error()
+      const detail = await res.json()
+      const rows: ReturnableRow[] = (detail.returnableByProduct || []).filter((r: ReturnableRow) => r.returnable > 0)
+      if (!rows.length) {
+        toast.error("Nothing is returnable on this delivery order")
+        setReturnDO(null)
+        return
+      }
+      setReturnRows(rows)
+      const q: Record<string, string> = {}
+      const rt: Record<string, string> = {}
+      for (const r of rows) {
+        q[r.productId] = "0"
+        rt[r.productId] = String(r.ratePerWatt || 0)
+      }
+      setReturnQtys(q)
+      setReturnRates(rt)
+    } catch {
+      toast.error("Failed to load delivery order")
+      setReturnDO(null)
+    }
+  }
+
+  const returnLineCredit = (r: ReturnableRow) => {
+    const qty = parseInt(returnQtys[r.productId] || "0") || 0
+    const rate = parseFloat(returnRates[r.productId] || "0") || 0
+    return Math.round(qty * r.wattsPerPanel * rate)
+  }
+  const returnCreditTotal = (returnRows || []).reduce((s, r) => s + returnLineCredit(r), 0)
+
+  const submitReturn = async () => {
+    if (!returnDO || !returnRows) return
+    const over = returnRows.find((r) => (parseInt(returnQtys[r.productId] || "0") || 0) > r.returnable)
+    if (over) return toast.error(`Cannot return more than ${over.returnable} of ${over.productName}`)
+    const lines = returnRows
+      .map((r) => ({
+        productId: r.productId,
+        quantity: parseInt(returnQtys[r.productId] || "0") || 0,
+        ratePerWatt: parseFloat(returnRates[r.productId] || "0") || 0,
+      }))
+      .filter((l) => l.quantity > 0)
+    if (!lines.length) return toast.error("Enter at least 1 panel to return")
+
+    const soId = returnDO.soId
+    const soNumber = returnDO.salesOrder.soNumber
+    setSubmittingReturn(true)
+    try {
+      const res = await fetch(`/api/sales-returns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doId: returnDO.id, type: returnType, reason: returnReason, lines }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || "Failed to record return")
+        return
+      }
+      toast.success(`${returnType === "EXCHANGE" ? "Exchange" : "Return"} ${data.returnNumber} recorded — stock restored & customer credited`)
+      setReturnDO(null)
+      setReturnRows(null)
+      refetch()
+      if (selectedDelivery) loadDoReturns(selectedDelivery.id)
+      if (returnType === "EXCHANGE") setExchangeFollowUp({ soId, soNumber })
+    } finally {
+      setSubmittingReturn(false)
+    }
+  }
+
   const soRateDisplay = (order: SalesOrderOption) => {
     const rates = [...new Set(order.lines.map((l) => l.ratePerWatt).filter((r) => r > 0))].sort((a, b) => a - b)
     if (rates.length === 0) return null
@@ -382,6 +522,10 @@ export default function DeliveryPage() {
     // Partially lifted: can't void the whole DO, but can write off the un-lifted balance.
     if (row.status === "PARTIALLY_DISPATCHED" && canWriteDelivery) {
       actions.push({ label: "Cancel Balance", icon: <XCircle size={15} />, danger: true, onClick: () => setCancelDO(row) })
+    }
+    // Return / Exchange — bring dispatched goods back into stock and credit the customer.
+    if (["DISPATCHED", "PARTIALLY_DISPATCHED"].includes(row.status) && canWriteDelivery) {
+      actions.push({ label: "Return / Exchange", icon: <RotateCcw size={15} />, onClick: () => openReturnModal(row) })
     }
     // Change party — fix a mis-attributed order (moves the underlying SO + sibling DOs).
     if (row.status !== "CANCELLED" && canWriteDelivery && can(accessOf(user), "sales", "write")) {
@@ -520,6 +664,157 @@ export default function DeliveryPage() {
           </div>
         </div>
       </Modal>
+
+      {/* ── Return / Exchange Modal ── */}
+      <Modal
+        isOpen={Boolean(returnDO)}
+        onClose={() => { if (!submittingReturn) { setReturnDO(null); setReturnRows(null) } }}
+        title={`Return / Exchange — ${returnDO?.doNumber || ""}`}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-rose-100 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-4">
+            <p className="text-sm font-semibold text-rose-900 dark:text-rose-300">Bring dispatched goods back &amp; credit the customer</p>
+            <p className="mt-1 text-xs text-rose-700 dark:text-rose-300">
+              Returned panels go back to their original warehouse and cost layer. A credit note reduces the
+              customer&apos;s balance. For an <strong>exchange</strong>, edit the sales order afterwards to add the
+              replacement item and issue a new delivery order.
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            {(["RETURN", "EXCHANGE"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setReturnType(t)}
+                className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                  returnType === t ? "border-rose-400 bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200" : "border-line text-secondary hover:bg-muted"
+                }`}
+              >
+                {t === "RETURN" ? "Return" : "Exchange"}
+              </button>
+            ))}
+          </div>
+
+          {!returnRows ? (
+            <p className="py-6 text-center text-sm text-secondary">Loading returnable items…</p>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-line">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-left text-xs text-secondary">
+                  <tr>
+                    <th className="px-3 py-2">Product</th>
+                    <th className="px-3 py-2 text-right">Returnable</th>
+                    <th className="px-3 py-2 text-right">Return Qty</th>
+                    <th className="px-3 py-2 text-right">Rate / Watt</th>
+                    <th className="px-3 py-2 text-right">Credit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {returnRows.map((r) => (
+                    <tr key={r.productId} className="border-t border-line">
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-foreground">{r.productName}</div>
+                        <div className="text-xs text-tertiary">{r.wattage}W</div>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{r.returnable.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min={0}
+                          max={r.returnable}
+                          value={returnQtys[r.productId] ?? "0"}
+                          onChange={(e) => setReturnQtys((cur) => ({ ...cur, [r.productId]: e.target.value }))}
+                          className="w-20 rounded-md border border-line bg-elevated px-2 py-1 text-right"
+                          title="Return quantity"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={returnRates[r.productId] ?? "0"}
+                          onChange={(e) => setReturnRates((cur) => ({ ...cur, [r.productId]: e.target.value }))}
+                          className="w-24 rounded-md border border-line bg-elevated px-2 py-1 text-right"
+                          title="Credit rate per watt"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{formatAmount(returnLineCredit(r))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-line bg-muted/50 font-semibold">
+                    <td className="px-3 py-2" colSpan={4}>Total credit</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatAmount(returnCreditTotal)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          <Input
+            label="Reason (optional)"
+            placeholder="e.g. damaged in transit, wrong item"
+            value={returnReason}
+            onChange={(e) => setReturnReason(e.target.value)}
+          />
+
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => { setReturnDO(null); setReturnRows(null) }} disabled={submittingReturn}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submitReturn}
+              loading={submittingReturn}
+              disabled={!returnRows || returnRows.every((r) => (parseInt(returnQtys[r.productId] || "0") || 0) === 0)}
+            >
+              {returnType === "EXCHANGE" ? "Record Exchange" : "Record Return"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Exchange follow-up — guide the admin to book the replacement value on the SO */}
+      <ConfirmDialog
+        isOpen={Boolean(exchangeFollowUp)}
+        onClose={() => setExchangeFollowUp(null)}
+        onConfirm={() => {
+          const so = exchangeFollowUp
+          setExchangeFollowUp(null)
+          if (so) window.location.href = `/sales?editId=${so.soId}`
+        }}
+        title="Book the replacement item"
+        variant="primary"
+        confirmLabel="Edit Sales Order"
+        message={
+          <span>
+            The returned goods are back in stock and the customer has been credited. To send the replacement,
+            edit <strong>{exchangeFollowUp?.soNumber}</strong> to add/adjust the replacement line, then create a new
+            delivery order for it.
+          </span>
+        }
+      />
+
+      {/* Void a return / exchange */}
+      <ConfirmDialog
+        isOpen={Boolean(voidReturnRow)}
+        onClose={() => setVoidReturnRow(null)}
+        onConfirm={handleVoidReturn}
+        loading={voidingReturn}
+        title={`Void ${voidReturnRow?.returnNumber || ""}`}
+        confirmLabel="Void Return"
+        cancelLabel="Keep"
+        message={
+          <span>
+            Voiding removes the {voidReturnRow?.lines.reduce((s, l) => s + l.quantity, 0).toLocaleString()} returned
+            panel(s) from stock again and reverses the {formatAmount(voidReturnRow?.creditAmount || 0)} credit. Only
+            possible while the returned stock is still available.
+          </span>
+        }
+      />
 
       {/* ── Create / Edit DO Modal ── */}
       <Modal
@@ -758,6 +1053,63 @@ export default function DeliveryPage() {
                           <td className="px-3 py-2 text-right tabular-nums">{l.watts.toLocaleString()}</td>
                           <td className="px-3 py-2 text-right tabular-nums">
                             {(l.product ? computePallets(l.quantity, l.product) : 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Returns / Exchanges booked against this DO */}
+            {doReturns && doReturns.length > 0 ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-tertiary mb-1.5">Returns / Exchanges</p>
+                <div className="rounded-lg border border-line overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted text-xs text-secondary uppercase">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Return #</th>
+                        <th className="px-3 py-2 text-left">Type</th>
+                        <th className="px-3 py-2 text-right">Panels</th>
+                        <th className="px-3 py-2 text-right">Credit</th>
+                        <th className="px-3 py-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {doReturns.map((r) => (
+                        <tr key={r.id} className={r.status === "VOID" ? "opacity-50" : ""}>
+                          <td className="px-3 py-2">
+                            <span className="font-medium">{r.returnNumber}</span>
+                            <span className="block text-[11px] text-tertiary">{formatDate(r.returnDate)}</span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge status={r.status === "VOID" ? "VOID" : r.type} />
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{r.lines.reduce((s, l) => s + l.quantity, 0).toLocaleString()}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-300">{formatAmount(r.creditAmount)}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                title="Print credit note"
+                                onClick={() => window.open(`/sales-returns/${r.id}/print`, "_blank")}
+                                className="rounded-md p-1.5 text-secondary hover:bg-muted"
+                              >
+                                <Printer size={14} />
+                              </button>
+                              {r.status === "COMPLETED" && can(accessOf(user), "delivery", "write") ? (
+                                <button
+                                  type="button"
+                                  title="Void return"
+                                  onClick={() => setVoidReturnRow(r)}
+                                  className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                                >
+                                  <XCircle size={14} />
+                                </button>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       ))}
